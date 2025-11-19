@@ -3,6 +3,7 @@
 import { login, signup } from './actions'
 import { useActionState } from 'react'
 import { Loader2 } from 'lucide-react'
+import Link from 'next/link'
 
 const initialState = {
     error: '',
@@ -79,7 +80,10 @@ export default function LoginPage() {
                             Sign up
                         </button>
                     </div>
+
                 </form>
+                <Link href="/reset-password"><p className="text-center text-sm text-gray-600">Forgot password?</p></Link>
+
             </div>
         </div>
     )
