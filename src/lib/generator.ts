@@ -11,7 +11,8 @@ export async function generateRecipe(cuisine: CuisineType, meal: MealType, prote
         });
 
         if (!response.ok) {
-            throw new Error('Failed to generate recipe');
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Failed to generate recipe');
         }
 
         const recipe = await response.json();

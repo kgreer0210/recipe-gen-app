@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { generateRecipe } from '@/lib/generator';
 import { useStore } from '@/lib/store';
 import { CuisineType, MealType, ProteinType, Recipe } from '@/types';
@@ -21,9 +21,30 @@ export default function RecipeGenerator() {
     const [generatedRecipe, setGeneratedRecipe] = useState<Recipe | null>(null);
     const [showGroceryPopup, setShowGroceryPopup] = useState(false);
     const [direction, setDirection] = useState(0);
+    const [isBlocked, setIsBlocked] = useState(false);
+    const [checkingLimit, setCheckingLimit] = useState(true);
 
     const saveRecipe = useStore((state) => state.saveRecipe);
     const addToGroceryList = useStore((state) => state.addToGroceryList);
+
+    useEffect(() => {
+        const checkLimit = async () => {
+            try {
+                const res = await fetch('/api/rate-limit');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.isBlocked) {
+                        setIsBlocked(true);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to check rate limit", err);
+            } finally {
+                setCheckingLimit(false);
+            }
+        };
+        checkLimit();
+    }, []);
 
     const handleGenerate = async () => {
         setLoading(true);
@@ -34,9 +55,12 @@ export default function RecipeGenerator() {
             const recipe = await generateRecipe(cuisine, meal, protein);
             setGeneratedRecipe(recipe);
             nextStep();
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to generate recipe", error);
-            setError("Failed to generate recipe. Please try again.");
+            setError(error.message || "Failed to generate recipe. Please try again.");
+            if (error.message?.includes('daily recipe limit')) {
+                setIsBlocked(true);
+            }
         } finally {
             setLoading(false);
         }
@@ -117,6 +141,37 @@ export default function RecipeGenerator() {
             </div>
         </div>
     );
+
+    if (checkingLimit) {
+        return (
+            <div className="w-full max-w-2xl mx-auto h-[700px] flex items-center justify-center bg-white/50 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            </div>
+        );
+    }
+
+    if (isBlocked) {
+        return (
+            <div className="w-full max-w-2xl mx-auto h-[700px] flex flex-col relative overflow-hidden bg-white/50 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20">
+                <div className="flex items-center justify-center gap-2 py-6 bg-white/50 backdrop-blur-sm z-10 border-b border-white/20">
+                    <ChefHat className="w-8 h-8 text-blue-600" />
+                    <h1 className="text-xl font-bold text-gray-800">Chef Genie</h1>
+                </div>
+                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+                    <div className="w-24 h-24 bg-orange-100 rounded-full flex items-center justify-center mb-6">
+                        <span className="text-4xl">👨‍🍳</span>
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-800 mb-4">Chef's Nap Time</h2>
+                    <p className="text-gray-600 max-w-md mb-8">
+                        You've reached your daily recipe limit! Our chefs are taking a well-deserved break. Please come back tomorrow for more delicious ideas.
+                    </p>
+                    <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
+                        <p className="text-sm text-blue-800 font-medium">Limit: 5 recipes per day</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="w-full max-w-2xl mx-auto h-[700px] flex flex-col relative overflow-hidden bg-white/50 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20">
@@ -227,8 +282,21 @@ export default function RecipeGenerator() {
                             </div>
 
                             {error && (
-                                <div className="p-3 mb-4 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">
-                                    {error}
+                                <div className={`p-4 mb-6 rounded-xl border flex gap-3 ${error.includes('daily recipe limit')
+                                    ? 'bg-orange-50 border-orange-100 text-orange-800'
+                                    : 'bg-red-50 border-red-100 text-red-600'
+                                    }`}>
+                                    {error.includes('daily recipe limit') ? (
+                                        <>
+                                            <span className="text-2xl">👨‍🍳</span>
+                                            <div>
+                                                <p className="font-semibold">Chef's Nap Time</p>
+                                                <p className="text-sm opacity-90">{error}</p>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        error
+                                    )}
                                 </div>
                             )}
 
