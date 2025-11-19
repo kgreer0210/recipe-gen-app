@@ -1,0 +1,159 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { useStore } from '@/lib/store';
+import { ArrowLeft, Clock, ChefHat, Utensils, ShoppingCart } from 'lucide-react';
+import Link from 'next/link';
+import { Recipe } from '@/types';
+
+export default function RecipeDetailsPage() {
+    const params = useParams();
+    const router = useRouter();
+    const { savedRecipes, fetchData, addToGroceryList, isLoading } = useStore();
+    const [recipe, setRecipe] = useState<Recipe | null>(null);
+    const [isAdding, setIsAdding] = useState(false);
+
+    const id = params.id as string;
+
+    useEffect(() => {
+        if (savedRecipes.length === 0) {
+            fetchData();
+        }
+    }, [fetchData, savedRecipes.length]);
+
+    useEffect(() => {
+        if (savedRecipes.length > 0) {
+            const found = savedRecipes.find(r => r.id === id);
+            if (found) {
+                setRecipe(found);
+            }
+        }
+    }, [savedRecipes, id]);
+
+    const handleAddToGrocery = async () => {
+        if (!recipe) return;
+        setIsAdding(true);
+        await addToGroceryList(recipe.id);
+        setIsAdding(false);
+        // Could add toast here
+    };
+
+    if (isLoading && !recipe) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+        );
+    }
+
+    if (!recipe && !isLoading && savedRecipes.length > 0) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
+                <h1 className="text-2xl font-bold text-gray-800 mb-4">Recipe not found</h1>
+                <Link href="/" className="text-blue-600 hover:underline flex items-center gap-2">
+                    <ArrowLeft className="w-4 h-4" /> Back to Home
+                </Link>
+            </div>
+        );
+    }
+
+    if (!recipe) return null;
+
+    return (
+        <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+            <div className="max-w-4xl mx-auto">
+                <Link
+                    href="/collection"
+                    className="inline-flex items-center text-gray-600 hover:text-blue-600 mb-6 transition-colors"
+                >
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Back to Recipes
+                </Link>
+
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="p-8">
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                            <h1 className="text-3xl font-bold text-gray-900">{recipe.title}</h1>
+                            <button
+                                onClick={handleAddToGrocery}
+                                disabled={isAdding}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${isAdding
+                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                    : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm hover:shadow'
+                                    }`}
+                            >
+                                <ShoppingCart className="w-4 h-4" />
+                                {isAdding ? 'Adding...' : 'Add to Grocery List'}
+                            </button>
+                        </div>
+
+                        <div className="flex flex-wrap gap-3 mb-8">
+                            <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                                {recipe.tags.cuisine}
+                            </span>
+                            <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+                                {recipe.tags.meal}
+                            </span>
+                            <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-medium">
+                                {recipe.tags.protein}
+                            </span>
+                            <div className="flex items-center gap-1 text-gray-500 text-sm ml-2">
+                                <Clock className="w-4 h-4" />
+                                <span>Prep: {recipe.prepTime}</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-gray-500 text-sm ml-2">
+                                <Utensils className="w-4 h-4" />
+                                <span>Cook: {recipe.cookTime}</span>
+                            </div>
+                        </div>
+
+                        <p className="text-gray-600 text-lg mb-8 leading-relaxed">
+                            {recipe.description}
+                        </p>
+
+                        <div className="grid md:grid-cols-2 gap-8">
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                    <ChefHat className="w-5 h-5 text-blue-600" />
+                                    Ingredients
+                                </h2>
+                                <ul className="space-y-3">
+                                    {recipe.ingredients.map((ingredient, index) => (
+                                        <li key={index} className="flex items-start gap-3 p-3 rounded-lg bg-gray-50">
+                                            <div className="w-2 h-2 mt-2 rounded-full bg-blue-400 flex-shrink-0" />
+                                            <span className="text-gray-700">
+                                                <span className="font-semibold">{ingredient.amount} {ingredient.unit}</span> {ingredient.name}
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                    <Utensils className="w-5 h-5 text-blue-600" />
+                                    Instructions
+                                </h2>
+                                <div className="space-y-6">
+                                    {recipe.instructions && recipe.instructions.length > 0 ? (
+                                        recipe.instructions.map((step, index) => (
+                                            <div key={index} className="flex gap-4">
+                                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
+                                                    {index + 1}
+                                                </div>
+                                                <p className="text-gray-700 mt-1 leading-relaxed">{step}</p>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <p className="text-gray-500 italic">No instructions available for this recipe.</p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
