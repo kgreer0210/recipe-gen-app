@@ -44,7 +44,7 @@ export async function POST(request: Request) {
         }
 
         const prompt = `
-      Generate a unique and delicious ${cuisine} ${meal} recipe featuring ${protein}.
+      Generate a unique and delicious single serving ${cuisine} ${meal} recipe featuring ${protein}.
       
       Return ONLY a valid JSON object matching this TypeScript interface:
       

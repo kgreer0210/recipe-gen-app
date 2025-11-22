@@ -13,6 +13,8 @@ export default function RecipeDetailsPage() {
     const { savedRecipes, fetchData, addToGroceryList, isLoading } = useStore();
     const [recipe, setRecipe] = useState<Recipe | null>(null);
     const [isAdding, setIsAdding] = useState(false);
+    const [showServingsModal, setShowServingsModal] = useState(false);
+    const [servings, setServings] = useState(1);
 
     const id = params.id as string;
 
@@ -31,12 +33,18 @@ export default function RecipeDetailsPage() {
         }
     }, [savedRecipes, id]);
 
-    const handleAddToGrocery = async () => {
+    const handleAddToGrocery = () => {
+        if (!recipe) return;
+        setShowServingsModal(true);
+    };
+
+    const confirmAddToGrocery = async () => {
         if (!recipe) return;
         setIsAdding(true);
-        await addToGroceryList(recipe.id);
+        await addToGroceryList(recipe.id, servings);
         setIsAdding(false);
-        // Could add toast here
+        setShowServingsModal(false);
+        setServings(1); // Reset
     };
 
     if (isLoading && !recipe) {
@@ -154,6 +162,54 @@ export default function RecipeDetailsPage() {
                     </div>
                 </div>
             </div>
+
+            {showServingsModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl animate-in fade-in zoom-in-95 duration-200">
+                        <h3 className="text-xl font-bold text-gray-900 mb-4 text-center">Add to Grocery List</h3>
+                        <p className="text-gray-600 mb-6 text-center">How many people are you feeding?</p>
+
+                        <div className="flex items-center justify-center gap-3 mb-8">
+                            <button
+                                onClick={() => setServings(Math.max(1, servings - 1))}
+                                className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50"
+                            >
+                                -
+                            </button>
+                            <input
+                                type="number"
+                                min="1"
+                                max="20"
+                                value={servings}
+                                onChange={(e) => setServings(Math.max(1, parseInt(e.target.value) || 1))}
+                                className="w-16 text-center text-2xl font-bold text-blue-600 border-none focus:ring-0 p-0 no-spinner"
+                            />
+                            <button
+                                onClick={() => setServings(Math.min(20, servings + 1))}
+                                className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50"
+                            >
+                                +
+                            </button>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowServingsModal(false)}
+                                className="flex-1 py-2.5 px-4 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={confirmAddToGrocery}
+                                disabled={isAdding}
+                                className="flex-1 py-2.5 px-4 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200"
+                            >
+                                {isAdding ? 'Adding...' : 'Add to List'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

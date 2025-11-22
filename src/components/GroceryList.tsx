@@ -1,10 +1,13 @@
 'use client';
 
 import { useStore } from '@/lib/store';
-import { ShoppingBasket, CheckSquare, Square, Trash2 } from 'lucide-react';
+import { ShoppingBasket, CheckSquare, Square, Trash2, MoreHorizontal, ChefHat } from 'lucide-react';
+import { useState } from 'react';
+import RecipeSelector from './RecipeSelector';
 
 export default function GroceryList() {
-    const { groceryList, toggleGroceryItem, removeFromGroceryList, clearGathered } = useStore();
+    const { groceryList, toggleGroceryItem, removeFromGroceryList, clearGathered, selectAllGroceryItems, removeIngredientsForRecipe } = useStore();
+    const [isRecipeSelectorOpen, setIsRecipeSelectorOpen] = useState(false);
 
     if (groceryList.length === 0) {
         return (
@@ -30,9 +33,30 @@ export default function GroceryList() {
 
     return (
         <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-            <div className="flex items-center gap-2 mb-6">
-                <ShoppingBasket className="w-6 h-6 text-blue-600" />
-                <h2 className="text-xl font-bold text-gray-800">Grocery List</h2>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+                <div className="flex items-center gap-2">
+                    <ShoppingBasket className="w-6 h-6 text-blue-600" />
+                    <h2 className="text-xl font-bold text-gray-800">Grocery List</h2>
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                    <button
+                        onClick={() => setIsRecipeSelectorOpen(true)}
+                        className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors text-sm font-medium flex items-center gap-2"
+                        title="Remove ingredients for a specific recipe"
+                    >
+                        <ChefHat className="w-4 h-4" />
+                        <span className="hidden sm:inline">Remove Recipe</span>
+                    </button>
+                    <button
+                        onClick={() => {
+                            const allSelected = groceryList.every(i => i.isChecked);
+                            selectAllGroceryItems(!allSelected);
+                        }}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors text-sm font-medium"
+                    >
+                        {groceryList.every(i => i.isChecked) ? 'Deselect All' : 'Select All'}
+                    </button>
+                </div>
             </div>
 
             <div className="space-y-8">
@@ -173,6 +197,13 @@ export default function GroceryList() {
             <div className="mt-6 pt-4 border-t border-gray-100 text-center">
                 <p className="text-xs text-gray-400">Items are aggregated by name and unit.</p>
             </div>
+
+            <RecipeSelector
+                isOpen={isRecipeSelectorOpen}
+                onClose={() => setIsRecipeSelectorOpen(false)}
+                onSelect={(recipeId, servings) => removeIngredientsForRecipe(recipeId, servings)}
+                title="Remove Ingredients from List"
+            />
         </div>
     );
 }

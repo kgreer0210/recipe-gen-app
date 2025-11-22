@@ -1,20 +1,11 @@
 'use client';
 
 import { useStore } from '@/lib/store';
-import { Trash2, Clock, ShoppingCart } from 'lucide-react';
-import { useState } from 'react';
+import { Trash2, Clock, Calendar, Check } from 'lucide-react';
 import Link from 'next/link';
 
 export default function SavedRecipes() {
-    const { savedRecipes, removeRecipe, addToGroceryList } = useStore();
-    const [addingId, setAddingId] = useState<string | null>(null);
-
-    const handleAdd = async (id: string) => {
-        setAddingId(id);
-        await addToGroceryList(id);
-        setAddingId(null);
-        // Optional: Toast notification here
-    };
+    const { savedRecipes, removeRecipe, addToWeeklyPlan, weeklyPlan } = useStore();
 
     if (savedRecipes.length === 0) {
         return (
@@ -27,7 +18,7 @@ export default function SavedRecipes() {
     return (
         <div className="space-y-4">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">Your Collection</h2>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-1">
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                 {savedRecipes.map((recipe) => {
                     return (
                         <Link key={recipe.id} href={`/recipe/${recipe.id}`} className="block group">
@@ -37,13 +28,19 @@ export default function SavedRecipes() {
                                         onClick={(e) => {
                                             e.preventDefault();
                                             e.stopPropagation();
-                                            handleAdd(recipe.id);
+                                            const isInPlan = weeklyPlan.some(r => r.id === recipe.id);
+                                            if (!isInPlan) {
+                                                addToWeeklyPlan(recipe);
+                                            }
                                         }}
-                                        disabled={addingId === recipe.id}
-                                        className={`p-2 rounded-full transition-all bg-gray-100 text-gray-400 hover:text-blue-600 hover:bg-gray-200 ${addingId === recipe.id ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                        title="Add ingredients to grocery list"
+                                        className={`p-2 rounded-full transition-all ${
+                                            weeklyPlan.some(r => r.id === recipe.id)
+                                            ? 'bg-green-100 text-green-600'
+                                            : 'bg-gray-100 text-gray-400 hover:text-blue-600 hover:bg-blue-50'
+                                        }`}
+                                        title={weeklyPlan.some(r => r.id === recipe.id) ? "In Weekly Plan" : "Add to Weekly Plan"}
                                     >
-                                        <ShoppingCart className="w-4 h-4" />
+                                        {weeklyPlan.some(r => r.id === recipe.id) ? <Check className="w-4 h-4" /> : <Calendar className="w-4 h-4" />}
                                     </button>
                                     <button
                                         onClick={(e) => {
@@ -58,7 +55,7 @@ export default function SavedRecipes() {
                                     </button>
                                 </div>
 
-                                <h3 className="font-bold text-lg text-gray-800 mb-1 pr-20 group-hover:text-blue-600 transition-colors">{recipe.title}</h3>
+                                <h3 className="font-bold text-lg text-gray-800 mb-1 pr-24 group-hover:text-blue-600 transition-colors">{recipe.title}</h3>
                                 <div className="flex gap-2 mb-3">
                                     <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">{recipe.tags.cuisine}</span>
                                     <span className="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded-full">{recipe.tags.meal}</span>
