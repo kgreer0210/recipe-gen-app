@@ -72,31 +72,39 @@ export function useAuth() {
     const {
       data: { subscription: authListener },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const user = session?.user ?? null;
-      if (mounted) setUser(user);
+      try {
+        const user = session?.user ?? null;
+        if (mounted) setUser(user);
 
-      if (user) {
-        const { data: sub, error } = await supabase
-          .from("subscriptions")
-          .select("*")
-          .eq("user_id", user.id)
-          .maybeSingle();
+        if (user) {
+          const { data: sub, error } = await supabase
+            .from("subscriptions")
+            .select("*")
+            .eq("user_id", user.id)
+            .maybeSingle();
 
-        if (mounted) {
-          if (error) {
-            if (error.code === "PGRST116") {
-              console.log("No subscription found for user");
-            } else {
-              console.error("Error fetching subscription:", error);
+          if (mounted) {
+            if (error) {
+              if (error.code === "PGRST116") {
+                // PGRST116 is "not found" which is fine - user just doesn't have a subscription
+                console.log("No subscription found for user");
+              } else {
+                console.error("Error fetching subscription:", error);
+              }
             }
+            setSubscription(sub as Subscription | null);
           }
-          setSubscription(sub as Subscription | null);
+        } else {
+          if (mounted) setSubscription(null);
         }
-      } else {
-        if (mounted) setSubscription(null);
+      } catch (error) {
+        console.error("Error in auth state change:", error);
+        if (mounted) {
+          setSubscription(null);
+        }
+      } finally {
+        if (mounted) setLoading(false);
       }
-
-      if (mounted) setLoading(false);
     });
 
     return () => {
