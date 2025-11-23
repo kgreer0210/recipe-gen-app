@@ -14,9 +14,23 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Recipe Generator",
-    description: "Generate delicious recipes with the power of AI.",
-  };
+  title: "Mise AI - Your Personal AI Chef & Meal Planner",
+  description:
+    "Generate custom recipes, plan your weekly meals, and automate your grocery shopping in seconds. The smart way to answer 'What's for dinner?'",
+  keywords: [
+    "ai recipe generator",
+    "meal planner",
+    "grocery list maker",
+    "artificial intelligence cooking",
+    "weekly meal plan",
+  ],
+  openGraph: {
+    title: "Mise AI - Your Personal AI Chef",
+    description:
+      "Stop wondering what to cook. Generate recipes and shopping lists instantly.",
+    type: "website",
+  },
+};
 
 export default function RootLayout({
   children,

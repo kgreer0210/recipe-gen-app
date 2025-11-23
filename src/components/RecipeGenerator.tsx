@@ -204,7 +204,7 @@ export default function RecipeGenerator() {
       <div className="w-full max-w-2xl mx-auto min-h-[600px] md:h-[700px] flex flex-col relative overflow-hidden bg-white/50 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20">
         <div className="flex items-center justify-center gap-2 py-6 bg-white/50 backdrop-blur-sm z-10 border-b border-white/20">
           <ChefHat className="w-8 h-8 text-blue-600" />
-          <h1 className="text-xl font-bold text-gray-800">CookList AI</h1>
+          <h1 className="text-xl font-bold text-gray-800">Mise AI</h1>
         </div>
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
           <div className="w-24 h-24 bg-orange-100 rounded-full flex items-center justify-center mb-6">
@@ -241,7 +241,7 @@ export default function RecipeGenerator() {
 
       <div className="flex items-center justify-center gap-2 py-6 bg-white/50 backdrop-blur-sm z-10 border-b border-white/20">
         <ChefHat className="w-8 h-8 text-blue-600" />
-        <h1 className="text-xl font-bold text-gray-800">CookList AI</h1>
+        <h1 className="text-xl font-bold text-gray-800">Mise AI</h1>
       </div>
 
       <div className="relative flex-1 w-full overflow-hidden">

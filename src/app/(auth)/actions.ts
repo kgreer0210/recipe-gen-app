@@ -21,7 +21,7 @@ export async function login(formData: FormData) {
     }
 
     revalidatePath('/', 'layout')
-    redirect('/')
+    redirect('/generator')
 }
 
 export async function signup(formData: FormData) {
@@ -49,10 +49,10 @@ export async function resetPassword(formData: FormData) {
 
     // In production, you should use a proper environment variable for the URL
     // For now we'll try to infer it or default to localhost
-    const origin = 'https://recipe-gen-app.vercel.app/'
+    const origin = process.env.NEXT_PUBLIC_SITE_URL || 'https://recipe-gen-app.vercel.app'
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${origin}/auth/callback?next=/update-password`,
+        redirectTo: `${origin}/auth/callback?next=/reset-password`,
     })
 
     if (error) {
@@ -77,3 +77,4 @@ export async function updatePassword(formData: FormData) {
     revalidatePath('/', 'layout')
     redirect('/')
 }
+
