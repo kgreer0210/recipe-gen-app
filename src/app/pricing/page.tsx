@@ -1,8 +1,47 @@
+"use client";
+
 import React from "react";
-import { Check } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useAuth } from "@/hooks/useAuth";
+import { useRouter } from "next/navigation";
 
 export default function PricingPage() {
+  const { user, loading } = useAuth();
+  const [checkoutLoading, setCheckoutLoading] = React.useState(false);
+  const router = useRouter();
+
+  const handleCheckout = async () => {
+    if (!user) {
+      router.push("/login?redirect=/pricing");
+      return;
+    }
+
+    setCheckoutLoading(true);
+    try {
+      const response = await fetch("/api/stripe/checkout", {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Checkout failed");
+      }
+
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error("No checkout URL received");
+      }
+    } catch (error) {
+      console.error("Checkout error:", error);
+      alert("Failed to start checkout. Please try again.");
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
       <div className="text-center mb-16">
@@ -34,8 +73,8 @@ export default function PricingPage() {
 
           <ul className="space-y-4 mb-8">
             {[
-              "7 AI-generated recipes per week",
-              "Save recipes to your personal collection",
+              "5 AI-generated recipes per week",
+              "Save up to 20 recipes to your personal collection",
               "Smart grocery list with auto-sorting",
               "Ingredient aggregation",
               "Adjustable servings",
@@ -51,10 +90,10 @@ export default function PricingPage() {
           </ul>
 
           <Link
-            href="/login"
+            href={user ? "/generator" : "/login"}
             className="block w-full py-3 px-6 border border-blue-600 rounded-md text-center font-medium text-blue-600 hover:bg-blue-50 transition-colors"
           >
-            Start for Free
+            {user ? "Go to Generator" : "Start for Free"}
           </Link>
         </div>
 
@@ -101,12 +140,20 @@ export default function PricingPage() {
             ))}
           </ul>
 
-          <Link
-            href="/login"
-            className="block w-full py-3 px-6 bg-blue-600 border border-transparent rounded-md text-center font-medium text-white hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg"
+          <button
+            onClick={handleCheckout}
+            disabled={checkoutLoading || loading}
+            className="w-full py-3 px-6 bg-blue-600 border border-transparent rounded-md text-center font-medium text-white hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
           >
-            Get Unlimited
-          </Link>
+            {checkoutLoading ? (
+              <>
+                <Loader2 className="animate-spin mr-2 h-5 w-5" />
+                Processing...
+              </>
+            ) : (
+              "Get Unlimited"
+            )}
+          </button>
         </div>
       </div>
 

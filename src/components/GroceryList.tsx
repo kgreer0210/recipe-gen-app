@@ -45,7 +45,7 @@ export default function GroceryList() {
                         title="Remove ingredients for a specific recipe"
                     >
                         <ChefHat className="w-4 h-4" />
-                        <span className="hidden sm:inline">Remove Recipe</span>
+                        <span>Remove Recipe</span>
                     </button>
                     <button
                         onClick={() => {

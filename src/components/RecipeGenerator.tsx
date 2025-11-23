@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { generateRecipe } from "@/lib/generator";
 import { useStore } from "@/lib/store";
 import { CuisineType, MealType, ProteinType, Recipe } from "@/types";
+import Link from "next/link";
 import { Loader2, ChefHat, ArrowRight, Check } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -218,11 +219,18 @@ export default function RecipeGenerator() {
             well-deserved break. Please come back tomorrow for more delicious
             ideas.
           </p>
-          <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
+          <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 mb-6">
             <p className="text-sm text-blue-800 font-medium">
               Limit: 5 recipes per day
             </p>
           </div>
+
+          <Link
+            href="/pricing"
+            className="px-6 py-3 bg-blue-600 text-white rounded-full font-semibold shadow-lg hover:bg-blue-700 transition-all hover:scale-105 active:scale-95 inline-block"
+          >
+            Unlock Unlimited Recipes
+          </Link>
         </div>
       </div>
     );

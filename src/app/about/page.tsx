@@ -56,6 +56,42 @@ export default function AboutPage() {
         </div>
       </div>
 
+      {/* Origin Section */}
+      <div className="mx-auto max-w-7xl px-6 pb-16 sm:pb-24 lg:px-8">
+        <div className="mx-auto max-w-3xl">
+          <div className="border-t border-gray-200 pt-16">
+            <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl mb-8 text-center">
+              Why &quot;Mise&quot;?
+            </h2>
+            <div className="bg-white rounded-2xl p-8 ring-1 ring-gray-200 shadow-sm">
+              <div className="text-center space-y-6">
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                    Mise{" "}
+                    <span className="text-gray-500 font-normal text-lg">
+                      (pronounced “meez”)
+                    </span>
+                  </h3>
+                  <p className="text-gray-600 text-lg">
+                    Short for{" "}
+                    <span className="italic font-medium text-gray-900">
+                      mise en place
+                    </span>{" "}
+                    (French for “everything in its place”).
+                  </p>
+                </div>
+                <div className="text-gray-600">
+                  <p className="mb-4 text-lg">
+                    Mise organizes ingredients, aggregates them, and makes meal
+                    planning clean and structured.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Features Grid */}
       <div className="bg-gray-50 py-16 sm:py-24">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">

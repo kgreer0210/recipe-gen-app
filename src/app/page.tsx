@@ -7,7 +7,7 @@ export default function Home() {
       <div className="text-center mb-12 pt-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <h1 className="text-4xl font-extrabold text-gray-900 sm:text-5xl sm:tracking-tight lg:text-6xl mb-4">
           Your Personal <span className="text-blue-600">AI Chef</span>.
-          <br className="hidden sm:block" />
+          <br />
           Zero Decision Fatigue.
         </h1>
         <p className="mt-5 max-w-2xl mx-auto text-xl text-gray-500 mb-8">
@@ -42,8 +42,9 @@ export default function Home() {
               Instant Inspiration
             </h3>
             <p className="text-gray-600">
-              Never wonder &quot;what&apos;s for dinner&quot; again. Generate unique recipes
-              based on your cravings, dietary needs, and what&apos;s in your fridge.
+              Never wonder &quot;what&apos;s for dinner&quot; again. Generate
+              unique recipes based on your cravings, dietary needs, and
+              what&apos;s in your fridge.
             </p>
           </div>
 
