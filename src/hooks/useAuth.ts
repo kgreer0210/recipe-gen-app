@@ -26,6 +26,43 @@ export function useAuth() {
   useEffect(() => {
     let mounted = true;
 
+    const fetchSubscription = async (userId: string) => {
+      try {
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error("Subscription fetch timeout")),
+            2000
+          )
+        );
+
+        const dbPromise = supabase
+          .from("subscriptions")
+          .select("*")
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        // Race the DB call against the timeout
+        // If timeoutPromise rejects first, it throws an error caught below
+        const result = await Promise.race([dbPromise, timeoutPromise]);
+
+        const { data, error } = result as any;
+
+        if (error) {
+          if (error.code === "PGRST116") {
+            // Not found is fine
+            return null;
+          }
+          console.error("Error fetching subscription:", error);
+          return null;
+        }
+
+        return data as Subscription | null;
+      } catch (error) {
+        console.error("Subscription fetch failed or timed out:", error);
+        return null;
+      }
+    };
+
     const getUser = async () => {
       try {
         const {
@@ -36,22 +73,9 @@ export function useAuth() {
           setUser(user);
 
           if (user) {
-            const { data: subscription, error } = await supabase
-              .from("subscriptions")
-              .select("*")
-              .eq("user_id", user.id)
-              .maybeSingle();
-
+            const sub = await fetchSubscription(user.id);
             if (mounted) {
-              if (error) {
-                if (error.code === "PGRST116") {
-                  // PGRST116 is "not found" which is fine - user just doesn't have a subscription
-                  console.log("No subscription found for user");
-                } else {
-                  console.error("Error fetching subscription:", error);
-                }
-              }
-              setSubscription(subscription as Subscription | null);
+              setSubscription(sub);
             }
           } else {
             if (mounted) setSubscription(null);
@@ -77,23 +101,8 @@ export function useAuth() {
         if (mounted) setUser(user);
 
         if (user) {
-          const { data: sub, error } = await supabase
-            .from("subscriptions")
-            .select("*")
-            .eq("user_id", user.id)
-            .maybeSingle();
-
-          if (mounted) {
-            if (error) {
-              if (error.code === "PGRST116") {
-                // PGRST116 is "not found" which is fine - user just doesn't have a subscription
-                console.log("No subscription found for user");
-              } else {
-                console.error("Error fetching subscription:", error);
-              }
-            }
-            setSubscription(sub as Subscription | null);
-          }
+          const sub = await fetchSubscription(user.id);
+          if (mounted) setSubscription(sub);
         } else {
           if (mounted) setSubscription(null);
         }
