@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
 
 export default function PricingPage() {
-  const { user, loading } = useAuth();
+  const { user, subscription, loading } = useAuth();
   const [checkoutLoading, setCheckoutLoading] = React.useState(false);
   const router = useRouter();
 
@@ -41,6 +41,35 @@ export default function PricingPage() {
       setCheckoutLoading(false);
     }
   };
+
+  const handleManageSubscription = async () => {
+    setCheckoutLoading(true);
+    try {
+      const response = await fetch("/api/stripe/portal", {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to open portal");
+      }
+
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error("No portal URL received");
+      }
+    } catch (error) {
+      console.error("Portal error:", error);
+      alert("Failed to open subscription management. Please try again.");
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
+  const isSubscribed =
+    subscription?.status === "active" || subscription?.status === "trialing";
 
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
@@ -141,7 +170,7 @@ export default function PricingPage() {
           </ul>
 
           <button
-            onClick={handleCheckout}
+            onClick={isSubscribed ? handleManageSubscription : handleCheckout}
             disabled={checkoutLoading || loading}
             className="w-full py-3 px-6 bg-blue-600 border border-transparent rounded-md text-center font-medium text-white hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
           >
@@ -150,6 +179,8 @@ export default function PricingPage() {
                 <Loader2 className="animate-spin mr-2 h-5 w-5" />
                 Processing...
               </>
+            ) : isSubscribed ? (
+              "Manage Subscription"
             ) : (
               "Get Unlimited"
             )}
