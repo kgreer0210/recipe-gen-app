@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
 
-export default function UserStatus() {
+export default function UserStatus({ onAction }: { onAction?: () => void }) {
   const { user, subscription, loading } = useAuth();
   const { fetchData } = useStore();
   const router = useRouter();
@@ -22,11 +22,13 @@ export default function UserStatus() {
   }, [user, subscription, loading, fetchData]);
 
   const handleSignOut = async () => {
+    onAction?.();
     await supabase.auth.signOut();
     router.refresh();
   };
 
   const handleManageSubscription = async () => {
+    onAction?.();
     setPortalLoading(true);
     try {
       const response = await fetch("/api/stripe/portal", {
@@ -63,6 +65,7 @@ export default function UserStatus() {
     return (
       <Link
         href="/login"
+        onClick={() => onAction?.()}
         className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
       >
         Sign In

@@ -59,31 +59,28 @@ export default function Navigation() {
           <div className="hidden md:flex space-x-8 items-center">
             <Link
               href="/about"
-              className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors ${
-                isActive("/about")
+              className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors ${isActive("/about")
                   ? "border-blue-600 text-gray-900"
                   : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-              }`}
+                }`}
             >
               About
             </Link>
             <Link
               href="/pricing"
-              className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors ${
-                isActive("/pricing")
+              className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors ${isActive("/pricing")
                   ? "border-blue-600 text-gray-900"
                   : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-              }`}
+                }`}
             >
               Pricing
             </Link>
             <Link
               href="/contact"
-              className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors ${
-                isActive("/contact")
+              className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors ${isActive("/contact")
                   ? "border-blue-600 text-gray-900"
                   : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-              }`}
+                }`}
             >
               Contact
             </Link>
@@ -92,11 +89,10 @@ export default function Navigation() {
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setIsToolsOpen(!isToolsOpen)}
-                  className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors focus:outline-none ${
-                    isToolsOpen || ["/generator", "/collection", "/weekly-plan", "/grocery-list"].includes(pathname)
+                  className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors focus:outline-none ${isToolsOpen || ["/generator", "/collection", "/weekly-plan", "/grocery-list"].includes(pathname)
                       ? "border-blue-600 text-gray-900"
                       : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-                  }`}
+                    }`}
                 >
                   Tools
                   <ChevronDown className={`ml-1 h-4 w-4 transition-transform ${isToolsOpen ? "rotate-180" : ""}`} />
@@ -178,33 +174,30 @@ export default function Navigation() {
             <Link
               href="/about"
               onClick={closeMobileMenu}
-              className={`block px-3 py-2 rounded-md text-base font-medium ${
-                isActive("/about")
+              className={`block px-3 py-2 rounded-md text-base font-medium ${isActive("/about")
                   ? "bg-blue-50 text-blue-700"
                   : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-              }`}
+                }`}
             >
               About
             </Link>
             <Link
               href="/pricing"
               onClick={closeMobileMenu}
-              className={`block px-3 py-2 rounded-md text-base font-medium ${
-                isActive("/pricing")
+              className={`block px-3 py-2 rounded-md text-base font-medium ${isActive("/pricing")
                   ? "bg-blue-50 text-blue-700"
                   : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-              }`}
+                }`}
             >
               Pricing
             </Link>
             <Link
               href="/contact"
               onClick={closeMobileMenu}
-              className={`block px-3 py-2 rounded-md text-base font-medium ${
-                isActive("/contact")
+              className={`block px-3 py-2 rounded-md text-base font-medium ${isActive("/contact")
                   ? "bg-blue-50 text-blue-700"
                   : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-              }`}
+                }`}
             >
               Contact
             </Link>
@@ -220,11 +213,10 @@ export default function Navigation() {
                 <Link
                   href="/generator"
                   onClick={closeMobileMenu}
-                  className={`block px-3 py-2 rounded-md text-base font-medium ${
-                    isActive("/generator")
+                  className={`block px-3 py-2 rounded-md text-base font-medium ${isActive("/generator")
                       ? "bg-blue-50 text-blue-700"
                       : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center">
                     <ChefHat className="w-5 h-5 mr-3" />
@@ -234,11 +226,10 @@ export default function Navigation() {
                 <Link
                   href="/collection"
                   onClick={closeMobileMenu}
-                  className={`block px-3 py-2 rounded-md text-base font-medium ${
-                    isActive("/collection")
+                  className={`block px-3 py-2 rounded-md text-base font-medium ${isActive("/collection")
                       ? "bg-blue-50 text-blue-700"
                       : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center">
                     <BookHeart className="w-5 h-5 mr-3" />
@@ -248,11 +239,10 @@ export default function Navigation() {
                 <Link
                   href="/weekly-plan"
                   onClick={closeMobileMenu}
-                  className={`block px-3 py-2 rounded-md text-base font-medium ${
-                    isActive("/weekly-plan")
+                  className={`block px-3 py-2 rounded-md text-base font-medium ${isActive("/weekly-plan")
                       ? "bg-blue-50 text-blue-700"
                       : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center">
                     <Calendar className="w-5 h-5 mr-3" />
@@ -262,11 +252,10 @@ export default function Navigation() {
                 <Link
                   href="/grocery-list"
                   onClick={closeMobileMenu}
-                  className={`block px-3 py-2 rounded-md text-base font-medium ${
-                    isActive("/grocery-list")
+                  className={`block px-3 py-2 rounded-md text-base font-medium ${isActive("/grocery-list")
                       ? "bg-blue-50 text-blue-700"
                       : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center">
                     <ShoppingBasket className="w-5 h-5 mr-3" />
@@ -278,7 +267,7 @@ export default function Navigation() {
           </div>
           <div className="pt-4 pb-4 border-t border-gray-200 px-4">
             <div className="flex items-center">
-              <UserStatus />
+              <UserStatus onAction={closeMobileMenu} />
             </div>
           </div>
         </div>
