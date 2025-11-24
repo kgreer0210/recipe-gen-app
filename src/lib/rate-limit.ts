@@ -26,6 +26,11 @@ export async function checkRateLimit(limit: number = 5) {
     return { allowed: true, remaining: 9999, error: undefined };
   }
 
+  // Check if user is admin
+  if (process.env.ADMIN_USER_ID && user.id === process.env.ADMIN_USER_ID) {
+    return { allowed: true, remaining: 9999, error: undefined };
+  }
+
   const { data, error } = await admin.rpc("check_and_increment_rate_limit", {
     user_id: user.id,
     limit_count: limit,
