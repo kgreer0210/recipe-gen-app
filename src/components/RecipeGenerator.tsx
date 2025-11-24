@@ -3,9 +3,10 @@
 import { useState, useEffect } from "react";
 import { generateRecipe } from "@/lib/generator";
 import { useStore } from "@/lib/store";
+import { useAuth } from "@/hooks/useAuth";
 import { CuisineType, MealType, ProteinType, Recipe } from "@/types";
 import Link from "next/link";
-import { Loader2, ChefHat, ArrowRight, Check } from "lucide-react";
+import { Loader2, ChefHat, ArrowRight, Check, Lock } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 const cuisines: CuisineType[] = [
@@ -53,12 +54,15 @@ export default function RecipeGenerator() {
   const [error, setError] = useState<string | null>(null);
   const [generatedRecipe, setGeneratedRecipe] = useState<Recipe | null>(null);
   const [showGroceryPopup, setShowGroceryPopup] = useState(false);
+  const [showLimitPopup, setShowLimitPopup] = useState(false);
   const [direction, setDirection] = useState(0);
   const [isBlocked, setIsBlocked] = useState(false);
   const [checkingLimit, setCheckingLimit] = useState(true);
   const [servings, setServings] = useState(1);
 
+  const { subscription } = useAuth();
   const saveRecipe = useStore((state) => state.saveRecipe);
+  const savedRecipes = useStore((state) => state.savedRecipes);
   const addToGroceryList = useStore((state) => state.addToGroceryList);
 
   useEffect(() => {
@@ -85,6 +89,7 @@ export default function RecipeGenerator() {
     setError(null);
     setGeneratedRecipe(null);
     setShowGroceryPopup(false);
+    setShowLimitPopup(false);
     try {
       const recipe = await generateRecipe(cuisine, meal, protein);
       setGeneratedRecipe(recipe);
@@ -101,6 +106,15 @@ export default function RecipeGenerator() {
   };
 
   const handleSave = async () => {
+    // Check for subscription limit
+    const isSubscriber =
+      subscription?.status === "active" || subscription?.status === "trialing";
+
+    if (!isSubscriber && savedRecipes.length >= 20) {
+      setShowLimitPopup(true);
+      return;
+    }
+
     if (generatedRecipe) {
       const saved = await saveRecipe(generatedRecipe);
       if (saved) {
@@ -170,11 +184,10 @@ export default function RecipeGenerator() {
             key={option}
             onClick={() => onSelect(option)}
             className={`p-4 rounded-xl border-2 transition-all duration-200 flex flex-col items-center justify-center gap-2
-                            ${
-                              selected === option
-                                ? "border-blue-600 bg-blue-50 text-blue-700 shadow-md scale-105"
-                                : "border-gray-100 bg-white text-gray-600 hover:border-blue-200 hover:bg-gray-50"
-                            }`}
+                            ${selected === option
+                ? "border-blue-600 bg-blue-50 text-blue-700 shadow-md scale-105"
+                : "border-gray-100 bg-white text-gray-600 hover:border-blue-200 hover:bg-gray-50"
+              }`}
           >
             <span className="font-medium">{option}</span>
             {selected === option && <Check className="w-4 h-4" />}
@@ -360,11 +373,10 @@ export default function RecipeGenerator() {
 
               {error && (
                 <div
-                  className={`p-4 mb-6 rounded-xl border flex gap-3 ${
-                    error.includes("daily recipe limit")
+                  className={`p-4 mb-6 rounded-xl border flex gap-3 ${error.includes("daily recipe limit")
                       ? "bg-orange-50 border-orange-100 text-orange-800"
                       : "bg-red-50 border-red-100 text-red-600"
-                  }`}
+                    }`}
                 >
                   {error.includes("daily recipe limit") ? (
                     <>
@@ -455,13 +467,40 @@ export default function RecipeGenerator() {
               </div>
 
               <div className="p-6 bg-white/80 backdrop-blur-md border-t border-gray-100 space-y-3 z-10">
-                {!showGroceryPopup ? (
+                {!showGroceryPopup && !showLimitPopup ? (
                   <button
                     onClick={handleSave}
                     className="w-full py-3 px-4 bg-blue-800 hover:bg-blue-900 text-white font-medium rounded-xl transition-colors shadow-md"
                   >
                     Save to Collection
                   </button>
+                ) : showLimitPopup ? (
+                  <div className="p-4 bg-orange-50 border border-orange-200 rounded-xl animate-in fade-in zoom-in-95 duration-200">
+                    <div className="flex items-center justify-center gap-2 mb-3">
+                      <Lock className="w-5 h-5 text-orange-600" />
+                      <p className="text-orange-800 font-bold">
+                        Collection Full
+                      </p>
+                    </div>
+                    <p className="text-sm text-orange-700 mb-4 text-center">
+                      Free users can only save 20 recipes. Upgrade to save unlimited recipes!
+                    </p>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setShowLimitPopup(false)}
+                        className="flex-1 py-2 px-3 bg-white border border-orange-200 text-orange-700 hover:bg-orange-50 text-sm font-medium rounded-lg transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <Link
+                        href="/pricing"
+                        className="flex-1 py-2 px-3 bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium rounded-lg transition-colors text-center"
+                      >
+                        Upgrade
+                      </Link>
+                    </div>
+                  </div>
                 ) : (
                   <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl animate-in fade-in zoom-in-95 duration-200">
                     <p className="text-blue-800 font-medium mb-3 text-center">
@@ -520,6 +559,7 @@ export default function RecipeGenerator() {
                   onClick={() => {
                     setStep(0);
                     setGeneratedRecipe(null);
+                    setShowLimitPopup(false);
                   }}
                   className="w-full py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors"
                 >
