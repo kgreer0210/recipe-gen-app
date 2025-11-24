@@ -13,7 +13,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const priceId = process.env.STRIPE_PRICE_ID;
+    const { interval = 'month' } = await request.json();
+
+    const priceId =
+      interval === 'year'
+        ? process.env.STRIPE_ANNUAL_PRICE_ID
+        : process.env.STRIPE_PRICE_ID;
 
     if (!priceId) {
       return NextResponse.json(

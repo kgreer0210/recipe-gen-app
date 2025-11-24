@@ -9,6 +9,9 @@ import { useRouter } from "next/navigation";
 export default function PricingPage() {
   const { user, subscription, loading } = useAuth();
   const [checkoutLoading, setCheckoutLoading] = React.useState(false);
+  const [billingCycle, setBillingCycle] = React.useState<"month" | "year">(
+    "month"
+  );
   const router = useRouter();
 
   const handleCheckout = async () => {
@@ -21,6 +24,12 @@ export default function PricingPage() {
     try {
       const response = await fetch("/api/stripe/checkout", {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          interval: billingCycle,
+        }),
       });
 
       if (!response.ok) {
@@ -84,6 +93,32 @@ export default function PricingPage() {
         </p>
       </div>
 
+      <div className="flex justify-center mb-12">
+        <div className="relative bg-gray-100 p-1 rounded-lg flex items-center">
+          <button
+            onClick={() => setBillingCycle("month")}
+            className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${billingCycle === "month"
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-500 hover:text-gray-900"
+              }`}
+          >
+            Monthly
+          </button>
+          <button
+            onClick={() => setBillingCycle("year")}
+            className={`px-6 py-2 rounded-md text-sm font-medium transition-all flex items-center ${billingCycle === "year"
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-500 hover:text-gray-900"
+              }`}
+          >
+            Yearly
+            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+              Save $10
+            </span>
+          </button>
+        </div>
+      </div>
+
       <div className="grid gap-8 lg:grid-cols-2 lg:gap-12 max-w-5xl mx-auto">
         {/* Free Plan */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 hover:border-blue-300 transition-colors">
@@ -134,9 +169,11 @@ export default function PricingPage() {
           <div className="mb-6">
             <h2 className="text-2xl font-bold text-gray-900">Unlimited Plan</h2>
             <div className="mt-4 flex items-baseline">
-              <span className="text-5xl font-extrabold text-gray-900">$5</span>
+              <span className="text-5xl font-extrabold text-gray-900">
+                {billingCycle === "month" ? "$5" : "$50"}
+              </span>
               <span className="ml-1 text-xl font-medium text-gray-500">
-                / month
+                / {billingCycle === "month" ? "month" : "year"}
               </span>
             </div>
             <p className="mt-4 text-gray-500">
