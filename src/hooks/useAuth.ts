@@ -1,23 +1,25 @@
 import { createClient } from "@/lib/supabase/client";
 import { User } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 export interface Subscription {
   id: string;
   user_id: string;
   status:
-    | "active"
-    | "trialing"
-    | "past_due"
-    | "canceled"
-    | "unpaid"
-    | "incomplete"
-    | "incomplete_expired"
-    | "paused";
+  | "active"
+  | "trialing"
+  | "past_due"
+  | "canceled"
+  | "unpaid"
+  | "incomplete"
+  | "incomplete_expired"
+  | "paused";
   price_id: string;
 }
 
 export function useAuth() {
+  const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
@@ -31,7 +33,7 @@ export function useAuth() {
         const timeoutPromise = new Promise((_, reject) =>
           setTimeout(
             () => reject(new Error("Subscription fetch timeout")),
-            2000
+            10000
           )
         );
 
@@ -120,7 +122,7 @@ export function useAuth() {
       mounted = false;
       authListener.unsubscribe();
     };
-  }, [supabase]);
+  }, [supabase, pathname]);
 
   return { user, subscription, loading };
 }

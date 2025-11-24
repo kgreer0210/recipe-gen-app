@@ -473,6 +473,12 @@ export default function RecipeGenerator() {
 
                     <div className="flex items-center justify-center gap-3 mb-4">
                       <span className="text-sm text-blue-700">For</span>
+                      <button
+                        onClick={() => setServings(Math.max(1, servings - 1))}
+                        className="w-10 h-10 rounded-full border border-blue-200 flex items-center justify-center text-blue-600 hover:bg-blue-100 transition-colors"
+                      >
+                        -
+                      </button>
                       <input
                         type="number"
                         min="1"
@@ -483,8 +489,14 @@ export default function RecipeGenerator() {
                             Math.max(1, parseInt(e.target.value) || 1)
                           )
                         }
-                        className="w-16 px-2 py-1 text-center border border-blue-200 rounded-lg text-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-400 no-spinner"
+                        className="w-16 text-center text-2xl font-bold text-blue-600 border-none focus:ring-0 p-0 no-spinner"
                       />
+                      <button
+                        onClick={() => setServings(Math.min(20, servings + 1))}
+                        className="w-10 h-10 rounded-full border border-blue-200 flex items-center justify-center text-blue-600 hover:bg-blue-100 transition-colors"
+                      >
+                        +
+                      </button>
                       <span className="text-sm text-blue-700">people</span>
                     </div>
 
