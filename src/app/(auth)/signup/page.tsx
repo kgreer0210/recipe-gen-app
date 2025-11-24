@@ -8,17 +8,40 @@ import { Loader2 } from 'lucide-react'
 export default function SignupPage() {
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState('')
+    const [success, setSuccess] = useState(false)
 
     async function handleSubmit(formData: FormData) {
         setIsLoading(true)
         setError('')
-        
+
         const res = await signup(formData)
         if (res?.error) {
             setError(res.error)
             setIsLoading(false)
+        } else if (res?.success) {
+            setSuccess(true)
+            setIsLoading(false)
         }
-        // If success, the action redirects
+    }
+
+    if (success) {
+        return (
+            <div className="space-y-6">
+                <div className="bg-green-50 border border-green-200 rounded-md p-6 text-center">
+                    <h2 className="text-2xl font-bold text-green-800 mb-2">
+                        Check your email
+                    </h2>
+                    <p className="text-green-700">
+                        We've sent you a confirmation link. Please check your email to verify your account.
+                    </p>
+                    <div className="mt-6">
+                        <Link href="/login" className="text-blue-600 hover:text-blue-500 font-medium">
+                            Return to sign in
+                        </Link>
+                    </div>
+                </div>
+            </div>
+        )
     }
 
     return (

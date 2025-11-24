@@ -40,7 +40,7 @@ export async function signup(formData: FormData) {
     }
 
     revalidatePath('/', 'layout')
-    redirect('/')
+    return { success: true }
 }
 
 export async function resetPassword(formData: FormData) {
