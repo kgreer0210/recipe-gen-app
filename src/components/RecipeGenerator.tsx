@@ -12,6 +12,7 @@ import {
   proteinCuts,
 } from "@/types";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Loader2, ChefHat, ArrowRight, Check, Lock } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -72,7 +73,8 @@ export default function RecipeGenerator() {
   const reviewStepIndex = hasCuts ? 4 : 3;
   const resultStepIndex = hasCuts ? 5 : 4;
 
-  const { subscription } = useAuth();
+  const router = useRouter();
+  const { user, subscription } = useAuth();
   const saveRecipe = useStore((state) => state.saveRecipe);
   const savedRecipes = useStore((state) => state.savedRecipes);
   const addToGroceryList = useStore((state) => state.addToGroceryList);
@@ -121,6 +123,12 @@ export default function RecipeGenerator() {
   };
 
   const handleSave = async () => {
+    // Check if user is logged in
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+
     // Check for subscription limit
     const isSubscriber =
       subscription?.status === "active" || subscription?.status === "trialing";

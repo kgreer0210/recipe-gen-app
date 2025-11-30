@@ -90,6 +90,7 @@ export const proteinCuts: Partial<Record<ProteinType, string[]>> = {
     "Ground",
     "Sirloin",
     "Ribeye",
+    "New York Strip",
     "Roast",
     "Brisket",
     "Short Ribs",
