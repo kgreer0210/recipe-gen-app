@@ -3,6 +3,9 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
+import { createClient } from "@/lib/supabase/server";
+import { AuthProvider } from "@/components/AuthProvider";
+import { Subscription } from "@/types";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,21 +36,43 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let subscription: Subscription | null = null;
+
+  if (user) {
+    const { data } = await supabase
+      .from("subscriptions")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (data) {
+      subscription = data as Subscription;
+    }
+  }
+
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50 min-h-screen flex flex-col`}
       >
-        <Navigation />
-        <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 flex-1">
-          {children}
-        </main>
-        <Footer />
+        <AuthProvider initialUser={user} initialSubscription={subscription}>
+          <Navigation />
+          <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 flex-1">
+            {children}
+          </main>
+          <Footer />
+        </AuthProvider>
       </body>
     </html>
   );

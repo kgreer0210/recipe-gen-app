@@ -1,0 +1,214 @@
+---
+alwaysApply: true
+---
+
+Mise AI – Cursor Project Rule
+
+You are the AI coding assistant working **inside the Mise AI repository**, a proprietary SaaS app called **Mise AI – Your Personal AI Chef**. Mise AI helps users answer “What’s for dinner?” by generating AI-powered recipes, organizing them into a weekly meal plan, and aggregating ingredients into smart grocery lists.
+
+---
+
+### 1. Project Context
+
+- The app is a **production-grade Next.js 16 (App Router) SaaS**.
+- Core user flows:
+
+  - Generate recipes via AI based on cuisine, meal type, and main ingredient.
+  - Save recipes to personal collections.
+  - Drag-and-drop recipes into a weekly planner.
+  - Auto-generate and manage consolidated grocery lists from the weekly plan.
+  - Enforce rate limits for AI usage (especially for free users).
+
+When writing or modifying code, favor solutions that improve these flows, keep the UX smooth, and avoid breaking existing user data or rate limiting.
+
+---
+
+### 2. Tech Stack & High-Level Architecture
+
+Assume and respect the following stack and conventions:
+
+- **Framework:** Next.js 16 App Router (`app/` directory).
+- **Language:** TypeScript.
+- **Styling:** Tailwind CSS v4.
+- **Database & Auth:** Supabase (PostgreSQL + Auth).
+- **AI:** OpenAI API (server-side only).
+- **Client State:** Zustand for global client-side state (e.g., current recipe, shopping cart-like behavior, transient UI).
+- **Animations:** Motion (formerly Framer Motion).
+- **Icons:** Lucide React.
+
+Architectural guidance:
+
+- Prefer **Server Components** for:
+
+  - Initial data fetching (e.g., loading collections, weekly plans).
+  - Layout shells, SEO-critical content, and static/SSR-heavy views.
+
+- Use **Client Components** for:
+
+  - Highly interactive experiences like:
+
+    - Recipe generator forms and animated UI.
+    - Weekly drag-and-drop meal planner.
+    - Interactive grocery list UI.
+
+  - Any stateful UI using Zustand or browser APIs.
+
+When creating new components, explicitly choose `use client` only when needed and keep data fetching/auth-sensitive logic on the server when possible.
+
+---
+
+### 3. Backend & API Design
+
+Backend is implemented via **Next.js App Router API routes** under `src/app/api/`.
+
+Key endpoints (do not hardcode keys on the client):
+
+- `/api/generate-recipe`
+
+  - Handles prompt engineering and calls to the OpenAI API.
+  - Runs **server-side only** and keeps API keys secure.
+  - Should enforce rate limiting before calling OpenAI.
+
+- `/api/rate-limit`
+
+  - Talks to Supabase and the `check_and_increment_rate_limit` RPC to enforce per-user daily limits.
+  - May use `SUPABASE_SERVICE_ROLE_KEY` where necessary to bypass RLS in a controlled, server-only way.
+
+When adding new APIs:
+
+- Use **route handlers** in the App Router style.
+- Validate input thoroughly (especially user IDs and recipe IDs).
+- Respect rate limits where applicable for new AI-heavy features.
+- Never expose secrets (`OPENAI_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) to the client.
+
+---
+
+### 4. Database, Auth & Security (Supabase + RLS)
+
+Mise AI uses Supabase with strong RLS guarantees. Schema highlights:
+
+- **Tables:**
+
+  - `recipes`: Stores generated recipe data (likely JSON / structured).
+  - `collections`: Links users to saved recipes.
+  - `weekly_plan`: Maps recipes to specific days and slots in a weekly schedule.
+  - `user_rate_limits`: Tracks per-user daily AI usage.
+
+- **RLS Rules:**
+
+  - Users may `SELECT`, `INSERT`, `UPDATE`, `DELETE` rows **only where `user_id` = authenticated user’s UUID**.
+  - All new queries and mutations must respect this constraint.
+
+When working with Supabase:
+
+- Use the authenticated user’s ID from Supabase auth context when querying user-scoped tables.
+- Do not attempt to bypass RLS in normal app code.
+- Only use the **service role key** in secure server-only contexts where RLS must be bypassed (e.g., rate limit RPCs).
+- When writing SQL or RPCs, ensure they:
+
+  - Are atomic where needed (e.g., rate-limit checks).
+  - Don’t leak other users’ data.
+  - Reset or roll over counters as documented (e.g., resetting rate limits after 24 hours).
+
+---
+
+### 5. Rate Limiting Behavior
+
+Rate limiting is critical for controlling OpenAI costs:
+
+- Implement and maintain logic around the `check_and_increment_rate_limit` RPC for any AI-heavy feature.
+- The behavior should be:
+
+  - Check if user has exceeded per-day limit.
+  - If not, increment usage and allow the operation.
+  - Reset daily counters based on the `last_reset` timestamp (24-hour logic).
+
+- When coding:
+
+  - Handle error states from the RPC gracefully (e.g., show clear UI when user hits their limit).
+  - Don’t “double count” a single AI call.
+  - For new AI features, integrate with this same system unless explicitly asked otherwise.
+
+---
+
+### 6. Frontend Guidelines & UX Expectations
+
+- Use **TypeScript** strictly. Type everything (props, hooks, API responses).
+- Follow **Next.js App Router conventions**:
+
+  - Co-locate route-specific components in route segments.
+  - Use server actions or route handlers where appropriate.
+
+- UI/UX principles:
+
+  - Responsive and mobile-first (respect existing Tailwind patterns).
+  - Keep animations tasteful and performant using Motion.
+  - Use Lucide icons where icons are appropriate; respect existing icon usage styles.
+
+- State:
+
+  - Use Zustand for cross-page, short-lived client state (e.g., selected recipe in a modal, current grocery list draft).
+  - Use database persistence (via Supabase) for anything long-lived or user-owned (recipes, collections, weekly plan).
+
+---
+
+### 7. Coding Style & Collaboration with the User
+
+When the user asks you to write or change code in this project:
+
+1. **Assume you are working within the existing structure and patterns** unless they explicitly say otherwise.
+2. Prefer:
+
+   - Small, focused components and helpers.
+   - Clear naming aligned with domain language (`Recipe`, `WeeklyPlanSlot`, `GroceryListItem`, etc.).
+   - Minimal dependencies; use what’s already in the stack first.
+
+3. When modifying existing code:
+
+   - Try to infer patterns from nearby files (file names, folder layout, utility functions).
+   - Maintain or improve type safety and error handling.
+
+4. For prompts that are ambiguous:
+
+   - Briefly state reasonable assumptions in comments or explanation.
+   - Ask concise clarifying questions **only if absolutely necessary**; otherwise, choose a sensible default that fits the current architecture.
+
+---
+
+### 8. Security & Privacy
+
+- Treat this codebase as **proprietary**. Do not generate license changes or suggestions to open-source it.
+- Never log or expose:
+
+  - User authentication credentials.
+  - API keys or secrets.
+  - Internal rate limiting details beyond what’s needed in the UI.
+
+- When adding logging or debugging:
+
+  - Log only what is necessary.
+  - Avoid storing sensitive user content or internal tokens.
+
+---
+
+### 9. What to Prioritize
+
+When deciding between multiple approaches:
+
+1. **Correctness & Data Safety**
+
+   - Maintain data integrity, RLS constraints, and correct rate limiting behavior.
+
+2. **Alignment with Existing Architecture**
+
+   - Stay consistent with Next.js App Router, Supabase patterns, and existing code organization.
+
+3. **Developer Experience**
+
+   - Clear types, simple abstractions, and straightforward debugging.
+
+4. **User Experience**
+
+   - Smooth, responsive UI for recipe generation, planning, and grocery lists.
+
+Use this rule to guide all decisions when generating, refactoring, or explaining code within the Mise AI project.
