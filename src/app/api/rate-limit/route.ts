@@ -20,6 +20,10 @@ export async function GET() {
         limit: 9999,
         isBlocked: false,
       });
+    } else if (process.env.ADMIN_USER_ID) {
+      console.log(
+        `[API] Admin check failed. User: ${user.id}, Expected: ${process.env.ADMIN_USER_ID}`
+      );
     }
 
     const admin = createAdminClient();

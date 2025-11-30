@@ -28,7 +28,12 @@ export async function checkRateLimit(limit: number = 5) {
 
   // Check if user is admin
   if (process.env.ADMIN_USER_ID && user.id === process.env.ADMIN_USER_ID) {
+    console.log("Admin user detected, bypassing rate limit");
     return { allowed: true, remaining: 9999, error: undefined };
+  } else if (process.env.ADMIN_USER_ID) {
+    console.log(
+      `Admin check failed. User: ${user.id}, Expected: ${process.env.ADMIN_USER_ID}`
+    );
   }
 
   const { data, error } = await admin.rpc("check_and_increment_rate_limit", {

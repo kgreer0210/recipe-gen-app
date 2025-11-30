@@ -4,14 +4,12 @@ import { useStore } from "@/lib/store";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { LogOut, User as UserIcon, CreditCard, Loader2 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
 
 export default function UserStatus({ onAction }: { onAction?: () => void }) {
   const { user, subscription, loading } = useAuth();
   const { fetchData } = useStore();
-  const router = useRouter();
   const [supabase] = useState(() => createClient());
   const [portalLoading, setPortalLoading] = useState(false);
 
@@ -21,18 +19,32 @@ export default function UserStatus({ onAction }: { onAction?: () => void }) {
     }
   }, [user, subscription, loading, fetchData]);
 
-  const handleSignOut = async () => {
+  const handleSignOut = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log("Sign out clicked");
+
+    // Call onAction first if it exists (e.g. close mobile menu)
     onAction?.();
+
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error("Sign out error:", error);
-        return;
-      }
-      router.push("/");
-      router.refresh();
+      console.log("Calling supabase signOut");
+
+      // Create a timeout promise
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Sign out timed out")), 2500)
+      );
+
+      // Race Supabase signOut against the timeout
+      await Promise.race([supabase.auth.signOut(), timeoutPromise]);
+
+      console.log("Supabase signOut complete");
     } catch (error) {
-      console.error("Sign out failed:", error);
+      console.error("Sign out failed or timed out:", error);
+    } finally {
+      // Always redirect to home page to clear state
+      console.log("Redirecting to /");
+      window.location.href = "/";
     }
   };
 
@@ -105,7 +117,8 @@ export default function UserStatus({ onAction }: { onAction?: () => void }) {
       </div>
       <button
         onClick={handleSignOut}
-        className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+        type="button"
+        className="p-2 text-gray-400 hover:text-red-500 transition-colors relative z-50"
         title="Sign Out"
       >
         <LogOut className="w-4 h-4" />
