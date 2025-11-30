@@ -1,6 +1,7 @@
 "use client";
 
 import { useStore } from "@/lib/store";
+import { useAuth } from "@/hooks/useAuth";
 import { Unit } from "@/types";
 import {
   ShoppingBasket,
@@ -15,6 +16,7 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import RecipeSelector from "./RecipeSelector";
 
 const UNITS: Unit[] = [
@@ -44,6 +46,8 @@ const CATEGORIES = [
 ];
 
 export default function GroceryList() {
+  const router = useRouter();
+  const { user } = useAuth();
   const {
     groceryList,
     toggleGroceryItem,
@@ -58,6 +62,15 @@ export default function GroceryList() {
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  // Auth check helper
+  const requireAuth = (action: () => void) => {
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+    action();
+  };
 
   // Form state for adding custom item
   const [newItemName, setNewItemName] = useState("");
@@ -80,6 +93,10 @@ export default function GroceryList() {
   }, []);
 
   const handleAddItem = async () => {
+    if (!user) {
+      router.push("/login");
+      return;
+    }
     if (!newItemName.trim()) return;
 
     await addCustomGroceryItem({
@@ -350,9 +367,11 @@ export default function GroceryList() {
               <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
                 <button
                   onClick={() => {
-                    const allSelected = groceryList.every((i) => i.isChecked);
-                    selectAllGroceryItems(!allSelected);
-                    setIsMoreMenuOpen(false);
+                    requireAuth(() => {
+                      const allSelected = groceryList.every((i) => i.isChecked);
+                      selectAllGroceryItems(!allSelected);
+                      setIsMoreMenuOpen(false);
+                    });
                   }}
                   className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                 >
@@ -412,7 +431,11 @@ export default function GroceryList() {
                         >
                           <div
                             className="flex items-center gap-3 cursor-pointer flex-1"
-                            onClick={() => toggleGroceryItem(item.id!, true)}
+                            onClick={() =>
+                              requireAuth(() =>
+                                toggleGroceryItem(item.id!, true)
+                              )
+                            }
                           >
                             <Square className="w-5 h-5 text-gray-400 group-hover:text-blue-500" />
                             <span className="font-medium text-gray-700 group-hover:text-blue-700">
@@ -424,7 +447,11 @@ export default function GroceryList() {
                               {item.amount} {item.unit}
                             </span>
                             <button
-                              onClick={() => removeFromGroceryList(item.id!)}
+                              onClick={() =>
+                                requireAuth(() =>
+                                  removeFromGroceryList(item.id!)
+                                )
+                              }
                               className="p-1 text-gray-300 hover:text-red-500 transition-colors"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -456,7 +483,11 @@ export default function GroceryList() {
                         >
                           <div
                             className="flex items-center gap-3 cursor-pointer flex-1"
-                            onClick={() => toggleGroceryItem(item.id!, true)}
+                            onClick={() =>
+                              requireAuth(() =>
+                                toggleGroceryItem(item.id!, true)
+                              )
+                            }
                           >
                             <Square className="w-5 h-5 text-gray-400 group-hover:text-blue-500" />
                             <span className="font-medium text-gray-700 group-hover:text-blue-700">
@@ -468,7 +499,11 @@ export default function GroceryList() {
                               {item.amount} {item.unit}
                             </span>
                             <button
-                              onClick={() => removeFromGroceryList(item.id!)}
+                              onClick={() =>
+                                requireAuth(() =>
+                                  removeFromGroceryList(item.id!)
+                                )
+                              }
                               className="p-1 text-gray-300 hover:text-red-500 transition-colors"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -491,7 +526,7 @@ export default function GroceryList() {
                 Gathered ({gatheredItems.length})
               </h3>
               <button
-                onClick={() => clearGathered()}
+                onClick={() => requireAuth(() => clearGathered())}
                 className="text-xs font-medium text-red-500 hover:text-red-700 hover:underline transition-colors cursor-pointer px-2 py-1 rounded hover:bg-red-50"
               >
                 Clear Gathered
@@ -507,7 +542,9 @@ export default function GroceryList() {
                   >
                     <div
                       className="flex items-center gap-3 cursor-pointer flex-1"
-                      onClick={() => toggleGroceryItem(item.id!, false)}
+                      onClick={() =>
+                        requireAuth(() => toggleGroceryItem(item.id!, false))
+                      }
                     >
                       <CheckSquare className="w-5 h-5 text-green-600" />
                       <span className="font-medium text-gray-500 line-through">
@@ -519,7 +556,9 @@ export default function GroceryList() {
                         {item.amount} {item.unit}
                       </span>
                       <button
-                        onClick={() => removeFromGroceryList(item.id!)}
+                        onClick={() =>
+                          requireAuth(() => removeFromGroceryList(item.id!))
+                        }
                         className="p-1 text-gray-300 hover:text-red-500 transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -543,7 +582,7 @@ export default function GroceryList() {
         isOpen={isRecipeSelectorOpen}
         onClose={() => setIsRecipeSelectorOpen(false)}
         onSelect={(recipeId, servings) =>
-          removeIngredientsForRecipe(recipeId, servings)
+          requireAuth(() => removeIngredientsForRecipe(recipeId, servings))
         }
         title="Remove Ingredients from List"
       />
