@@ -11,6 +11,9 @@ interface AppState {
   saveRecipe: (recipe: Recipe) => Promise<Recipe | null>;
   removeRecipe: (recipeId: string) => Promise<void>;
   addToGroceryList: (recipeId: string, servings?: number) => Promise<void>;
+  addCustomGroceryItem: (
+    item: Omit<Ingredient, "id" | "isChecked">
+  ) => Promise<void>;
   removeFromGroceryList: (itemId: string) => Promise<void>; // Changed to remove by Item ID
   toggleGroceryItem: (itemId: string, isChecked: boolean) => Promise<void>;
   selectAllGroceryItems: (isChecked: boolean) => Promise<void>;
@@ -209,6 +212,66 @@ export const useStore = create<AppState>((set, get) => ({
     }
 
     set({ groceryList: currentGroceryList });
+  },
+
+  addCustomGroceryItem: async (item) => {
+    const { groceryList } = get();
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Check if item already exists with same name and unit
+    const existingItemIndex = groceryList.findIndex(
+      (existing) =>
+        existing.name.toLowerCase() === item.name.toLowerCase() &&
+        existing.unit === item.unit
+    );
+
+    if (existingItemIndex !== -1) {
+      // Update existing item amount
+      const existingItem = groceryList[existingItemIndex];
+      const newAmount = existingItem.amount + item.amount;
+
+      if (existingItem.id) {
+        await supabase
+          .from("grocery_list")
+          .update({ amount: newAmount })
+          .match({ id: existingItem.id });
+      }
+
+      set((state) => ({
+        groceryList: state.groceryList.map((i, idx) =>
+          idx === existingItemIndex ? { ...i, amount: newAmount } : i
+        ),
+      }));
+    } else {
+      // Insert new item
+      const { data } = await supabase
+        .from("grocery_list")
+        .insert({
+          user_id: user.id,
+          name: item.name,
+          amount: item.amount,
+          unit: item.unit,
+          category: item.category || "Other",
+        })
+        .select()
+        .single();
+
+      if (data) {
+        const newItem = {
+          name: data.name,
+          amount: data.amount,
+          unit: data.unit,
+          category: data.category,
+          id: data.id,
+          isChecked: data.is_checked,
+        };
+        set((state) => ({ groceryList: [newItem, ...state.groceryList] }));
+      }
+    }
   },
 
   removeFromGroceryList: async (itemId) => {

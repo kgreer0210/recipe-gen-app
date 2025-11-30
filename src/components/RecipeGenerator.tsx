@@ -4,7 +4,13 @@ import { useState, useEffect } from "react";
 import { generateRecipe } from "@/lib/generator";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/hooks/useAuth";
-import { CuisineType, MealType, ProteinType, Recipe } from "@/types";
+import {
+  CuisineType,
+  MealType,
+  ProteinType,
+  Recipe,
+  proteinCuts,
+} from "@/types";
 import Link from "next/link";
 import { Loader2, ChefHat, ArrowRight, Check, Lock } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -29,19 +35,15 @@ const cuisines: CuisineType[] = [
 ];
 const meals: MealType[] = ["Breakfast", "Lunch", "Dinner", "Snack"];
 const proteins: ProteinType[] = [
-  "Ground Beef",
   "Chicken",
-  "Pork",
-  "Tofu",
-  "Fish",
-  "Beans",
-  "Lentils",
   "Beef",
-  "Shrimp",
+  "Pork",
   "Lamb",
   "Turkey",
+  "Fish",
+  "Tofu",
+  "Beans",
   "Eggs",
-  "Salmon",
   "None",
 ];
 
@@ -49,7 +51,8 @@ export default function RecipeGenerator() {
   const [step, setStep] = useState(0);
   const [cuisine, setCuisine] = useState<CuisineType>("Indian");
   const [meal, setMeal] = useState<MealType>("Breakfast");
-  const [protein, setProtein] = useState<ProteinType>("Ground Beef");
+  const [protein, setProtein] = useState<ProteinType>("Chicken");
+  const [proteinCut, setProteinCut] = useState<string>("Any cut");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [generatedRecipe, setGeneratedRecipe] = useState<Recipe | null>(null);
@@ -58,7 +61,16 @@ export default function RecipeGenerator() {
   const [direction, setDirection] = useState(0);
   const [isBlocked, setIsBlocked] = useState(false);
   const [checkingLimit, setCheckingLimit] = useState(true);
-  const [servings, setServings] = useState(1);
+  const [servingsInput, setServingsInput] = useState("1");
+
+  // Check if current protein has cuts available
+  const hasCuts = protein in proteinCuts;
+  const availableCuts = hasCuts ? proteinCuts[protein] : [];
+
+  // Calculate total steps and review step index dynamically
+  const totalSteps = hasCuts ? 5 : 4;
+  const reviewStepIndex = hasCuts ? 4 : 3;
+  const resultStepIndex = hasCuts ? 5 : 4;
 
   const { subscription } = useAuth();
   const saveRecipe = useStore((state) => state.saveRecipe);
@@ -91,7 +103,10 @@ export default function RecipeGenerator() {
     setShowGroceryPopup(false);
     setShowLimitPopup(false);
     try {
-      const recipe = await generateRecipe(cuisine, meal, protein);
+      // Pass the cut only if it's not "Any cut"
+      const cutToSend =
+        hasCuts && proteinCut !== "Any cut" ? proteinCut : undefined;
+      const recipe = await generateRecipe(cuisine, meal, protein, cutToSend);
       setGeneratedRecipe(recipe);
       nextStep();
     } catch (error: any) {
@@ -126,12 +141,30 @@ export default function RecipeGenerator() {
 
   const handleGroceryDecision = (addToGrocery: boolean) => {
     if (addToGrocery && generatedRecipe) {
-      addToGroceryList(generatedRecipe.id, servings);
+      addToGroceryList(generatedRecipe.id, parseInt(servingsInput) || 1);
     }
     setStep(0);
     setGeneratedRecipe(null);
     setShowGroceryPopup(false);
-    setServings(1); // Reset servings
+    setServingsInput("1"); // Reset servings
+    setProteinCut("Any cut"); // Reset protein cut
+  };
+
+  // Handle protein selection - reset cut when protein changes
+  const handleProteinSelect = (newProtein: ProteinType) => {
+    setProtein(newProtein);
+    setProteinCut("Any cut"); // Reset to default when protein changes
+  };
+
+  // Handle next step from protein selection - skip cut step if no cuts available
+  const handleProteinNext = () => {
+    if (protein in proteinCuts) {
+      nextStep(); // Go to cut selection step
+    } else {
+      // Skip cut step, go directly to review
+      setDirection(1);
+      setStep(reviewStepIndex);
+    }
   };
 
   const nextStep = () => {
@@ -184,10 +217,11 @@ export default function RecipeGenerator() {
             key={option}
             onClick={() => onSelect(option)}
             className={`p-4 rounded-xl border-2 transition-all duration-200 flex flex-col items-center justify-center gap-2
-                            ${selected === option
-                ? "border-blue-600 bg-blue-50 text-blue-700 shadow-md scale-105"
-                : "border-gray-100 bg-white text-gray-600 hover:border-blue-200 hover:bg-gray-50"
-              }`}
+                            ${
+                              selected === option
+                                ? "border-blue-600 bg-blue-50 text-blue-700 shadow-md scale-105"
+                                : "border-gray-100 bg-white text-gray-600 hover:border-blue-200 hover:bg-gray-50"
+                            }`}
           >
             <span className="font-medium">{option}</span>
             {selected === option && <Check className="w-4 h-4" />}
@@ -255,7 +289,7 @@ export default function RecipeGenerator() {
         <motion.div
           className="h-full bg-blue-600"
           initial={{ width: "0%" }}
-          animate={{ width: `${((step + 1) / 5) * 100}%` }}
+          animate={{ width: `${((step + 1) / totalSteps) * 100}%` }}
           transition={{ duration: 0.3 }}
         />
       </div>
@@ -333,13 +367,37 @@ export default function RecipeGenerator() {
                 title="Choose your protein"
                 options={proteins}
                 selected={protein}
-                onSelect={setProtein}
+                onSelect={handleProteinSelect}
+                onNext={handleProteinNext}
+              />
+            </motion.div>
+          )}
+
+          {step === 3 && hasCuts && availableCuts && (
+            <motion.div
+              key="protein-cut"
+              custom={direction}
+              variants={variants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{
+                x: { type: "spring", stiffness: 300, damping: 30 },
+                opacity: { duration: 0.2 },
+              }}
+              className="absolute inset-0 overflow-y-auto px-8 py-4"
+            >
+              <StepCard
+                title={`What type of ${protein.toLowerCase()}?`}
+                options={availableCuts}
+                selected={proteinCut}
+                onSelect={setProteinCut}
                 onNext={nextStep}
               />
             </motion.div>
           )}
 
-          {step === 3 && (
+          {step === reviewStepIndex && (
             <motion.div
               key="review"
               custom={direction}
@@ -367,16 +425,22 @@ export default function RecipeGenerator() {
                 </div>
                 <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex justify-between items-center">
                   <span className="text-gray-500">Protein</span>
-                  <span className="font-semibold text-gray-800">{protein}</span>
+                  <span className="font-semibold text-gray-800">
+                    {protein}
+                    {hasCuts && proteinCut !== "Any cut"
+                      ? ` - ${proteinCut}`
+                      : ""}
+                  </span>
                 </div>
               </div>
 
               {error && (
                 <div
-                  className={`p-4 mb-6 rounded-xl border flex gap-3 ${error.includes("daily recipe limit")
+                  className={`p-4 mb-6 rounded-xl border flex gap-3 ${
+                    error.includes("daily recipe limit")
                       ? "bg-orange-50 border-orange-100 text-orange-800"
                       : "bg-red-50 border-red-100 text-red-600"
-                    }`}
+                  }`}
                 >
                   {error.includes("daily recipe limit") ? (
                     <>
@@ -414,7 +478,7 @@ export default function RecipeGenerator() {
             </motion.div>
           )}
 
-          {step === 4 && generatedRecipe && (
+          {step === resultStepIndex && generatedRecipe && (
             <motion.div
               key="result"
               custom={direction}
@@ -483,7 +547,8 @@ export default function RecipeGenerator() {
                       </p>
                     </div>
                     <p className="text-sm text-orange-700 mb-4 text-center">
-                      Free users can only save 20 recipes. Upgrade to save unlimited recipes!
+                      Free users can only save 20 recipes. Upgrade to save
+                      unlimited recipes!
                     </p>
 
                     <div className="flex gap-2">
@@ -513,7 +578,10 @@ export default function RecipeGenerator() {
                     <div className="flex items-center justify-center gap-3 mb-4">
                       <span className="text-sm text-blue-700">For</span>
                       <button
-                        onClick={() => setServings(Math.max(1, servings - 1))}
+                        onClick={() => {
+                          const current = parseInt(servingsInput) || 1;
+                          setServingsInput(String(Math.max(1, current - 1)));
+                        }}
                         className="w-10 h-10 rounded-full border border-blue-200 flex items-center justify-center text-blue-600 hover:bg-blue-100 transition-colors"
                       >
                         -
@@ -522,16 +590,30 @@ export default function RecipeGenerator() {
                         type="number"
                         min="1"
                         max="20"
-                        value={servings}
-                        onChange={(e) =>
-                          setServings(
-                            Math.max(1, parseInt(e.target.value) || 1)
-                          )
-                        }
+                        value={servingsInput}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          // Allow empty string or valid numbers 1-20
+                          if (
+                            value === "" ||
+                            (/^\d+$/.test(value) && parseInt(value) <= 20)
+                          ) {
+                            setServingsInput(value);
+                          }
+                        }}
+                        onBlur={() => {
+                          const num = parseInt(servingsInput);
+                          if (!servingsInput || isNaN(num) || num < 1) {
+                            setServingsInput("1");
+                          }
+                        }}
                         className="w-16 text-center text-2xl font-bold text-blue-600 border-none focus:ring-0 p-0 no-spinner"
                       />
                       <button
-                        onClick={() => setServings(Math.min(20, servings + 1))}
+                        onClick={() => {
+                          const current = parseInt(servingsInput) || 1;
+                          setServingsInput(String(Math.min(20, current + 1)));
+                        }}
                         className="w-10 h-10 rounded-full border border-blue-200 flex items-center justify-center text-blue-600 hover:bg-blue-100 transition-colors"
                       >
                         +
@@ -560,6 +642,7 @@ export default function RecipeGenerator() {
                     setStep(0);
                     setGeneratedRecipe(null);
                     setShowLimitPopup(false);
+                    setProteinCut("Any cut");
                   }}
                   className="w-full py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors"
                 >
