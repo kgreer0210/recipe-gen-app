@@ -13,6 +13,15 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Check if user is admin
+    if (process.env.ADMIN_USER_ID && user.id === process.env.ADMIN_USER_ID) {
+      return NextResponse.json({
+        remaining: 9999,
+        limit: 9999,
+        isBlocked: false,
+      });
+    }
+
     const admin = createAdminClient();
 
     // Check for active subscription

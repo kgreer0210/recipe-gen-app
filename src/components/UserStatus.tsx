@@ -23,8 +23,17 @@ export default function UserStatus({ onAction }: { onAction?: () => void }) {
 
   const handleSignOut = async () => {
     onAction?.();
-    await supabase.auth.signOut();
-    router.refresh();
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error("Sign out error:", error);
+        return;
+      }
+      router.push("/");
+      router.refresh();
+    } catch (error) {
+      console.error("Sign out failed:", error);
+    }
   };
 
   const handleManageSubscription = async () => {
