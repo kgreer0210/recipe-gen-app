@@ -8,7 +8,7 @@ import { useSignOut } from "@/hooks/useSignOut";
 
 export default function UserStatus({ onAction }: { onAction?: () => void }) {
   const { user, subscription, loading } = useAuth();
-  const { mutate: signOut } = useSignOut();
+  const { mutateAsync: signOut } = useSignOut();
   const [portalLoading, setPortalLoading] = useState(false);
 
   const handleSignOut = async (e: React.MouseEvent) => {
@@ -16,10 +16,12 @@ export default function UserStatus({ onAction }: { onAction?: () => void }) {
     e.stopPropagation();
     console.log("Sign out clicked");
 
-    // Call onAction first if it exists (e.g. close mobile menu)
-    onAction?.();
-
-    signOut();
+    try {
+      await signOut();
+    } finally {
+      // Call onAction after sign out (e.g. close mobile menu)
+      onAction?.();
+    }
   };
 
   const handleManageSubscription = async () => {
