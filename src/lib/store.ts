@@ -105,16 +105,21 @@ export const useStore = create<AppState>((set, get) => ({
       .insert({
         user_id: user.id,
         title: recipe.title,
-        cuisine: recipe.tags?.cuisine,
-        meal_type: recipe.tags?.meal,
+        cuisine: recipe.tags?.cuisine || "Other",
+        meal_type: recipe.tags?.meal || "Dinner",
         prep_time: recipe.prepTime,
         cook_time: recipe.cookTime,
-        protein: recipe.tags?.protein,
+        protein: recipe.tags?.protein || "None",
         ingredients: recipe.ingredients,
         instructions: recipe.instructions,
       })
       .select()
       .single();
+
+    if (error) {
+      console.error("Failed to save recipe:", error);
+      return null;
+    }
 
     if (data) {
       const newRecipe = {

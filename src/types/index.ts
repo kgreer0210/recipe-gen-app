@@ -17,14 +17,14 @@ export interface Subscription {
   id: string;
   user_id: string;
   status:
-    | "active"
-    | "trialing"
-    | "past_due"
-    | "canceled"
-    | "unpaid"
-    | "incomplete"
-    | "incomplete_expired"
-    | "paused";
+  | "active"
+  | "trialing"
+  | "past_due"
+  | "canceled"
+  | "unpaid"
+  | "incomplete"
+  | "incomplete_expired"
+  | "paused";
   price_id: string;
 }
 
@@ -106,10 +106,10 @@ export const proteinCuts: Partial<Record<ProteinType, string[]>> = {
   ],
   Lamb: ["Any cut", "Chops", "Leg", "Ground", "Shoulder"],
   Turkey: ["Any cut", "Breast", "Ground", "Whole"],
-  Fish: ["Any cut", "Salmon", "Tuna", "Cod", "Shrimp", "Tilapia"],
-  Tofu: ["Any cut", "Tofu", "Tempeh", "Seitan"],
+  Fish: ["Any Fish", "Salmon", "Tuna", "Cod", "Shrimp", "Tilapia"],
+  Tofu: ["Any Tofu", "Tofu", "Tempeh", "Seitan"],
   Beans: [
-    "Any cut",
+    "Any Beans",
     "Beans",
     "Lentils",
     "Chickpeas",
@@ -117,3 +117,18 @@ export const proteinCuts: Partial<Record<ProteinType, string[]>> = {
     "Pinto Beans",
   ],
 };
+
+export interface GenerateRecipeRequest {
+  mode: "classic" | "pantry";
+  cuisine?: CuisineType;
+  meal?: MealType;
+  protein?: ProteinType;
+  proteinCut?: string;
+  ingredients?: string[];
+  dietaryPreferences?: string[];
+}
+
+export interface RefineRecipeRequest {
+  currentRecipe: Recipe;
+  instructions: string;
+}

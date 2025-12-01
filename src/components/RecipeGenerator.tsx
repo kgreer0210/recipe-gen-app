@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { generateRecipe } from "@/lib/generator";
+import { generateRecipe, refineRecipe } from "@/lib/generator";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -48,12 +48,26 @@ const proteins: ProteinType[] = [
   "None",
 ];
 
+const dietaryPreferencesList = [
+  "Vegetarian",
+  "Vegan",
+  "Gluten-Free",
+  "Dairy-Free",
+  "Nut-Free",
+  "Low-Carb",
+  "Keto",
+  "Paleo",
+];
+
 export default function RecipeGenerator() {
+  const [mode, setMode] = useState<"classic" | "pantry">("classic");
+  const [ingredientsInput, setIngredientsInput] = useState("");
   const [step, setStep] = useState(0);
   const [cuisine, setCuisine] = useState<CuisineType>("Indian");
   const [meal, setMeal] = useState<MealType>("Breakfast");
   const [protein, setProtein] = useState<ProteinType>("Chicken");
   const [proteinCut, setProteinCut] = useState<string>("Any cut");
+  const [dietaryPreferences, setDietaryPreferences] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [generatedRecipe, setGeneratedRecipe] = useState<Recipe | null>(null);
@@ -63,15 +77,19 @@ export default function RecipeGenerator() {
   const [isBlocked, setIsBlocked] = useState(false);
   const [checkingLimit, setCheckingLimit] = useState(true);
   const [servingsInput, setServingsInput] = useState("1");
+  const [refinementInput, setRefinementInput] = useState("");
+  const [isRefining, setIsRefining] = useState(false);
+  const [refinementCount, setRefinementCount] = useState(0);
+  const [refinementHistory, setRefinementHistory] = useState<string[]>([]);
 
   // Check if current protein has cuts available
   const hasCuts = protein in proteinCuts;
   const availableCuts = hasCuts ? proteinCuts[protein] : [];
 
   // Calculate total steps and review step index dynamically
-  const totalSteps = hasCuts ? 5 : 4;
-  const reviewStepIndex = hasCuts ? 4 : 3;
-  const resultStepIndex = hasCuts ? 5 : 4;
+  const totalSteps = mode === "classic" ? (hasCuts ? 6 : 5) : 3;
+  const reviewStepIndex = mode === "classic" ? (hasCuts ? 5 : 4) : 2;
+  const resultStepIndex = mode === "classic" ? (hasCuts ? 6 : 5) : 3;
 
   const router = useRouter();
   const { user, subscription } = useAuth();
@@ -105,11 +123,33 @@ export default function RecipeGenerator() {
     setShowGroceryPopup(false);
     setShowLimitPopup(false);
     try {
-      // Pass the cut only if it's not "Any cut"
-      const cutToSend =
-        hasCuts && proteinCut !== "Any cut" ? proteinCut : undefined;
-      const recipe = await generateRecipe(cuisine, meal, protein, cutToSend);
-      setGeneratedRecipe(recipe);
+      if (mode === "classic") {
+        // Pass the cut only if it's not "Any cut"
+        const cutToSend =
+          hasCuts && proteinCut !== "Any cut" ? proteinCut : undefined;
+        const recipe = await generateRecipe({
+          mode: "classic",
+          cuisine,
+          meal,
+          protein,
+          proteinCut: cutToSend,
+          dietaryPreferences,
+        });
+        setGeneratedRecipe(recipe);
+      } else {
+        // Pantry Mode
+        const ingredientsList = ingredientsInput
+          .split(",")
+          .map((i) => i.trim())
+          .filter((i) => i.length > 0);
+
+        const recipe = await generateRecipe({
+          mode: "pantry",
+          ingredients: ingredientsList,
+          dietaryPreferences,
+        });
+        setGeneratedRecipe(recipe);
+      }
       nextStep();
     } catch (error: any) {
       console.error("Failed to generate recipe", error);
@@ -119,6 +159,38 @@ export default function RecipeGenerator() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRefine = async () => {
+    if (!generatedRecipe || !refinementInput.trim()) return;
+
+    // Check subscription status for refinement limit
+    const isSubscriber =
+      subscription?.status === "active" || subscription?.status === "trialing";
+
+    if (!isSubscriber && refinementCount >= 2) {
+      setShowLimitPopup(true);
+      return;
+    }
+
+    setIsRefining(true);
+    setError(null);
+
+    try {
+      const refinedRecipe = await refineRecipe(
+        generatedRecipe,
+        refinementInput
+      );
+      setGeneratedRecipe(refinedRecipe);
+      setRefinementHistory((prev) => [...prev, refinementInput]);
+      setRefinementCount((prev) => prev + 1);
+      setRefinementInput("");
+    } catch (error: any) {
+      console.error("Failed to refine recipe", error);
+      setError(error.message || "Failed to refine recipe. Please try again.");
+    } finally {
+      setIsRefining(false);
     }
   };
 
@@ -156,6 +228,8 @@ export default function RecipeGenerator() {
     setShowGroceryPopup(false);
     setServingsInput("1"); // Reset servings
     setProteinCut("Any cut"); // Reset protein cut
+    setIngredientsInput(""); // Reset ingredients
+    setDietaryPreferences([]); // Reset preferences
   };
 
   // Handle protein selection - reset cut when protein changes
@@ -183,6 +257,12 @@ export default function RecipeGenerator() {
   const prevStep = () => {
     setDirection(-1);
     setStep((prev) => prev - 1);
+  };
+
+  const togglePreference = (pref: string) => {
+    setDietaryPreferences((prev) =>
+      prev.includes(pref) ? prev.filter((p) => p !== pref) : [...prev, pref]
+    );
   };
 
   const variants = {
@@ -233,6 +313,39 @@ export default function RecipeGenerator() {
           >
             <span className="font-medium">{option}</span>
             {selected === option && <Check className="w-4 h-4" />}
+          </button>
+        ))}
+      </div>
+      <div className="flex justify-end">
+        <button
+          onClick={onNext}
+          className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-full font-semibold shadow-lg hover:bg-blue-700 transition-all hover:scale-105 active:scale-95"
+        >
+          Next <ArrowRight className="w-5 h-5" />
+        </button>
+      </div>
+    </div>
+  );
+
+  const PreferencesStep = ({ onNext }: { onNext: () => void }) => (
+    <div className="w-full">
+      <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
+        Any dietary preferences?
+      </h2>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
+        {dietaryPreferencesList.map((pref) => (
+          <button
+            key={pref}
+            onClick={() => togglePreference(pref)}
+            className={`p-3 rounded-xl border-2 transition-all duration-200 flex items-center justify-center gap-2 text-sm
+                            ${
+                              dietaryPreferences.includes(pref)
+                                ? "border-blue-600 bg-blue-50 text-blue-700 shadow-md"
+                                : "border-gray-100 bg-white text-gray-600 hover:border-blue-200 hover:bg-gray-50"
+                            }`}
+          >
+            {dietaryPreferences.includes(pref) && <Check className="w-3 h-3" />}
+            <span className="font-medium">{pref}</span>
           </button>
         ))}
       </div>
@@ -302,14 +415,41 @@ export default function RecipeGenerator() {
         />
       </div>
 
-      <div className="flex items-center justify-center gap-2 py-6 bg-white/50 backdrop-blur-sm z-10 border-b border-white/20">
-        <ChefHat className="w-8 h-8 text-blue-600" />
-        <h1 className="text-xl font-bold text-gray-800">Mise AI</h1>
+      <div className="flex flex-col sm:flex-row items-center justify-between px-6 py-6 bg-white/50 backdrop-blur-sm z-10 border-b border-white/20 gap-4">
+        <div className="flex items-center gap-2">
+          <ChefHat className="w-8 h-8 text-blue-600" />
+          <h1 className="text-xl font-bold text-gray-800">Mise AI</h1>
+        </div>
+
+        {step === 0 && (
+          <div className="flex bg-gray-100 p-1 rounded-lg">
+            <button
+              onClick={() => setMode("classic")}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                mode === "classic"
+                  ? "bg-white text-blue-600 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              Classic
+            </button>
+            <button
+              onClick={() => setMode("pantry")}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                mode === "pantry"
+                  ? "bg-white text-blue-600 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              Pantry
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="relative flex-1 w-full overflow-hidden">
         <AnimatePresence mode="wait" custom={direction}>
-          {step === 0 && (
+          {step === 0 && mode === "classic" && (
             <motion.div
               key="cuisine"
               custom={direction}
@@ -333,7 +473,68 @@ export default function RecipeGenerator() {
             </motion.div>
           )}
 
-          {step === 1 && (
+          {step === 0 && mode === "pantry" && (
+            <motion.div
+              key="pantry-input"
+              custom={direction}
+              variants={variants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{
+                x: { type: "spring", stiffness: 300, damping: 30 },
+                opacity: { duration: 0.2 },
+              }}
+              className="absolute inset-0 overflow-y-auto px-8 py-4 flex flex-col"
+            >
+              <div className="w-full max-w-lg mx-auto flex-1 flex flex-col">
+                <h2 className="text-2xl font-bold text-gray-800 mb-2 text-center">
+                  What's in your pantry?
+                </h2>
+                <p className="text-gray-500 text-center mb-6">
+                  Enter ingredients you have on hand, separated by commas.
+                </p>
+
+                <textarea
+                  value={ingredientsInput}
+                  onChange={(e) => setIngredientsInput(e.target.value)}
+                  placeholder="e.g. chicken breast, broccoli, rice, soy sauce, garlic..."
+                  className="w-full h-40 p-4 rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 transition-all resize-none text-lg"
+                />
+
+                <div className="mt-8 flex justify-end">
+                  <button
+                    onClick={nextStep}
+                    disabled={!ingredientsInput.trim()}
+                    className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-full font-semibold shadow-lg hover:bg-blue-700 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100"
+                  >
+                    Next <ArrowRight className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Preferences Step - Pantry Mode */}
+          {step === 1 && mode === "pantry" && (
+            <motion.div
+              key="preferences-pantry"
+              custom={direction}
+              variants={variants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{
+                x: { type: "spring", stiffness: 300, damping: 30 },
+                opacity: { duration: 0.2 },
+              }}
+              className="absolute inset-0 overflow-y-auto px-8 py-4"
+            >
+              <PreferencesStep onNext={nextStep} />
+            </motion.div>
+          )}
+
+          {step === 1 && mode === "classic" && (
             <motion.div
               key="meal"
               custom={direction}
@@ -357,7 +558,7 @@ export default function RecipeGenerator() {
             </motion.div>
           )}
 
-          {step === 2 && (
+          {step === 2 && mode === "classic" && (
             <motion.div
               key="protein"
               custom={direction}
@@ -381,7 +582,7 @@ export default function RecipeGenerator() {
             </motion.div>
           )}
 
-          {step === 3 && hasCuts && availableCuts && (
+          {step === 3 && mode === "classic" && hasCuts && availableCuts && (
             <motion.div
               key="protein-cut"
               custom={direction}
@@ -405,6 +606,25 @@ export default function RecipeGenerator() {
             </motion.div>
           )}
 
+          {/* Preferences Step - Classic Mode */}
+          {step === (hasCuts ? 4 : 3) && mode === "classic" && (
+            <motion.div
+              key="preferences-classic"
+              custom={direction}
+              variants={variants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{
+                x: { type: "spring", stiffness: 300, damping: 30 },
+                opacity: { duration: 0.2 },
+              }}
+              className="absolute inset-0 overflow-y-auto px-8 py-4"
+            >
+              <PreferencesStep onNext={nextStep} />
+            </motion.div>
+          )}
+
           {step === reviewStepIndex && (
             <motion.div
               key="review"
@@ -422,25 +642,57 @@ export default function RecipeGenerator() {
               <h2 className="text-2xl font-bold text-gray-800 mb-8 text-center">
                 Review your choices
               </h2>
-              <div className="space-y-4 mb-8">
-                <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex justify-between items-center">
-                  <span className="text-gray-500">Cuisine</span>
-                  <span className="font-semibold text-gray-800">{cuisine}</span>
+
+              {mode === "classic" ? (
+                <div className="space-y-4 mb-8">
+                  <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex justify-between items-center">
+                    <span className="text-gray-500">Cuisine</span>
+                    <span className="font-semibold text-gray-800">
+                      {cuisine}
+                    </span>
+                  </div>
+                  <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex justify-between items-center">
+                    <span className="text-gray-500">Meal</span>
+                    <span className="font-semibold text-gray-800">{meal}</span>
+                  </div>
+                  <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex justify-between items-center">
+                    <span className="text-gray-500">Protein</span>
+                    <span className="font-semibold text-gray-800">
+                      {protein}
+                      {hasCuts && proteinCut !== "Any cut"
+                        ? ` - ${proteinCut}`
+                        : ""}
+                    </span>
+                  </div>
                 </div>
-                <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex justify-between items-center">
-                  <span className="text-gray-500">Meal</span>
-                  <span className="font-semibold text-gray-800">{meal}</span>
+              ) : (
+                <div className="space-y-4 mb-8">
+                  <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                    <span className="text-gray-500 block mb-2">
+                      Ingredients
+                    </span>
+                    <p className="font-semibold text-gray-800">
+                      {ingredientsInput}
+                    </p>
+                  </div>
                 </div>
-                <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex justify-between items-center">
-                  <span className="text-gray-500">Protein</span>
-                  <span className="font-semibold text-gray-800">
-                    {protein}
-                    {hasCuts && proteinCut !== "Any cut"
-                      ? ` - ${proteinCut}`
-                      : ""}
-                  </span>
+              )}
+
+              {dietaryPreferences.length > 0 && (
+                <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm mb-8">
+                  <span className="text-gray-500 block mb-2">Preferences</span>
+                  <div className="flex flex-wrap gap-2">
+                    {dietaryPreferences.map((pref) => (
+                      <span
+                        key={pref}
+                        className="px-3 py-1 bg-green-50 text-green-700 rounded-full text-sm font-medium"
+                      >
+                        {pref}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {error && (
                 <div
@@ -536,6 +788,57 @@ export default function RecipeGenerator() {
                     ))}
                   </ul>
                 </div>
+
+                <div className="bg-white rounded-xl border border-gray-100 p-6 mb-6 shadow-sm">
+                  <h4 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                    <span className="w-1 h-6 bg-blue-600 rounded-full"></span>
+                    Refine Recipe
+                  </h4>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={refinementInput}
+                      onChange={(e) => setRefinementInput(e.target.value)}
+                      placeholder="e.g. Make it spicy, swap chicken for tofu..."
+                      className="flex-1 px-4 py-2 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-50 outline-none transition-all"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !isRefining) {
+                          handleRefine();
+                        }
+                      }}
+                    />
+                    <button
+                      onClick={handleRefine}
+                      disabled={isRefining || !refinementInput.trim()}
+                      className="px-4 py-2 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      {isRefining ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        "Refine"
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {refinementHistory.length > 0 && (
+                  <div className="mb-6">
+                    <h4 className="font-semibold text-gray-700 mb-2 text-sm">
+                      Refinement History
+                    </h4>
+                    <div className="space-y-2">
+                      {refinementHistory.map((history, index) => (
+                        <div
+                          key={index}
+                          className="bg-gray-50 border border-gray-100 rounded-lg p-3 text-sm text-gray-600 flex items-start gap-2"
+                        >
+                          <span className="mt-1 w-1.5 h-1.5 bg-blue-400 rounded-full shrink-0"></span>
+                          <span>{history}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="p-6 bg-white/80 backdrop-blur-md border-t border-gray-100 space-y-3 z-10">
@@ -550,13 +853,11 @@ export default function RecipeGenerator() {
                   <div className="p-4 bg-orange-50 border border-orange-200 rounded-xl animate-in fade-in zoom-in-95 duration-200">
                     <div className="flex items-center justify-center gap-2 mb-3">
                       <Lock className="w-5 h-5 text-orange-600" />
-                      <p className="text-orange-800 font-bold">
-                        Collection Full
-                      </p>
+                      <p className="text-orange-800 font-bold">Limit Reached</p>
                     </div>
                     <p className="text-sm text-orange-700 mb-4 text-center">
-                      Free users can only save 20 recipes. Upgrade to save
-                      unlimited recipes!
+                      Free users can only refine a recipe 2 times. Upgrade to
+                      unlock unlimited refinements!
                     </p>
 
                     <div className="flex gap-2">
@@ -651,6 +952,8 @@ export default function RecipeGenerator() {
                     setGeneratedRecipe(null);
                     setShowLimitPopup(false);
                     setProteinCut("Any cut");
+                    setIngredientsInput("");
+                    setDietaryPreferences([]);
                   }}
                   className="w-full py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors"
                 >
