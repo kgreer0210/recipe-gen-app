@@ -1,7 +1,8 @@
 "use client";
 
-import { useStore } from "@/lib/store";
 import { useAuth } from "@/hooks/useAuth";
+import { useRecipes, useRemoveRecipe } from "@/hooks/useRecipes";
+import { useWeeklyPlan, useAddToWeeklyPlan } from "@/hooks/useWeeklyPlan";
 import { Trash2, Clock, Calendar, Check } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -9,8 +10,10 @@ import { useRouter } from "next/navigation";
 export default function SavedRecipes() {
   const router = useRouter();
   const { user } = useAuth();
-  const { savedRecipes, removeRecipe, addToWeeklyPlan, weeklyPlan } =
-    useStore();
+  const { data: savedRecipes = [] } = useRecipes();
+  const { mutate: removeRecipe } = useRemoveRecipe();
+  const { data: weeklyPlan = [] } = useWeeklyPlan();
+  const { mutate: addToWeeklyPlan } = useAddToWeeklyPlan();
 
   // Auth check helper
   const requireAuth = (action: () => void) => {
@@ -55,11 +58,10 @@ export default function SavedRecipes() {
                         }
                       });
                     }}
-                    className={`p-2 rounded-full transition-all ${
-                      weeklyPlan.some((r) => r.id === recipe.id)
-                        ? "bg-green-100 text-green-600"
-                        : "bg-gray-100 text-gray-400 hover:text-blue-600 hover:bg-blue-50"
-                    }`}
+                    className={`p-2 rounded-full transition-all ${weeklyPlan.some((r) => r.id === recipe.id)
+                      ? "bg-green-100 text-green-600"
+                      : "bg-gray-100 text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                      }`}
                     title={
                       weeklyPlan.some((r) => r.id === recipe.id)
                         ? "In Weekly Plan"
@@ -109,7 +111,7 @@ export default function SavedRecipes() {
                   <p className="line-clamp-1">
                     {recipe.ingredients
                       .slice(0, 3)
-                      .map((i) => i.name)
+                      .map((i: any) => i.name)
                       .join(", ")}
                     {recipe.ingredients.length > 3 && "..."}
                   </p>
@@ -122,3 +124,4 @@ export default function SavedRecipes() {
     </div>
   );
 }
+

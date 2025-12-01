@@ -1,6 +1,14 @@
 "use client";
 
-import { useStore } from "@/lib/store";
+import {
+  useGroceryList,
+  useToggleGroceryItem,
+  useRemoveFromGroceryList,
+  useClearGathered,
+  useSelectAllGroceryItems,
+  useRemoveIngredientsForRecipe,
+  useAddCustomGroceryItem,
+} from "@/hooks/useGroceryList";
 import { useAuth } from "@/hooks/useAuth";
 import { Unit } from "@/types";
 import {
@@ -48,15 +56,13 @@ const CATEGORIES = [
 export default function GroceryList() {
   const router = useRouter();
   const { user } = useAuth();
-  const {
-    groceryList,
-    toggleGroceryItem,
-    removeFromGroceryList,
-    clearGathered,
-    selectAllGroceryItems,
-    removeIngredientsForRecipe,
-    addCustomGroceryItem,
-  } = useStore();
+  const { data: groceryList = [] } = useGroceryList();
+  const { mutate: toggleGroceryItem } = useToggleGroceryItem();
+  const { mutate: removeFromGroceryList } = useRemoveFromGroceryList();
+  const { mutate: clearGathered } = useClearGathered();
+  const { mutate: selectAllGroceryItems } = useSelectAllGroceryItems();
+  const { mutate: removeIngredientsForRecipe } = useRemoveIngredientsForRecipe();
+  const { mutateAsync: addCustomGroceryItem } = useAddCustomGroceryItem();
   const [isRecipeSelectorOpen, setIsRecipeSelectorOpen] = useState(false);
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
@@ -339,11 +345,10 @@ export default function GroceryList() {
           {/* Copy to clipboard */}
           <button
             onClick={copyToClipboard}
-            className={`p-2 rounded-lg transition-all ${
-              copied
-                ? "text-green-600 bg-green-50"
-                : "text-gray-500 hover:bg-gray-100"
-            }`}
+            className={`p-2 rounded-lg transition-all ${copied
+              ? "text-green-600 bg-green-50"
+              : "text-gray-500 hover:bg-gray-100"
+              }`}
             title="Copy list to clipboard"
           >
             {copied ? (
@@ -369,7 +374,13 @@ export default function GroceryList() {
                   onClick={() => {
                     requireAuth(() => {
                       const allSelected = groceryList.every((i) => i.isChecked);
-                      selectAllGroceryItems(!allSelected);
+                      const ids = groceryList
+                        .map((i) => i.id)
+                        .filter((id): id is string => !!id);
+                      selectAllGroceryItems({
+                        ids,
+                        isChecked: !allSelected,
+                      });
                       setIsMoreMenuOpen(false);
                     });
                   }}
@@ -433,7 +444,10 @@ export default function GroceryList() {
                             className="flex items-center gap-3 cursor-pointer flex-1"
                             onClick={() =>
                               requireAuth(() =>
-                                toggleGroceryItem(item.id!, true)
+                                toggleGroceryItem({
+                                  itemId: item.id!,
+                                  isChecked: true,
+                                })
                               )
                             }
                           >
@@ -485,7 +499,10 @@ export default function GroceryList() {
                             className="flex items-center gap-3 cursor-pointer flex-1"
                             onClick={() =>
                               requireAuth(() =>
-                                toggleGroceryItem(item.id!, true)
+                                toggleGroceryItem({
+                                  itemId: item.id!,
+                                  isChecked: true,
+                                })
                               )
                             }
                           >
@@ -526,7 +543,16 @@ export default function GroceryList() {
                 Gathered ({gatheredItems.length})
               </h3>
               <button
-                onClick={() => requireAuth(() => clearGathered())}
+                onClick={() =>
+                  requireAuth(() =>
+                    clearGathered(
+                      groceryList
+                        .filter((i) => i.isChecked)
+                        .map((i) => i.id)
+                        .filter((id): id is string => !!id)
+                    )
+                  )
+                }
                 className="text-xs font-medium text-red-500 hover:text-red-700 hover:underline transition-colors cursor-pointer px-2 py-1 rounded hover:bg-red-50"
               >
                 Clear Gathered
@@ -543,7 +569,12 @@ export default function GroceryList() {
                     <div
                       className="flex items-center gap-3 cursor-pointer flex-1"
                       onClick={() =>
-                        requireAuth(() => toggleGroceryItem(item.id!, false))
+                        requireAuth(() =>
+                          toggleGroceryItem({
+                            itemId: item.id!,
+                            isChecked: false,
+                          })
+                        )
                       }
                     >
                       <CheckSquare className="w-5 h-5 text-green-600" />
@@ -581,8 +612,10 @@ export default function GroceryList() {
       <RecipeSelector
         isOpen={isRecipeSelectorOpen}
         onClose={() => setIsRecipeSelectorOpen(false)}
-        onSelect={(recipeId, servings) =>
-          requireAuth(() => removeIngredientsForRecipe(recipeId, servings))
+        onSelect={(recipe, servings) =>
+          requireAuth(() =>
+            removeIngredientsForRecipe({ recipe, servings })
+          )
         }
         title="Remove Ingredients from List"
       />

@@ -1,23 +1,15 @@
 "use client";
 
-import { useStore } from "@/lib/store";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { LogOut, User as UserIcon, CreditCard, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { createClient } from "@/lib/supabase/client";
+import { useSignOut } from "@/hooks/useSignOut";
 
 export default function UserStatus({ onAction }: { onAction?: () => void }) {
   const { user, subscription, loading } = useAuth();
-  const { fetchData } = useStore();
-  const [supabase] = useState(() => createClient());
+  const { mutate: signOut } = useSignOut();
   const [portalLoading, setPortalLoading] = useState(false);
-
-  useEffect(() => {
-    if (user) {
-      fetchData();
-    }
-  }, [user, subscription, loading, fetchData]);
 
   const handleSignOut = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -27,25 +19,7 @@ export default function UserStatus({ onAction }: { onAction?: () => void }) {
     // Call onAction first if it exists (e.g. close mobile menu)
     onAction?.();
 
-    try {
-      console.log("Calling supabase signOut");
-
-      // Create a timeout promise
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Sign out timed out")), 2500)
-      );
-
-      // Race Supabase signOut against the timeout
-      await Promise.race([supabase.auth.signOut(), timeoutPromise]);
-
-      console.log("Supabase signOut complete");
-    } catch (error) {
-      console.error("Sign out failed or timed out:", error);
-    } finally {
-      // Always redirect to home page to clear state
-      console.log("Redirecting to /");
-      window.location.href = "/";
-    }
+    signOut();
   };
 
   const handleManageSubscription = async () => {

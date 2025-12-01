@@ -1,11 +1,13 @@
 import React, { useState, useMemo } from "react";
-import { useStore } from "@/lib/store";
+import { useRecipes } from "@/hooks/useRecipes";
+import { useGroceryList } from "@/hooks/useGroceryList";
 import { X, ChefHat } from "lucide-react";
+import { Recipe } from "@/types";
 
 interface RecipeSelectorProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelect: (recipeId: string, servings: number) => void;
+  onSelect: (recipe: Recipe, servings: number) => void;
   title?: string;
 }
 
@@ -15,7 +17,8 @@ export default function RecipeSelector({
   onSelect,
   title = "Select a Recipe",
 }: RecipeSelectorProps) {
-  const { savedRecipes, groceryList } = useStore();
+  const { data: savedRecipes = [] } = useRecipes();
+  const { data: groceryList = [] } = useGroceryList();
   const [searchTerm, setSearchTerm] = useState("");
 
   if (!isOpen) return null;
@@ -27,7 +30,7 @@ export default function RecipeSelector({
       let hasIngredients = false;
 
       // Check if any ingredients are in the list
-      const ingredientsInList = recipe.ingredients.filter((ing) =>
+      const ingredientsInList = recipe.ingredients.filter((ing: any) =>
         groceryList.some(
           (item) =>
             item.name.toLowerCase() === ing.name.toLowerCase() &&
@@ -38,7 +41,7 @@ export default function RecipeSelector({
       if (ingredientsInList.length > 0) {
         hasIngredients = true;
         // Calculate theoretical max servings
-        const possibleServings = recipe.ingredients.map((ing) => {
+        const possibleServings = recipe.ingredients.map((ing: any) => {
           const item = groceryList.find(
             (i) =>
               i.name.toLowerCase() === ing.name.toLowerCase() &&
@@ -72,7 +75,7 @@ export default function RecipeSelector({
     }
 
     // Remove the max servings when the item is clicked
-    onSelect(recipe.id, recipe.maxServings);
+    onSelect(recipe, recipe.maxServings);
     onClose();
   };
 
@@ -114,11 +117,10 @@ export default function RecipeSelector({
                     <button
                       onClick={() => handleRecipeClick(recipe)}
                       disabled={!canRemove}
-                      className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left group ${
-                        canRemove
-                          ? "hover:bg-blue-50 cursor-pointer"
-                          : "opacity-50 cursor-not-allowed"
-                      }`}
+                      className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left group ${canRemove
+                        ? "hover:bg-blue-50 cursor-pointer"
+                        : "opacity-50 cursor-not-allowed"
+                        }`}
                       title={
                         !canRemove
                           ? "Not enough ingredients in grocery list to remove"
@@ -126,20 +128,18 @@ export default function RecipeSelector({
                       }
                     >
                       <div
-                        className={`p-2 rounded-lg transition-colors ${
-                          canRemove
-                            ? "bg-blue-100 text-blue-600 group-hover:bg-blue-200"
-                            : "bg-gray-100 text-gray-400"
-                        }`}
+                        className={`p-2 rounded-lg transition-colors ${canRemove
+                          ? "bg-blue-100 text-blue-600 group-hover:bg-blue-200"
+                          : "bg-gray-100 text-gray-400"
+                          }`}
                       >
                         <ChefHat className="w-5 h-5" />
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
                           <p
-                            className={`font-medium ${
-                              canRemove ? "text-gray-800" : "text-gray-500"
-                            }`}
+                            className={`font-medium ${canRemove ? "text-gray-800" : "text-gray-500"
+                              }`}
                           >
                             {recipe.title}
                           </p>

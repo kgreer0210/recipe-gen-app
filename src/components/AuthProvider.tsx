@@ -17,13 +17,15 @@ interface AuthContextType {
   subscription: Subscription | null;
   loading: boolean;
   refreshSubscription: () => Promise<void>;
+  supabase: ReturnType<typeof createClient>;
 }
 
 export const AuthContext = createContext<AuthContextType>({
   user: null,
   subscription: null,
   loading: true,
-  refreshSubscription: async () => {},
+  refreshSubscription: async () => { },
+  supabase: createClient(), // Default fallback, though provider should always override
 });
 
 interface AuthProviderProps {
@@ -78,11 +80,11 @@ export function AuthProvider({
       data: { subscription: authListener },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       const currentUser = session?.user ?? null;
-      
+
       // Only update if user actually changed to avoid unnecessary re-renders
       if (currentUser?.id !== user?.id) {
         setUser(currentUser);
-        
+
         if (currentUser) {
           // If logging in, fetch subscription
           const sub = await fetchSubscription(currentUser.id);
@@ -91,13 +93,13 @@ export function AuthProvider({
           // If logging out, clear subscription
           setSubscription(null);
         }
-        
+
         router.refresh(); // Refresh server components
       } else if (event === 'SIGNED_IN' && currentUser && !subscription) {
-         // Handle edge case where user is same but we might need to re-fetch subscription
-         // e.g. after initial hydration if something was missed, though unlikely with this pattern
-         const sub = await fetchSubscription(currentUser.id);
-         setSubscription(sub);
+        // Handle edge case where user is same but we might need to re-fetch subscription
+        // e.g. after initial hydration if something was missed, though unlikely with this pattern
+        const sub = await fetchSubscription(currentUser.id);
+        setSubscription(sub);
       }
     });
 
@@ -108,31 +110,31 @@ export function AuthProvider({
 
   // Sync state if props change (e.g. after server refresh)
   useEffect(() => {
-      // If the server passes down a new user/subscription (e.g. on navigation), sync it.
-      // Note: We check for equality to avoid loops, though simple strict equality might fail for objects.
-      // Using ID checks is safer.
-      if (initialUser?.id !== user?.id) {
-          setUser(initialUser);
-      }
-      // Ideally we would compare content of subscription but for now assume server is truth
-      // We'll avoid infinite loops by not depending on `user` or `subscription` state for this effect
-      // Just `initialUser` and `initialSubscription`.
-      // Actually, be careful here. If client has updated state (e.g. optimistic), we might not want to overwrite immediately unless sure.
-      // But since this is "initial" from server components, it usually represents the source of truth on navigation.
-      
-      // Simple approach: Trust the server prop updates when they change.
-      if (JSON.stringify(initialSubscription) !== JSON.stringify(subscription)) {
-          setSubscription(initialSubscription);
-      }
-      if ((initialUser?.id !== user?.id) || (initialUser === null && user !== null)) {
-           setUser(initialUser);
-      }
+    // If the server passes down a new user/subscription (e.g. on navigation), sync it.
+    // Note: We check for equality to avoid loops, though simple strict equality might fail for objects.
+    // Using ID checks is safer.
+    if (initialUser?.id !== user?.id) {
+      setUser(initialUser);
+    }
+    // Ideally we would compare content of subscription but for now assume server is truth
+    // We'll avoid infinite loops by not depending on `user` or `subscription` state for this effect
+    // Just `initialUser` and `initialSubscription`.
+    // Actually, be careful here. If client has updated state (e.g. optimistic), we might not want to overwrite immediately unless sure.
+    // But since this is "initial" from server components, it usually represents the source of truth on navigation.
+
+    // Simple approach: Trust the server prop updates when they change.
+    if (JSON.stringify(initialSubscription) !== JSON.stringify(subscription)) {
+      setSubscription(initialSubscription);
+    }
+    if ((initialUser?.id !== user?.id) || (initialUser === null && user !== null)) {
+      setUser(initialUser);
+    }
   }, [initialUser, initialSubscription]);
 
 
   return (
     <AuthContext.Provider
-      value={{ user, subscription, loading, refreshSubscription }}
+      value={{ user, subscription, loading, refreshSubscription, supabase }}
     >
       {children}
     </AuthContext.Provider>

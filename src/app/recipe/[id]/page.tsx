@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useStore } from '@/lib/store';
+import { useRecipes } from '@/hooks/useRecipes';
+import { useAddToGroceryList } from '@/hooks/useGroceryList';
 import { ArrowLeft, Clock, ChefHat, Utensils, ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
 import { Recipe } from '@/types';
@@ -10,19 +11,14 @@ import { Recipe } from '@/types';
 export default function RecipeDetailsPage() {
     const params = useParams();
     const router = useRouter();
-    const { savedRecipes, fetchData, addToGroceryList, isLoading } = useStore();
+    const { data: savedRecipes = [], isLoading } = useRecipes();
+    const { mutateAsync: addToGroceryList } = useAddToGroceryList();
     const [recipe, setRecipe] = useState<Recipe | null>(null);
     const [isAdding, setIsAdding] = useState(false);
     const [showServingsModal, setShowServingsModal] = useState(false);
     const [servings, setServings] = useState(1);
 
     const id = params.id as string;
-
-    useEffect(() => {
-        if (savedRecipes.length === 0) {
-            fetchData();
-        }
-    }, [fetchData, savedRecipes.length]);
 
     useEffect(() => {
         if (savedRecipes.length > 0) {
@@ -41,7 +37,7 @@ export default function RecipeDetailsPage() {
     const confirmAddToGrocery = async () => {
         if (!recipe) return;
         setIsAdding(true);
-        await addToGroceryList(recipe.id, servings);
+        await addToGroceryList({ recipe, servings });
         setIsAdding(false);
         setShowServingsModal(false);
         setServings(1); // Reset

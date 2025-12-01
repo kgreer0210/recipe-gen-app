@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { generateRecipe, refineRecipe } from "@/lib/generator";
-import { useStore } from "@/lib/store";
 import { useAuth } from "@/hooks/useAuth";
+import { useSaveRecipe, useRecipes } from "@/hooks/useRecipes";
+import { useAddToGroceryList } from "@/hooks/useGroceryList";
 import {
   CuisineType,
   MealType,
@@ -93,9 +94,9 @@ export default function RecipeGenerator() {
 
   const router = useRouter();
   const { user, subscription } = useAuth();
-  const saveRecipe = useStore((state) => state.saveRecipe);
-  const savedRecipes = useStore((state) => state.savedRecipes);
-  const addToGroceryList = useStore((state) => state.addToGroceryList);
+  const { mutateAsync: saveRecipe } = useSaveRecipe();
+  const { data: savedRecipes = [] } = useRecipes();
+  const { mutate: addToGroceryList } = useAddToGroceryList();
 
   useEffect(() => {
     const checkLimit = async () => {
@@ -221,7 +222,10 @@ export default function RecipeGenerator() {
 
   const handleGroceryDecision = (addToGrocery: boolean) => {
     if (addToGrocery && generatedRecipe) {
-      addToGroceryList(generatedRecipe.id, parseInt(servingsInput) || 1);
+      addToGroceryList({
+        recipe: generatedRecipe,
+        servings: parseInt(servingsInput) || 1,
+      });
     }
     setStep(0);
     setGeneratedRecipe(null);
@@ -305,11 +309,10 @@ export default function RecipeGenerator() {
             key={option}
             onClick={() => onSelect(option)}
             className={`p-4 rounded-xl border-2 transition-all duration-200 flex flex-col items-center justify-center gap-2
-                            ${
-                              selected === option
-                                ? "border-blue-600 bg-blue-50 text-blue-700 shadow-md scale-105"
-                                : "border-gray-100 bg-white text-gray-600 hover:border-blue-200 hover:bg-gray-50"
-                            }`}
+                            ${selected === option
+                ? "border-blue-600 bg-blue-50 text-blue-700 shadow-md scale-105"
+                : "border-gray-100 bg-white text-gray-600 hover:border-blue-200 hover:bg-gray-50"
+              }`}
           >
             <span className="font-medium">{option}</span>
             {selected === option && <Check className="w-4 h-4" />}
@@ -338,11 +341,10 @@ export default function RecipeGenerator() {
             key={pref}
             onClick={() => togglePreference(pref)}
             className={`p-3 rounded-xl border-2 transition-all duration-200 flex items-center justify-center gap-2 text-sm
-                            ${
-                              dietaryPreferences.includes(pref)
-                                ? "border-blue-600 bg-blue-50 text-blue-700 shadow-md"
-                                : "border-gray-100 bg-white text-gray-600 hover:border-blue-200 hover:bg-gray-50"
-                            }`}
+                            ${dietaryPreferences.includes(pref)
+                ? "border-blue-600 bg-blue-50 text-blue-700 shadow-md"
+                : "border-gray-100 bg-white text-gray-600 hover:border-blue-200 hover:bg-gray-50"
+              }`}
           >
             {dietaryPreferences.includes(pref) && <Check className="w-3 h-3" />}
             <span className="font-medium">{pref}</span>
@@ -425,21 +427,19 @@ export default function RecipeGenerator() {
           <div className="flex bg-gray-100 p-1 rounded-lg">
             <button
               onClick={() => setMode("classic")}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                mode === "classic"
-                  ? "bg-white text-blue-600 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${mode === "classic"
+                ? "bg-white text-blue-600 shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+                }`}
             >
               Classic
             </button>
             <button
               onClick={() => setMode("pantry")}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                mode === "pantry"
-                  ? "bg-white text-blue-600 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${mode === "pantry"
+                ? "bg-white text-blue-600 shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+                }`}
             >
               Pantry
             </button>
@@ -696,11 +696,10 @@ export default function RecipeGenerator() {
 
               {error && (
                 <div
-                  className={`p-4 mb-6 rounded-xl border flex gap-3 ${
-                    error.includes("daily recipe limit")
-                      ? "bg-orange-50 border-orange-100 text-orange-800"
-                      : "bg-red-50 border-red-100 text-red-600"
-                  }`}
+                  className={`p-4 mb-6 rounded-xl border flex gap-3 ${error.includes("daily recipe limit")
+                    ? "bg-orange-50 border-orange-100 text-orange-800"
+                    : "bg-red-50 border-red-100 text-red-600"
+                    }`}
                 >
                   {error.includes("daily recipe limit") ? (
                     <>
