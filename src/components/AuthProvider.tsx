@@ -8,6 +8,7 @@ import {
   useContext,
   useEffect,
   useState,
+  useRef,
   ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
@@ -46,6 +47,7 @@ export function AuthProvider({
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const [supabase] = useState(() => createClient());
+  const hydrationInFlight = useRef(false);
 
   const fetchSubscription = async (userId: string) => {
     try {
@@ -77,6 +79,7 @@ export function AuthProvider({
   // Hydrate client auth state on mount so queries run with a valid session.
   useEffect(() => {
     let isActive = true;
+    hydrationInFlight.current = true;
     const hydrate = async () => {
       setLoading(true);
       try {
@@ -101,6 +104,7 @@ export function AuthProvider({
           router.refresh();
         }
       } finally {
+        hydrationInFlight.current = false;
         if (isActive) {
           setLoading(false);
         }
@@ -139,7 +143,10 @@ export function AuthProvider({
         setSubscription(sub);
       }
 
-      setLoading(false);
+      // Avoid clearing loading during the initial hydration race
+      if (!hydrationInFlight.current) {
+        setLoading(false);
+      }
     });
 
     return () => {
@@ -165,11 +172,13 @@ export function AuthProvider({
     if (JSON.stringify(initialSubscription) !== JSON.stringify(subscription)) {
       setSubscription(initialSubscription);
     }
-    if ((initialUser?.id !== user?.id) || (initialUser === null && user !== null)) {
+    if (
+      initialUser?.id !== user?.id ||
+      (initialUser === null && user !== null)
+    ) {
       setUser(initialUser);
     }
   }, [initialUser, initialSubscription]);
-
 
   return (
     <AuthContext.Provider
@@ -179,4 +188,3 @@ export function AuthProvider({
     </AuthContext.Provider>
   );
 }
-
