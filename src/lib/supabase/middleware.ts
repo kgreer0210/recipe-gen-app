@@ -2,6 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function updateSession(request: NextRequest) {
+  console.log('[PROXY] Running for:', request.nextUrl.pathname);
+  
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -36,6 +38,8 @@ export async function updateSession(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  console.log('[PROXY] User found:', user ? user.id : 'null');
 
   if (
     !user &&
