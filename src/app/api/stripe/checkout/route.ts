@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { stripe } from '@/lib/stripe';
+import { getStripe } from '@/lib/stripe';
 import { createClient } from '@/lib/supabase/server';
 
 export async function POST(request: Request) {
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     // We can pass `customer_email` to prefill it. 
     // If we want to link the future webhook events to this user, we can pass metadata.
 
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       customer: customerId, // If null, Stripe creates a new one. 
       // If we don't provide customer, we should at least provide email if we have it.
       customer_email: customerId ? undefined : user.email,

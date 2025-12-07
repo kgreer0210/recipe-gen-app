@@ -1,7 +1,9 @@
 import { type NextRequest } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
 
-export async function proxy(request: NextRequest) {
+// Fallback to old middleware convention for compatibility testing
+export async function middleware(request: NextRequest) {
+    console.log('[MIDDLEWARE.TS] Invoked for:', request.nextUrl.pathname);
     return await updateSession(request)
 }
 
@@ -18,3 +20,4 @@ export const config = {
         '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
     ],
 }
+
