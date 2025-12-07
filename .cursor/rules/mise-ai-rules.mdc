@@ -33,6 +33,7 @@ Assume and respect the following stack and conventions:
 - **Database & Auth:** Supabase (PostgreSQL + Auth).
 - **AI:** OpenAI API (server-side only).
 - **Client State:** Zustand for global client-side state (e.g., current recipe, shopping cart-like behavior, transient UI).
+- **Data Fetching & Caching:** TanStack React Query for client-side API data (keep queries lean and cache-aware).
 - **Animations:** Motion (formerly Framer Motion).
 - **Icons:** Lucide React.
 
@@ -148,6 +149,7 @@ Rate limiting is critical for controlling OpenAI costs:
 - State:
 
   - Use Zustand for cross-page, short-lived client state (e.g., selected recipe in a modal, current grocery list draft).
+  - Use TanStack React Query for client-side data fetching/caching when SSR is insufficient; prefer stable query keys and lightweight cache invalidation.
   - Use database persistence (via Supabase) for anything long-lived or user-owned (recipes, collections, weekly plan).
 
 ---

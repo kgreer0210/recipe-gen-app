@@ -24,7 +24,7 @@ export const AuthContext = createContext<AuthContextType>({
   user: null,
   subscription: null,
   loading: true,
-  refreshSubscription: async () => { },
+  refreshSubscription: async () => {},
   supabase: createClient(), // Default fallback, though provider should always override
 });
 
@@ -43,7 +43,7 @@ export function AuthProvider({
   const [subscription, setSubscription] = useState<Subscription | null>(
     initialSubscription
   );
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
   const [supabase] = useState(() => createClient());
 
@@ -74,6 +74,46 @@ export function AuthProvider({
     setSubscription(sub);
   };
 
+  // Hydrate client auth state on mount so queries run with a valid session.
+  useEffect(() => {
+    let isActive = true;
+    const hydrate = async () => {
+      setLoading(true);
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const currentUser = session?.user ?? null;
+
+        if (!isActive) return;
+
+        setUser(currentUser);
+
+        if (currentUser) {
+          const sub = await fetchSubscription(currentUser.id);
+          setSubscription(sub);
+        } else {
+          setSubscription(null);
+        }
+
+        // If the server-rendered user differs from hydrated client user, refresh.
+        if (currentUser?.id !== initialUser?.id) {
+          router.refresh();
+        }
+      } finally {
+        if (isActive) {
+          setLoading(false);
+        }
+      }
+    };
+
+    hydrate();
+
+    return () => {
+      isActive = false;
+    };
+  }, [supabase, router, initialUser]);
+
   useEffect(() => {
     // Listen for auth changes
     const {
@@ -86,27 +126,26 @@ export function AuthProvider({
         setUser(currentUser);
 
         if (currentUser) {
-          // If logging in, fetch subscription
           const sub = await fetchSubscription(currentUser.id);
           setSubscription(sub);
         } else {
-          // If logging out, clear subscription
           setSubscription(null);
         }
 
         router.refresh(); // Refresh server components
-      } else if (event === 'SIGNED_IN' && currentUser && !subscription) {
-        // Handle edge case where user is same but we might need to re-fetch subscription
-        // e.g. after initial hydration if something was missed, though unlikely with this pattern
+      } else if (event === "SIGNED_IN" && currentUser && !subscription) {
+        // Edge case where the same user signs in again but subscription is stale
         const sub = await fetchSubscription(currentUser.id);
         setSubscription(sub);
       }
+
+      setLoading(false);
     });
 
     return () => {
       authListener.unsubscribe();
     };
-  }, [supabase, router, user, subscription]);
+  }, [supabase, router, user?.id, subscription]);
 
   // Sync state if props change (e.g. after server refresh)
   useEffect(() => {
