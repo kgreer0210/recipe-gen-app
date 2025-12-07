@@ -47,6 +47,9 @@ export default async function RootLayout({
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
   let subscription: Subscription | null = null;
 
@@ -68,7 +71,11 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50 min-h-screen flex flex-col`}
       >
         <QueryProvider>
-          <AuthProvider initialUser={user} initialSubscription={subscription}>
+          <AuthProvider
+            initialUser={user}
+            initialSubscription={subscription}
+            initialSession={session}
+          >
             <Navigation />
             <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 flex-1">
               {children}

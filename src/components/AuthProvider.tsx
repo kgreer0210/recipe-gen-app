@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/client";
 import { Subscription } from "@/types";
-import { User } from "@supabase/supabase-js";
+import { Session, User } from "@supabase/supabase-js";
 import {
   createContext,
   useContext,
@@ -33,12 +33,14 @@ interface AuthProviderProps {
   children: ReactNode;
   initialUser: User | null;
   initialSubscription: Subscription | null;
+  initialSession?: Session | null;
 }
 
 export function AuthProvider({
   children,
   initialUser,
   initialSubscription,
+  initialSession,
 }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(initialUser);
   const [subscription, setSubscription] = useState<Subscription | null>(
@@ -83,6 +85,22 @@ export function AuthProvider({
     const hydrate = async () => {
       setLoading(true);
       try {
+        const {
+          data: { session: existingSession },
+        } = await supabase.auth.getSession();
+
+        // If the browser has no session yet but the server provided one, seed it.
+        if (
+          !existingSession &&
+          initialSession?.access_token &&
+          initialSession.refresh_token
+        ) {
+          await supabase.auth.setSession({
+            access_token: initialSession.access_token,
+            refresh_token: initialSession.refresh_token,
+          });
+        }
+
         const {
           data: { session },
         } = await supabase.auth.getSession();
