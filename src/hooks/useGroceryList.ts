@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Ingredient, Recipe } from "@/types";
 
 export function useGroceryList() {
-  const { supabase, user } = useAuth();
+  const { supabase, user, loading } = useAuth();
 
   return useQuery({
     queryKey: ["groceryList", user?.id],
@@ -33,7 +33,7 @@ export function useGroceryList() {
         })) || []
       );
     },
-    enabled: !!user,
+    enabled: !!user && !loading,
   });
 }
 

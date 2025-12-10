@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Recipe } from "@/types";
 
 export function useRecipes() {
-    const { supabase, user } = useAuth();
+    const { supabase, user, loading } = useAuth();
 
     return useQuery({
         queryKey: ["recipes", user?.id],
@@ -37,7 +37,7 @@ export function useRecipes() {
                 })) || []
             );
         },
-        enabled: !!user,
+        enabled: !!user && !loading,
     });
 }
 

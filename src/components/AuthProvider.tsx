@@ -37,7 +37,7 @@ export function AuthProvider({
   const [subscription, setSubscription] = useState<Subscription | null>(
     initialSubscription
   );
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
   const [supabase] = useState(() => createClient());
 
@@ -51,6 +51,31 @@ export function AuthProvider({
   useEffect(() => {
     subscriptionRef.current = subscription;
   }, [subscription]);
+
+  useEffect(() => {
+    const checkInitialSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const sessionUser = session?.user ?? null;
+        
+        if (sessionUser && sessionUser.id !== userRef.current?.id) {
+          setUser(sessionUser);
+          const sub = await fetchSubscription(sessionUser.id);
+          setSubscription(sub);
+        } else if (!sessionUser && userRef.current) {
+          setUser(null);
+          setSubscription(null);
+        }
+      } catch (error) {
+        console.error("Error checking initial session:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkInitialSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabase]);
 
   const fetchSubscription = async (userId: string) => {
     try {
@@ -86,7 +111,14 @@ export function AuthProvider({
       const currentUserId = currentUser?.id ?? null;
       const previousUserId = userRef.current?.id ?? null;
 
-      if (currentUserId !== previousUserId) {
+      if (event === "INITIAL_SESSION") {
+        if (currentUser && currentUser.id !== userRef.current?.id) {
+          setUser(currentUser);
+          const sub = await fetchSubscription(currentUser.id);
+          setSubscription(sub);
+        }
+        setLoading(false);
+      } else if (currentUserId !== previousUserId) {
         setUser(currentUser);
 
         if (currentUser) {

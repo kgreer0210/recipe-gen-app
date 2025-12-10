@@ -4,7 +4,7 @@ import { Recipe } from "@/types";
 import { useRecipes } from "./useRecipes";
 
 export function useWeeklyPlan() {
-    const { supabase, user } = useAuth();
+    const { supabase, user, loading } = useAuth();
     const { data: recipes } = useRecipes();
 
     return useQuery({
@@ -33,7 +33,7 @@ export function useWeeklyPlan() {
 
             return recipes.filter((r: Recipe) => weeklyPlanIds.has(r.id));
         },
-        enabled: !!user && !!recipes, // Only run when user is authenticated and recipes are available
+        enabled: !!user && !loading && !!recipes, // Only run when user is authenticated, not loading, and recipes are available
     });
 }
 
