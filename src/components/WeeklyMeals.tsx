@@ -1,7 +1,8 @@
 "use client";
 
 import { useAuth } from "@/hooks/useAuth";
-import { useWeeklyPlan, useRemoveFromWeeklyPlan } from "@/hooks/useWeeklyPlan";
+import { useWeeklyPlanRealtime } from "@/hooks/useWeeklyPlanRealtime";
+import { useRemoveFromWeeklyPlan } from "@/hooks/useWeeklyPlanMutations";
 import { Check, Clock } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -9,7 +10,7 @@ import { useRouter } from "next/navigation";
 export default function WeeklyMeals() {
   const router = useRouter();
   const { user } = useAuth();
-  const { data: weeklyPlan = [] } = useWeeklyPlan();
+  const { weeklyPlan = [] } = useWeeklyPlanRealtime();
   const { mutate: removeFromWeeklyPlan } = useRemoveFromWeeklyPlan();
 
   // Auth check helper

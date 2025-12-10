@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
-import { useRecipes } from "@/hooks/useRecipes";
-import { useGroceryList } from "@/hooks/useGroceryList";
+import { useRecipesRealtime } from "@/hooks/useRecipesRealtime";
+import { useGroceryListRealtime } from "@/hooks/useGroceryListRealtime";
 import { X, ChefHat } from "lucide-react";
 import { Recipe } from "@/types";
 
@@ -17,8 +17,8 @@ export default function RecipeSelector({
   onSelect,
   title = "Select a Recipe",
 }: RecipeSelectorProps) {
-  const { data: savedRecipes = [] } = useRecipes();
-  const { data: groceryList = [] } = useGroceryList();
+  const { recipes: savedRecipes = [] } = useRecipesRealtime();
+  const { groceryList = [] } = useGroceryListRealtime();
   const [searchTerm, setSearchTerm] = useState("");
 
   if (!isOpen) return null;

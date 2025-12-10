@@ -1,14 +1,14 @@
 "use client";
 
+import { useGroceryListRealtime } from "@/hooks/useGroceryListRealtime";
 import {
-  useGroceryList,
   useToggleGroceryItem,
   useRemoveFromGroceryList,
   useClearGathered,
   useSelectAllGroceryItems,
   useRemoveIngredientsForRecipe,
   useAddCustomGroceryItem,
-} from "@/hooks/useGroceryList";
+} from "@/hooks/useGroceryListMutations";
 import { useAuth } from "@/hooks/useAuth";
 import { Unit } from "@/types";
 import {
@@ -56,12 +56,12 @@ const CATEGORIES = [
 export default function GroceryList() {
   const router = useRouter();
   const { user } = useAuth();
-  const { data: groceryList = [] } = useGroceryList();
+  const { groceryList = [] } = useGroceryListRealtime();
   const { mutate: toggleGroceryItem } = useToggleGroceryItem();
   const { mutate: removeFromGroceryList } = useRemoveFromGroceryList();
   const { mutate: clearGathered } = useClearGathered();
   const { mutate: selectAllGroceryItems } = useSelectAllGroceryItems();
-  const { mutate: removeIngredientsForRecipe } = useRemoveIngredientsForRecipe();
+  const { mutateAsync: removeIngredientsForRecipe } = useRemoveIngredientsForRecipe();
   const { mutateAsync: addCustomGroceryItem } = useAddCustomGroceryItem();
   const [isRecipeSelectorOpen, setIsRecipeSelectorOpen] = useState(false);
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
@@ -612,10 +612,10 @@ export default function GroceryList() {
       <RecipeSelector
         isOpen={isRecipeSelectorOpen}
         onClose={() => setIsRecipeSelectorOpen(false)}
-        onSelect={(recipe, servings) =>
-          requireAuth(() =>
-            removeIngredientsForRecipe({ recipe, servings })
-          )
+        onSelect={async (recipe, servings) =>
+          requireAuth(async () => {
+            await removeIngredientsForRecipe({ recipe, servings });
+          })
         }
         title="Remove Ingredients from List"
       />

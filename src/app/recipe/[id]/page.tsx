@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useRecipes } from '@/hooks/useRecipes';
-import { useAddToGroceryList } from '@/hooks/useGroceryList';
+import { useRecipesRealtime } from '@/hooks/useRecipesRealtime';
+import { useAddToGroceryList } from '@/hooks/useGroceryListMutations';
 import { ArrowLeft, Clock, ChefHat, Utensils, ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
 import { Recipe } from '@/types';
@@ -11,7 +11,7 @@ import { Recipe } from '@/types';
 export default function RecipeDetailsPage() {
     const params = useParams();
     const router = useRouter();
-    const { data: savedRecipes = [], isLoading } = useRecipes();
+    const { recipes: savedRecipes = [], loading: isLoading } = useRecipesRealtime();
     const { mutateAsync: addToGroceryList } = useAddToGroceryList();
     const [recipe, setRecipe] = useState<Recipe | null>(null);
     const [isAdding, setIsAdding] = useState(false);

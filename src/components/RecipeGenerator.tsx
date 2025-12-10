@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react";
 import { generateRecipe, refineRecipe } from "@/lib/generator";
 import { useAuth } from "@/hooks/useAuth";
-import { useSaveRecipe, useRecipes } from "@/hooks/useRecipes";
-import { useAddToGroceryList } from "@/hooks/useGroceryList";
+import { useSaveRecipe } from "@/hooks/useRecipesMutations";
+import { useRecipesRealtime } from "@/hooks/useRecipesRealtime";
+import { useAddToGroceryList } from "@/hooks/useGroceryListMutations";
 import {
   CuisineType,
   MealType,
@@ -95,8 +96,8 @@ export default function RecipeGenerator() {
   const router = useRouter();
   const { user, subscription } = useAuth();
   const { mutateAsync: saveRecipe } = useSaveRecipe();
-  const { data: savedRecipes = [] } = useRecipes();
-  const { mutate: addToGroceryList } = useAddToGroceryList();
+  const { recipes: savedRecipes = [] } = useRecipesRealtime();
+  const { mutateAsync: addToGroceryList } = useAddToGroceryList();
 
   useEffect(() => {
     const checkLimit = async () => {
@@ -220,9 +221,9 @@ export default function RecipeGenerator() {
     }
   };
 
-  const handleGroceryDecision = (addToGrocery: boolean) => {
+  const handleGroceryDecision = async (addToGrocery: boolean) => {
     if (addToGrocery && generatedRecipe) {
-      addToGroceryList({
+      await addToGroceryList({
         recipe: generatedRecipe,
         servings: parseInt(servingsInput) || 1,
       });

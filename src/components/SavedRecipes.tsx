@@ -1,8 +1,10 @@
 "use client";
 
 import { useAuth } from "@/hooks/useAuth";
-import { useRecipes, useRemoveRecipe } from "@/hooks/useRecipes";
-import { useWeeklyPlan, useAddToWeeklyPlan } from "@/hooks/useWeeklyPlan";
+import { useRecipesRealtime } from "@/hooks/useRecipesRealtime";
+import { useRemoveRecipe } from "@/hooks/useRecipesMutations";
+import { useWeeklyPlanRealtime } from "@/hooks/useWeeklyPlanRealtime";
+import { useAddToWeeklyPlan } from "@/hooks/useWeeklyPlanMutations";
 import { Trash2, Clock, Calendar, Check } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -10,9 +12,9 @@ import { useRouter } from "next/navigation";
 export default function SavedRecipes() {
   const router = useRouter();
   const { user } = useAuth();
-  const { data: savedRecipes = [] } = useRecipes();
+  const { recipes: savedRecipes = [] } = useRecipesRealtime();
   const { mutate: removeRecipe } = useRemoveRecipe();
-  const { data: weeklyPlan = [] } = useWeeklyPlan();
+  const { weeklyPlan = [] } = useWeeklyPlanRealtime();
   const { mutate: addToWeeklyPlan } = useAddToWeeklyPlan();
 
   // Auth check helper

@@ -6,7 +6,6 @@ import Footer from "@/components/Footer";
 import { createClient } from "@/lib/supabase/server";
 import { AuthProvider } from "@/components/AuthProvider";
 import { Subscription } from "@/types";
-import QueryProvider from "@/components/QueryProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -67,15 +66,13 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50 min-h-screen flex flex-col`}
       >
-        <QueryProvider>
-          <AuthProvider initialUser={user} initialSubscription={subscription}>
-            <Navigation />
-            <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 flex-1">
-              {children}
-            </main>
-            <Footer />
-          </AuthProvider>
-        </QueryProvider>
+        <AuthProvider initialUser={user} initialSubscription={subscription}>
+          <Navigation />
+          <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 flex-1">
+            {children}
+          </main>
+          <Footer />
+        </AuthProvider>
       </body>
     </html>
   );

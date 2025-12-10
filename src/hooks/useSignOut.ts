@@ -1,21 +1,43 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
+import { useRecipesStore } from "@/lib/stores/recipesStore";
+import { useGroceryListStore } from "@/lib/stores/groceryListStore";
+import { useWeeklyPlanStore } from "@/lib/stores/weeklyPlanStore";
 
 export function useSignOut() {
-    const queryClient = useQueryClient();
     const { supabase } = useAuth();
     const router = useRouter();
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<Error | null>(null);
+    
+    const clearRecipes = useRecipesStore((state) => state.setRecipes);
+    const clearGroceryList = useGroceryListStore((state) => state.setGroceryList);
+    const clearWeeklyPlan = useWeeklyPlanStore((state) => state.setRecipeIds);
 
-    return useMutation({
-        mutationFn: async () => {
-            const { error } = await supabase.auth.signOut();
-            if (error) throw error;
-        },
-        onSuccess: () => {
-            queryClient.clear(); // Clear all data from cache
+    const mutateAsync = async () => {
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const { error: signOutError } = await supabase.auth.signOut();
+            if (signOutError) throw signOutError;
+
+            // Clear all Zustand stores
+            clearRecipes([]);
+            clearGroceryList([]);
+            clearWeeklyPlan([]);
+
             router.push("/");
             router.refresh();
-        },
-    });
+        } catch (err) {
+            const error = err instanceof Error ? err : new Error("Failed to sign out");
+            setError(error);
+            throw error;
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return { mutateAsync, isLoading, error };
 }
