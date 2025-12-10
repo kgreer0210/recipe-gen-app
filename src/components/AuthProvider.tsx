@@ -43,6 +43,7 @@ export function AuthProvider({
 
   const userRef = useRef<User | null>(initialUser);
   const subscriptionRef = useRef<Subscription | null>(initialSubscription);
+  const sessionCheckedRef = useRef(false);
 
   useEffect(() => {
     userRef.current = user;
@@ -81,12 +82,14 @@ export function AuthProvider({
   useEffect(() => {
     let isMounted = true;
     let timeoutId: NodeJS.Timeout;
-    
+
     const checkSession = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
         const sessionUser = session?.user ?? null;
-        
+
         if (isMounted) {
           if (sessionUser && sessionUser.id !== userRef.current?.id) {
             setUser(sessionUser);
@@ -98,18 +101,20 @@ export function AuthProvider({
             setUser(null);
             setSubscription(null);
           }
+          sessionCheckedRef.current = true;
           setLoading(false);
         }
       } catch (error) {
         console.error("Error checking session:", error);
         if (isMounted) {
+          sessionCheckedRef.current = true;
           setLoading(false);
         }
       }
     };
 
     checkSession();
-    
+
     const {
       data: { subscription: authListener },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -129,6 +134,7 @@ export function AuthProvider({
           setSubscription(null);
         }
         if (isMounted) {
+          sessionCheckedRef.current = true;
           setLoading(false);
         }
         if (timeoutId) clearTimeout(timeoutId);
@@ -172,17 +178,26 @@ export function AuthProvider({
   }, [supabase, router]);
 
   useEffect(() => {
-    if (
-      initialUser?.id !== user?.id ||
-      (initialUser === null && user !== null)
-    ) {
-      setUser(initialUser);
-    }
+    // Sync from server props only during initial load and before client-side check completes
+    // Once client-side check completes, we trust it over server props
+    if (loading && !sessionCheckedRef.current) {
+      // During loading and before client check, sync from server props
+      if (
+        initialUser?.id !== user?.id ||
+        (initialUser === null && user !== null)
+      ) {
+        setUser(initialUser);
+      }
 
-    if (JSON.stringify(initialSubscription) !== JSON.stringify(subscription)) {
-      setSubscription(initialSubscription);
+      if (
+        JSON.stringify(initialSubscription) !== JSON.stringify(subscription)
+      ) {
+        setSubscription(initialSubscription);
+      }
     }
-  }, [initialUser, initialSubscription]);
+    // After client-side check completes, don't override client-detected session
+    // This prevents server-side null from overriding client-detected sessions on refresh
+  }, [initialUser, initialSubscription, loading]);
 
   return (
     <AuthContext.Provider
