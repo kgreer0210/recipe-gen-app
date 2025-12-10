@@ -79,7 +79,36 @@ export function AuthProvider({
   };
 
   useEffect(() => {
+    let isMounted = true;
     let timeoutId: NodeJS.Timeout;
+    
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const sessionUser = session?.user ?? null;
+        
+        if (isMounted) {
+          if (sessionUser && sessionUser.id !== userRef.current?.id) {
+            setUser(sessionUser);
+            const sub = await fetchSubscription(sessionUser.id);
+            if (isMounted) {
+              setSubscription(sub);
+            }
+          } else if (!sessionUser && userRef.current) {
+            setUser(null);
+            setSubscription(null);
+          }
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error("Error checking session:", error);
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    checkSession();
     
     const {
       data: { subscription: authListener },
@@ -92,19 +121,25 @@ export function AuthProvider({
         if (currentUser && currentUser.id !== userRef.current?.id) {
           setUser(currentUser);
           const sub = await fetchSubscription(currentUser.id);
-          setSubscription(sub);
+          if (isMounted) {
+            setSubscription(sub);
+          }
         } else if (!currentUser && userRef.current) {
           setUser(null);
           setSubscription(null);
         }
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
         if (timeoutId) clearTimeout(timeoutId);
       } else if (currentUserId !== previousUserId) {
         setUser(currentUser);
 
         if (currentUser) {
           const sub = await fetchSubscription(currentUser.id);
-          setSubscription(sub);
+          if (isMounted) {
+            setSubscription(sub);
+          }
         } else {
           setSubscription(null);
         }
@@ -116,16 +151,20 @@ export function AuthProvider({
         !subscriptionRef.current
       ) {
         const sub = await fetchSubscription(currentUser.id);
-        setSubscription(sub);
+        if (isMounted) {
+          setSubscription(sub);
+        }
       }
     });
 
-    // Safety timeout: if INITIAL_SESSION doesn't fire within 3 seconds, set loading to false
     timeoutId = setTimeout(() => {
-      setLoading(false);
+      if (isMounted) {
+        setLoading(false);
+      }
     }, 3000);
 
     return () => {
+      isMounted = false;
       authListener.unsubscribe();
       if (timeoutId) clearTimeout(timeoutId);
     };
