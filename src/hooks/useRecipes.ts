@@ -3,15 +3,24 @@ import { useAuth } from "@/hooks/useAuth";
 import { Recipe } from "@/types";
 
 export function useRecipes() {
-    const { supabase } = useAuth();
+    const { supabase, user } = useAuth();
 
     return useQuery({
-        queryKey: ["recipes"],
+        queryKey: ["recipes", user?.id],
         queryFn: async () => {
-            const { data } = await supabase
+            if (!user) {
+                throw new Error("User not authenticated");
+            }
+
+            const { data, error } = await supabase
                 .from("recipes")
                 .select("*")
                 .order("created_at", { ascending: false });
+
+            if (error) {
+                console.error("Error fetching recipes:", error);
+                throw error;
+            }
 
             return (
                 (data as any[])?.map((r) => ({
@@ -28,19 +37,16 @@ export function useRecipes() {
                 })) || []
             );
         },
+        enabled: !!user,
     });
 }
 
 export function useSaveRecipe() {
     const queryClient = useQueryClient();
-    const { supabase } = useAuth();
+    const { supabase, user } = useAuth();
 
     return useMutation({
         mutationFn: async (recipe: Recipe) => {
-            const {
-                data: { user },
-            } = await supabase.auth.getUser();
-
             if (!user) throw new Error("User not authenticated");
 
             const { data, error } = await supabase
@@ -59,18 +65,21 @@ export function useSaveRecipe() {
                 .select()
                 .single();
 
-            if (error) throw error;
+            if (error) {
+                console.error("Error saving recipe:", error);
+                throw error;
+            }
             return data;
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["recipes"] });
+            queryClient.invalidateQueries({ queryKey: ["recipes", user?.id] });
         },
     });
 }
 
 export function useRemoveRecipe() {
     const queryClient = useQueryClient();
-    const { supabase } = useAuth();
+    const { supabase, user } = useAuth();
 
     return useMutation({
         mutationFn: async (recipeId: string) => {
@@ -78,10 +87,14 @@ export function useRemoveRecipe() {
                 .from("recipes")
                 .delete()
                 .match({ id: recipeId });
-            if (error) throw error;
+            
+            if (error) {
+                console.error("Error removing recipe:", error);
+                throw error;
+            }
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["recipes"] });
+            queryClient.invalidateQueries({ queryKey: ["recipes", user?.id] });
         },
     });
 }
