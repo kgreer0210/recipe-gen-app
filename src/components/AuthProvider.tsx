@@ -52,31 +52,6 @@ export function AuthProvider({
     subscriptionRef.current = subscription;
   }, [subscription]);
 
-  useEffect(() => {
-    const checkInitialSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const sessionUser = session?.user ?? null;
-        
-        if (sessionUser && sessionUser.id !== userRef.current?.id) {
-          setUser(sessionUser);
-          const sub = await fetchSubscription(sessionUser.id);
-          setSubscription(sub);
-        } else if (!sessionUser && userRef.current) {
-          setUser(null);
-          setSubscription(null);
-        }
-      } catch (error) {
-        console.error("Error checking initial session:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkInitialSession();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supabase]);
-
   const fetchSubscription = async (userId: string) => {
     try {
       const { data, error } = await supabase
@@ -104,6 +79,8 @@ export function AuthProvider({
   };
 
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    
     const {
       data: { subscription: authListener },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -116,8 +93,12 @@ export function AuthProvider({
           setUser(currentUser);
           const sub = await fetchSubscription(currentUser.id);
           setSubscription(sub);
+        } else if (!currentUser && userRef.current) {
+          setUser(null);
+          setSubscription(null);
         }
         setLoading(false);
+        if (timeoutId) clearTimeout(timeoutId);
       } else if (currentUserId !== previousUserId) {
         setUser(currentUser);
 
@@ -139,8 +120,14 @@ export function AuthProvider({
       }
     });
 
+    // Safety timeout: if INITIAL_SESSION doesn't fire within 3 seconds, set loading to false
+    timeoutId = setTimeout(() => {
+      setLoading(false);
+    }, 3000);
+
     return () => {
       authListener.unsubscribe();
+      if (timeoutId) clearTimeout(timeoutId);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabase, router]);
