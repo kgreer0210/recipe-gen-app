@@ -1,14 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Recipe } from "@/types";
 import { useRecipes } from "./useRecipes";
 
 export function useWeeklyPlan() {
-    const supabase = createClient();
+    const { supabase, user } = useAuth();
     const { data: recipes } = useRecipes();
 
     return useQuery({
-        queryKey: ["weeklyPlan", recipes], // Depend on recipes to map correctly
+        queryKey: ["weeklyPlan", user?.id, recipes], // Depend on recipes to map correctly
         queryFn: async () => {
             const { data: weeklyPlanData } = await supabase
                 .from("weekly_plan")
@@ -24,7 +25,7 @@ export function useWeeklyPlan() {
 
             return recipes.filter((r: Recipe) => weeklyPlanIds.has(r.id));
         },
-        enabled: !!recipes, // Only run when recipes are available
+        enabled: !!user && !!recipes, // Only run when recipes are available
     });
 }
 

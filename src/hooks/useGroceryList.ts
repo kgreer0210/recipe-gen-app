@@ -1,12 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Ingredient, Recipe } from "@/types";
 
 export function useGroceryList() {
-    const supabase = createClient();
+    const { supabase, user } = useAuth();
 
     return useQuery({
-        queryKey: ["groceryList"],
+        queryKey: ["groceryList", user?.id],
         queryFn: async () => {
             const { data } = await supabase
                 .from("grocery_list")
@@ -24,6 +25,7 @@ export function useGroceryList() {
                 })) || []
             );
         },
+        enabled: !!user,
     });
 }
 

@@ -3,10 +3,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { Recipe } from "@/types";
 
 export function useRecipes() {
-    const { supabase } = useAuth();
+    const { supabase, user } = useAuth();
 
     return useQuery({
-        queryKey: ["recipes"],
+        queryKey: ["recipes", user?.id],
         queryFn: async () => {
             const { data } = await supabase
                 .from("recipes")
@@ -28,6 +28,7 @@ export function useRecipes() {
                 })) || []
             );
         },
+        enabled: !!user,
     });
 }
 
