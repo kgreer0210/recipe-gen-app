@@ -42,16 +42,6 @@ export function AuthProvider({
   const [supabase] = useState(() => createClient());
 
   const userRef = useRef<User | null>(initialUser);
-  const subscriptionRef = useRef<Subscription | null>(initialSubscription);
-  const sessionCheckedRef = useRef(false);
-
-  useEffect(() => {
-    userRef.current = user;
-  }, [user]);
-
-  useEffect(() => {
-    subscriptionRef.current = subscription;
-  }, [subscription]);
 
   const fetchSubscription = async (userId: string) => {
     try {
@@ -81,68 +71,59 @@ export function AuthProvider({
 
   useEffect(() => {
     let isMounted = true;
-    let timeoutId: NodeJS.Timeout;
 
-    const checkSession = async () => {
+    const bootstrap = async () => {
       try {
         const {
           data: { session },
+          error,
         } = await supabase.auth.getSession();
-        const sessionUser = session?.user ?? null;
 
-        if (isMounted) {
-          if (sessionUser && sessionUser.id !== userRef.current?.id) {
-            setUser(sessionUser);
-            const sub = await fetchSubscription(sessionUser.id);
-            if (isMounted) {
-              setSubscription(sub);
-            }
-          } else if (!sessionUser && userRef.current) {
-            setUser(null);
-            setSubscription(null);
+        if (error) {
+          if (process.env.NODE_ENV !== "production") {
+            console.warn("Auth bootstrap getSession failed:", error);
           }
-          sessionCheckedRef.current = true;
-          setLoading(false);
         }
-      } catch (error) {
-        console.error("Error checking session:", error);
+
+        const sessionUser = session?.user ?? null;
+        userRef.current = sessionUser;
+
+        if (!isMounted) return;
+
+        setUser(sessionUser);
+
+        if (sessionUser) {
+          const sub = await fetchSubscription(sessionUser.id);
+          if (isMounted) {
+            setSubscription(sub);
+          }
+        } else {
+          setSubscription(null);
+        }
+      } finally {
         if (isMounted) {
-          sessionCheckedRef.current = true;
           setLoading(false);
         }
       }
     };
 
-    checkSession();
+    bootstrap();
 
     const {
       data: { subscription: authListener },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      const currentUser = session?.user ?? null;
-      const currentUserId = currentUser?.id ?? null;
+      const nextUser = session?.user ?? null;
       const previousUserId = userRef.current?.id ?? null;
+      const nextUserId = nextUser?.id ?? null;
 
-      if (event === "INITIAL_SESSION") {
-        if (currentUser && currentUser.id !== userRef.current?.id) {
-          setUser(currentUser);
-          const sub = await fetchSubscription(currentUser.id);
-          if (isMounted) {
-            setSubscription(sub);
-          }
-        } else if (!currentUser && userRef.current) {
-          setUser(null);
-          setSubscription(null);
-        }
-        if (isMounted) {
-          sessionCheckedRef.current = true;
-          setLoading(false);
-        }
-        if (timeoutId) clearTimeout(timeoutId);
-      } else if (currentUserId !== previousUserId) {
-        setUser(currentUser);
+      const userChanged = nextUserId !== previousUserId;
 
-        if (currentUser) {
-          const sub = await fetchSubscription(currentUser.id);
+      if (userChanged) {
+        userRef.current = nextUser;
+        setUser(nextUser);
+
+        if (nextUser) {
+          const sub = await fetchSubscription(nextUser.id);
           if (isMounted) {
             setSubscription(sub);
           }
@@ -151,53 +132,29 @@ export function AuthProvider({
         }
 
         router.refresh();
-      } else if (
-        event === "SIGNED_IN" &&
-        currentUser &&
-        !subscriptionRef.current
-      ) {
-        const sub = await fetchSubscription(currentUser.id);
+        return;
+      }
+
+      if (event === "TOKEN_REFRESHED" && nextUser) {
+        const sub = await fetchSubscription(nextUser.id);
         if (isMounted) {
           setSubscription(sub);
         }
       }
-    });
 
-    timeoutId = setTimeout(() => {
-      if (isMounted) {
-        setLoading(false);
+      if (event === "SIGNED_OUT") {
+        userRef.current = null;
+        setUser(null);
+        setSubscription(null);
+        router.refresh();
       }
-    }, 3000);
+    });
 
     return () => {
       isMounted = false;
       authListener.unsubscribe();
-      if (timeoutId) clearTimeout(timeoutId);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabase, router]);
-
-  useEffect(() => {
-    // Sync from server props only during initial load and before client-side check completes
-    // Once client-side check completes, we trust it over server props
-    if (loading && !sessionCheckedRef.current) {
-      // During loading and before client check, sync from server props
-      if (
-        initialUser?.id !== user?.id ||
-        (initialUser === null && user !== null)
-      ) {
-        setUser(initialUser);
-      }
-
-      if (
-        JSON.stringify(initialSubscription) !== JSON.stringify(subscription)
-      ) {
-        setSubscription(initialSubscription);
-      }
-    }
-    // After client-side check completes, don't override client-detected session
-    // This prevents server-side null from overriding client-detected sessions on refresh
-  }, [initialUser, initialSubscription, loading]);
 
   return (
     <AuthContext.Provider
