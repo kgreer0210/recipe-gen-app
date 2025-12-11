@@ -37,7 +37,8 @@ export function useSaveRecipe() {
 
       return data;
     } catch (err) {
-      const error = err instanceof Error ? err : new Error("Failed to save recipe");
+      const error =
+        err instanceof Error ? err : new Error("Failed to save recipe");
       setError(error);
       throw error;
     } finally {
@@ -68,7 +69,8 @@ export function useRemoveRecipe() {
         throw deleteError;
       }
     } catch (err) {
-      const error = err instanceof Error ? err : new Error("Failed to remove recipe");
+      const error =
+        err instanceof Error ? err : new Error("Failed to remove recipe");
       setError(error);
       throw error;
     } finally {
@@ -78,4 +80,3 @@ export function useRemoveRecipe() {
 
   return { mutate, isLoading, error };
 }
-

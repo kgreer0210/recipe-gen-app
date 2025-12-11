@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Subscription } from "@/types";
 import { User } from "@supabase/supabase-js";
 import { createContext, useEffect, useState, useRef, ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 interface AuthContextType {
   user: User | null;
@@ -39,9 +39,11 @@ export function AuthProvider({
   );
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
   const [supabase] = useState(() => createClient());
 
   const userRef = useRef<User | null>(initialUser);
+  const effectInitializedRef = useRef(false);
 
   const fetchSubscription = async (userId: string) => {
     try {
@@ -70,6 +72,12 @@ export function AuthProvider({
   };
 
   useEffect(() => {
+    // Avoid double-invocation in React Strict Mode dev render
+    if (effectInitializedRef.current) {
+      return;
+    }
+    effectInitializedRef.current = true;
+
     let isMounted = true;
 
     const bootstrap = async () => {
@@ -79,10 +87,8 @@ export function AuthProvider({
           error,
         } = await supabase.auth.getSession();
 
-        if (error) {
-          if (process.env.NODE_ENV !== "production") {
-            console.warn("Auth bootstrap getSession failed:", error);
-          }
+        if (error && process.env.NODE_ENV !== "production") {
+          console.warn("Auth bootstrap getSession failed:", error);
         }
 
         const sessionUser = session?.user ?? null;
@@ -155,6 +161,42 @@ export function AuthProvider({
       authListener.unsubscribe();
     };
   }, [supabase, router]);
+
+  useEffect(() => {
+    // Re-check session when navigating while unauthenticated (server-side login won't emit client events)
+    if (loading || userRef.current) return;
+
+    let isMounted = true;
+
+    const recheck = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!isMounted) return;
+        const sessionUser = session?.user ?? null;
+        userRef.current = sessionUser;
+        setUser(sessionUser);
+
+        if (sessionUser) {
+          const sub = await fetchSubscription(sessionUser.id);
+          if (!isMounted) return;
+          setSubscription(sub);
+        } else {
+          setSubscription(null);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    recheck();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [pathname, loading, supabase]);
 
   return (
     <AuthContext.Provider
