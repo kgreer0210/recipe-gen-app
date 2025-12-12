@@ -127,6 +127,7 @@ export async function POST(request: Request) {
     - Recalculate prep/cook time if needed.
     - tags: You MUST return the tags object with cuisine, meal, and protein. Do not leave them undefined.
     - All ingredient amounts must be numeric and use one of the following units: "lb", "oz", "cup", "tbsp", "tsp", "g", "kg", "ml", "l", "count", "clove", "slice", "pinch".
+    - For Meat-category ingredients: avoid fractional pounds. If the amount is under 1 lb, prefer ounces (e.g., 4 oz, 6 oz, 8 oz, 12 oz) instead of values like 0.25 lb.
     - Return ONLY the JSON object.
     `;
 

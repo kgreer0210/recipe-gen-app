@@ -11,6 +11,7 @@ import {
 } from "@/hooks/useGroceryListMutations";
 import { useAuth } from "@/hooks/useAuth";
 import { Unit } from "@/types";
+import { getPurchaseQuantity } from "@/lib/grocery/purchase";
 import {
   ShoppingBasket,
   CheckSquare,
@@ -61,7 +62,8 @@ export default function GroceryList() {
   const { mutate: removeFromGroceryList } = useRemoveFromGroceryList();
   const { mutate: clearGathered } = useClearGathered();
   const { mutate: selectAllGroceryItems } = useSelectAllGroceryItems();
-  const { mutateAsync: removeIngredientsForRecipe } = useRemoveIngredientsForRecipe();
+  const { mutateAsync: removeIngredientsForRecipe } =
+    useRemoveIngredientsForRecipe();
   const { mutateAsync: addCustomGroceryItem } = useAddCustomGroceryItem();
   const [isRecipeSelectorOpen, setIsRecipeSelectorOpen] = useState(false);
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
@@ -151,7 +153,8 @@ export default function GroceryList() {
         text += `${category.toUpperCase()}\n`;
         for (const item of items) {
           const checkbox = item.isChecked ? "✓" : "☐";
-          text += `${checkbox} ${item.name}: ${item.amount} ${item.unit}\n`;
+          const { buyAmount, buyUnit } = getPurchaseQuantity(item);
+          text += `${checkbox} ${item.name}: ${buyAmount} ${buyUnit}\n`;
         }
         text += "\n";
       }
@@ -164,7 +167,8 @@ export default function GroceryList() {
         text += `${category.toUpperCase()}\n`;
         for (const item of items) {
           const checkbox = item.isChecked ? "✓" : "☐";
-          text += `${checkbox} ${item.name}: ${item.amount} ${item.unit}\n`;
+          const { buyAmount, buyUnit } = getPurchaseQuantity(item);
+          text += `${checkbox} ${item.name}: ${buyAmount} ${buyUnit}\n`;
         }
         text += "\n";
       }
@@ -345,10 +349,11 @@ export default function GroceryList() {
           {/* Copy to clipboard */}
           <button
             onClick={copyToClipboard}
-            className={`p-2 rounded-lg transition-all ${copied
-              ? "text-green-600 bg-green-50"
-              : "text-gray-500 hover:bg-gray-100"
-              }`}
+            className={`p-2 rounded-lg transition-all ${
+              copied
+                ? "text-green-600 bg-green-50"
+                : "text-gray-500 hover:bg-gray-100"
+            }`}
             title="Copy list to clipboard"
           >
             {copied ? (
@@ -458,7 +463,11 @@ export default function GroceryList() {
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-semibold text-blue-700 bg-blue-50 px-3 py-1 rounded-md border border-blue-100 shadow-sm">
-                              {item.amount} {item.unit}
+                              {(() => {
+                                const { buyAmount, buyUnit } =
+                                  getPurchaseQuantity(item);
+                                return `${buyAmount} ${buyUnit}`;
+                              })()}
                             </span>
                             <button
                               onClick={() =>
@@ -513,7 +522,11 @@ export default function GroceryList() {
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-semibold text-blue-700 bg-blue-50 px-3 py-1 rounded-md border border-blue-100 shadow-sm">
-                              {item.amount} {item.unit}
+                              {(() => {
+                                const { buyAmount, buyUnit } =
+                                  getPurchaseQuantity(item);
+                                return `${buyAmount} ${buyUnit}`;
+                              })()}
                             </span>
                             <button
                               onClick={() =>
@@ -584,7 +597,11 @@ export default function GroceryList() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold text-gray-500 bg-gray-100 px-3 py-1 rounded-md border border-gray-200">
-                        {item.amount} {item.unit}
+                        {(() => {
+                          const { buyAmount, buyUnit } =
+                            getPurchaseQuantity(item);
+                          return `${buyAmount} ${buyUnit}`;
+                        })()}
                       </span>
                       <button
                         onClick={() =>
@@ -605,7 +622,8 @@ export default function GroceryList() {
 
       <div className="mt-6 pt-4 border-t border-gray-100 text-center">
         <p className="text-xs text-gray-400">
-          Items are aggregated by name and unit.
+          Items are aggregated by name and unit. “Buy” amounts are rounded to
+          common purchase sizes.
         </p>
       </div>
 

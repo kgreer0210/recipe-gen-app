@@ -117,6 +117,7 @@ Output Guidelines:
           : ""
       }
       - All ingredient amounts must be numeric and use one of the following units: "lb", "oz", "cup", "tbsp", "tsp", "count", "clove", "slice".
+      - For Meat-category ingredients: avoid fractional pounds. If the amount is under 1 lb, prefer ounces (e.g., 4 oz, 6 oz, 8 oz, 12 oz) instead of values like 0.25 lb.
       - Categorize ingredients accurately.
       - Instructions must be a step-by-step array of clear, concise cooking steps.
       - prepTime and cookTime should be realistic human-readable strings (e.g., "10 minutes").
@@ -177,6 +178,7 @@ Output Guidelines:
           : ""
       }
       - All ingredient amounts must be numeric and use one of the following units: "lb", "oz", "cup", "tbsp", "tsp", "count", "clove", "slice".
+      - For Meat-category ingredients: avoid fractional pounds. If the amount is under 1 lb, prefer ounces (e.g., 4 oz, 6 oz, 8 oz, 12 oz) instead of values like 0.25 lb.
       - Categorize ingredients accurately.
       - Instructions must be a step-by-step array of clear, concise cooking steps.
       - prepTime and cookTime should be realistic human-readable strings (e.g., "10 minutes").
