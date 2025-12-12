@@ -1,12 +1,8 @@
 import { NextResponse } from "next/server";
-import OpenAI from "openai";
 import { Recipe, CuisineType, MealType, ProteinType } from "@/types";
 import { createClient } from "@/lib/supabase/server";
 import { checkRateLimit } from "@/lib/rate-limit";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import { chatJson } from "@/lib/openrouter/chatJson";
 
 export async function POST(request: Request) {
   try {
@@ -32,7 +28,15 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { mode, cuisine, meal, protein, proteinCut, ingredients, dietaryPreferences } = body as {
+    const {
+      mode,
+      cuisine,
+      meal,
+      protein,
+      proteinCut,
+      ingredients,
+      dietaryPreferences,
+    } = body as {
       mode?: "classic" | "pantry";
       cuisine?: CuisineType;
       meal?: MealType;
@@ -76,10 +80,11 @@ Output Guidelines:
       prompt = `
       Generate a unique, high-quality, single-serving recipe based on the following available ingredients:
       Ingredients: ${ingredientsList}
-      ${dietaryPreferences && dietaryPreferences.length > 0
+      ${
+        dietaryPreferences && dietaryPreferences.length > 0
           ? `Dietary Preferences/Allergies: ${dietaryPreferences.join(", ")}`
           : ""
-        }
+      }
 
       
       Your response must be ONLY a valid JSON object that matches this exact TypeScript interface:
@@ -104,12 +109,13 @@ Output Guidelines:
       - VALIDATION STEP: You must first validate the input ingredients. If the input contains non-food items, gibberish, or dangerous items, you MUST return a JSON object with a single "error" field explaining why the input is invalid. Example: { "error": "I can only cook with edible ingredients. Please remove 'rocks' from your list." }
       - The recipe should primarily use the provided ingredients, but you may assume basic pantry staples (oil, salt, pepper, water, basic spices).
       - The recipe must be single-serving only.
-      ${dietaryPreferences && dietaryPreferences.length > 0
+      ${
+        dietaryPreferences && dietaryPreferences.length > 0
           ? `- STRICTLY ADHERE to these dietary preferences: ${dietaryPreferences.join(
-            ", "
-          )}.`
+              ", "
+            )}.`
           : ""
-        }
+      }
       - All ingredient amounts must be numeric and use one of the following units: "lb", "oz", "cup", "tbsp", "tsp", "count", "clove", "slice".
       - Categorize ingredients accurately.
       - Instructions must be a step-by-step array of clear, concise cooking steps.
@@ -136,10 +142,11 @@ Output Guidelines:
       Cuisine: ${cuisine}
       Meal: ${meal}
       Protein: ${proteinDescription}
-      ${dietaryPreferences && dietaryPreferences.length > 0
+      ${
+        dietaryPreferences && dietaryPreferences.length > 0
           ? `Dietary Preferences/Allergies: ${dietaryPreferences.join(", ")}`
           : ""
-        }
+      }
 
       
       Your response must be ONLY a valid JSON object that matches this exact TypeScript interface:
@@ -162,12 +169,13 @@ Output Guidelines:
       Requirements:
       - The recipe must clearly reflect the selected cuisine, meal type, and protein.
       - The recipe must be single-serving only.
-      ${dietaryPreferences && dietaryPreferences.length > 0
+      ${
+        dietaryPreferences && dietaryPreferences.length > 0
           ? `- STRICTLY ADHERE to these dietary preferences: ${dietaryPreferences.join(
-            ", "
-          )}.`
+              ", "
+            )}.`
           : ""
-        }
+      }
       - All ingredient amounts must be numeric and use one of the following units: "lb", "oz", "cup", "tbsp", "tsp", "count", "clove", "slice".
       - Categorize ingredients accurately.
       - Instructions must be a step-by-step array of clear, concise cooking steps.
@@ -177,31 +185,31 @@ Output Guidelines:
       `;
     }
 
-    const completion = await openai.chat.completions.create({
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: prompt },
-      ],
-      model: "gpt-4o-mini",
-      response_format: { type: "json_object" },
-    });
-
-    const content = completion.choices[0].message.content;
-
-    if (!content) {
-      throw new Error("No content received from OpenAI");
-    }
-
-    const recipeData = JSON.parse(content);
+    const { data: recipeData } = await chatJson<Record<string, unknown>>(
+      systemPrompt,
+      prompt,
+      {
+        // Pantry mode can legitimately return { error: string } for invalid inputs.
+        treatErrorFieldAsFailure: mode !== "pantry",
+      }
+    );
 
     // Handle validation error from AI
-    if (recipeData.error) {
-      return NextResponse.json({ error: recipeData.error }, { status: 400 });
+    if (
+      recipeData &&
+      typeof recipeData === "object" &&
+      "error" in recipeData &&
+      typeof (recipeData as { error?: unknown }).error === "string"
+    ) {
+      return NextResponse.json(
+        { error: (recipeData as { error: string }).error },
+        { status: 400 }
+      );
     }
 
     // Add a random ID since the AI doesn't generate one
     const recipe: Recipe = {
-      ...recipeData,
+      ...(recipeData as Omit<Recipe, "id">),
       id: Math.random().toString(36).substr(2, 9),
       // For pantry mode, tags are inferred by AI, so we use what's returned.
       // For classic mode, we could enforce them, but trusting the AI's return (which we instructed to match) is fine.

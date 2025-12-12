@@ -1,52 +1,95 @@
 import { NextResponse } from "next/server";
-import OpenAI from "openai";
 import { Recipe, RefineRecipeRequest } from "@/types";
 import { createClient } from "@/lib/supabase/server";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { chatJson } from "@/lib/openrouter/chatJson";
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-});
+type UnknownRecord = Record<string, unknown>;
+
+function isObject(value: unknown): value is UnknownRecord {
+  return typeof value === "object" && value !== null;
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((v) => typeof v === "string");
+}
+
+function isIngredientArray(value: unknown): value is Recipe["ingredients"] {
+  if (!Array.isArray(value)) return false;
+
+  return value.every((item) => {
+    if (!isObject(item)) return false;
+    if (typeof item.name !== "string") return false;
+    if (typeof item.amount !== "number" || Number.isNaN(item.amount))
+      return false;
+    if (typeof item.unit !== "string") return false;
+    if (
+      "category" in item &&
+      item.category !== undefined &&
+      typeof item.category !== "string"
+    ) {
+      return false;
+    }
+    return true;
+  });
+}
+
+function isRecipePayload(
+  value: unknown
+): value is Omit<Recipe, "id"> & { id?: unknown } {
+  if (!isObject(value)) return false;
+  if (typeof value.title !== "string") return false;
+  if (typeof value.description !== "string") return false;
+  if (!isIngredientArray(value.ingredients)) return false;
+  if (!isStringArray(value.instructions)) return false;
+  if (!isObject(value.tags)) return false;
+  if (typeof value.tags.cuisine !== "string") return false;
+  if (typeof value.tags.meal !== "string") return false;
+  if (typeof value.tags.protein !== "string") return false;
+  if (typeof value.prepTime !== "string") return false;
+  if (typeof value.cookTime !== "string") return false;
+  return true;
+}
 
 export async function POST(request: Request) {
-    try {
-        const supabase = await createClient();
-        const {
-            data: { user },
-        } = await supabase.auth.getUser();
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-        if (!user) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-        // Rate limiting - reusing the same limit as generation for now, or maybe a separate one?
-        // The prompt implies we should just allow it, but let's be safe and check limit.
-        // Actually, refinement is part of the "creation" process, so maybe we don't deduct?
-        // But it costs tokens. Let's check limit but maybe not deduct? 
-        // For now, let's just check the limit to ensure they aren't blocked.
-        const { allowed } = await checkRateLimit(5);
+    // Rate limiting - reusing the same limit as generation for now, or maybe a separate one?
+    // The prompt implies we should just allow it, but let's be safe and check limit.
+    // Actually, refinement is part of the "creation" process, so maybe we don't deduct?
+    // But it costs tokens. Let's check limit but maybe not deduct?
+    // For now, let's just check the limit to ensure they aren't blocked.
+    const { allowed } = await checkRateLimit(5);
 
-        if (!allowed) {
-            return NextResponse.json(
-                {
-                    error:
-                        "You've reached your daily recipe limit! 🧑‍🍳 Our chefs are taking a break. Please come back tomorrow for more delicious ideas.",
-                },
-                { status: 429 }
-            );
-        }
+    if (!allowed) {
+      return NextResponse.json(
+        {
+          error:
+            "You've reached your daily recipe limit! 🧑‍🍳 Our chefs are taking a break. Please come back tomorrow for more delicious ideas.",
+        },
+        { status: 429 }
+      );
+    }
 
-        const body = await request.json();
-        const { currentRecipe, instructions } = body as RefineRecipeRequest;
+    const body = await request.json();
+    const { currentRecipe, instructions } = body as RefineRecipeRequest;
 
-        if (!currentRecipe || !instructions) {
-            return NextResponse.json(
-                { error: "Missing required fields" },
-                { status: 400 }
-            );
-        }
+    if (!currentRecipe || !instructions) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      );
+    }
 
-        const systemPrompt = `You are Mise AI, an expert culinary assistant.
+    const systemPrompt = `You are Mise AI, an expert culinary assistant.
     
     Your goal is to REFINE an existing recipe based on user instructions.
     
@@ -87,7 +130,7 @@ export async function POST(request: Request) {
     - Return ONLY the JSON object.
     `;
 
-        const prompt = `
+    const prompt = `
     Original Recipe:
     ${JSON.stringify(currentRecipe, null, 2)}
 
@@ -97,33 +140,44 @@ export async function POST(request: Request) {
     Refine the recipe above according to the instructions.
     `;
 
-        const completion = await openai.chat.completions.create({
-            messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: prompt },
-            ],
-            model: "gpt-4o-mini",
-            response_format: { type: "json_object" },
-        });
+    const { data: recipeData } = await chatJson<Record<string, unknown>>(
+      systemPrompt,
+      prompt,
+      // For refinement, { error: string } indicates invalid/off-topic instructions.
+      { treatErrorFieldAsFailure: false }
+    );
 
-        const content = completion.choices[0].message.content;
-
-        if (!content) {
-            throw new Error("No content received from OpenAI");
-        }
-
-        const recipeData = JSON.parse(content);
-
-        if (recipeData.error) {
-            return NextResponse.json({ error: recipeData.error }, { status: 400 });
-        }
-
-        return NextResponse.json(recipeData);
-    } catch (error) {
-        console.error("Error refining recipe:", error);
-        return NextResponse.json(
-            { error: "Failed to refine recipe" },
-            { status: 500 }
-        );
+    if (
+      recipeData &&
+      typeof recipeData === "object" &&
+      "error" in recipeData &&
+      typeof (recipeData as { error?: unknown }).error === "string"
+    ) {
+      return NextResponse.json(
+        { error: (recipeData as { error: string }).error },
+        { status: 400 }
+      );
     }
+
+    if (!isRecipePayload(recipeData)) {
+      return NextResponse.json(
+        { error: "AI returned an invalid recipe format" },
+        { status: 502 }
+      );
+    }
+
+    const recipe: Recipe = {
+      ...recipeData,
+      // Enforce "keep the same ID" regardless of what the model returns.
+      id: currentRecipe.id,
+    };
+
+    return NextResponse.json(recipe);
+  } catch (error) {
+    console.error("Error refining recipe:", error);
+    return NextResponse.json(
+      { error: "Failed to refine recipe" },
+      { status: 500 }
+    );
+  }
 }

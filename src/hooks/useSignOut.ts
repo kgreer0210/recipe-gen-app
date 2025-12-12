@@ -28,8 +28,8 @@ export function useSignOut() {
             clearGroceryList([]);
             clearWeeklyPlan([]);
 
-            router.push("/");
-            router.refresh();
+            // After sign out, always return the user to the sign-in page.
+            router.replace("/login");
         } catch (err) {
             const error = err instanceof Error ? err : new Error("Failed to sign out");
             setError(error);

@@ -135,6 +135,8 @@ export function AuthProvider({
           }
         } else {
           setSubscription(null);
+          // If the user becomes unauthenticated (e.g., explicit sign-out), send them to sign-in.
+          router.replace("/login");
         }
 
         router.refresh();
@@ -152,6 +154,7 @@ export function AuthProvider({
         userRef.current = null;
         setUser(null);
         setSubscription(null);
+        router.replace("/login");
         router.refresh();
       }
     });

@@ -8,7 +8,7 @@ This project is built as a highly scalable, production-ready Next.js application
 
 ## 🚀 Key Features
 
-- **AI Recipe Generation**: Generate unique, detailed recipes by selecting cuisine, meal type, and main ingredients. Powered by OpenAI.
+- **AI Recipe Generation**: Generate unique, detailed recipes by selecting cuisine, meal type, and main ingredients. Powered by OpenRouter.
 - **Interactive Weekly Planner**: specialized drag-and-drop interface to schedule meals for the week.
 - **Smart Grocery Lists**: Automatically aggregates ingredients from your weekly plan into a sorted shopping list.
 - **User Collections**: Save and organize favorite generated recipes.
@@ -23,7 +23,7 @@ This project is built as a highly scalable, production-ready Next.js application
 - **Language**: [TypeScript](https://www.typescriptlang.org/)
 - **Styling**: [Tailwind CSS v4](https://tailwindcss.com/)
 - **Database & Auth**: [Supabase](https://supabase.com/) (PostgreSQL)
-- **AI Integration**: [OpenAI API](https://openai.com/)
+- **AI Integration**: [OpenRouter](https://openrouter.ai/)
 - **State Management**: [Zustand](https://github.com/pmndrs/zustand) (for client-side shopping cart/recipe state)
 - **Animations**: [Motion](https://motion.dev/) (formerly Framer Motion)
 - **Icons**: [Lucide React](https://lucide.dev/)
@@ -45,6 +45,7 @@ The application uses the **Next.js 16 App Router**.
 The "backend" is implemented using **Next.js API Routes** (`src/app/api/`) which act as a secure proxy between the client and external services.
 
 - `/api/generate-recipe`: Handles the prompt engineering and communication with OpenAI. This keeps API keys secure on the server.
+- `/api/refine-recipe`: Refines an existing recipe based on user instructions.
 - `/api/rate-limit`: Checks and updates user rate limits before allowing expensive AI operations.
 
 ### Database & Security (Supabase)
@@ -76,7 +77,7 @@ To prevent abuse and manage costs, a custom **PostgreSQL RPC (Remote Procedure C
 
 - Node.js 18+ and npm/yarn/pnpm/bun.
 - A Supabase project.
-- An OpenAI API Key.
+- An OpenRouter API Key.
 
 ### 2. Clone & Install
 
@@ -94,10 +95,14 @@ Create a `.env.local` file in the root directory:
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_for_admin_tasks
-OPENAI_API_KEY=your_openai_api_key
+OPEN_ROUTER_API_KEY=your_openrouter_api_key
+OPENROUTER_PRIMARY_MODEL=google/gemini-2.5-flash-lite
+OPENROUTER_FALLBACK_MODEL=anthropic/claude-3.5-haiku
 ```
 
 _Note: `SUPABASE_SERVICE_ROLE_KEY` is required for the rate-limit check API route which needs to bypass RLS to reliably increment counters via RPC._
+
+_Note: The app also supports `OPENROUTER_API_KEY` (without the underscore) for compatibility with the OpenRouter SDK docs._
 
 ### 4. Database Setup
 

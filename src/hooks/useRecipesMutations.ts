@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Recipe } from "@/types";
+import { useRecipesStore } from "@/lib/stores/recipesStore";
 
 export function useSaveRecipe() {
   const { supabase, user } = useAuth();
@@ -68,6 +69,9 @@ export function useRemoveRecipe() {
         console.error("Error removing recipe:", deleteError);
         throw deleteError;
       }
+
+      // Optimistic local update: Realtime DELETE events may not fire (filtered subscriptions + DELETE payloads).
+      useRecipesStore.getState().removeRecipe(recipeId);
     } catch (err) {
       const error =
         err instanceof Error ? err : new Error("Failed to remove recipe");

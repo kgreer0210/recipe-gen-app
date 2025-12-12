@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Ingredient, Recipe } from "@/types";
+import { useGroceryListStore } from "@/lib/stores/groceryListStore";
 
 export function useAddToGroceryList() {
   const { supabase, user } = useAuth();
@@ -271,6 +272,11 @@ export function useClearGathered() {
         console.error("Error clearing gathered items:", deleteError);
         throw deleteError;
       }
+
+      // Optimistic local update: Realtime DELETE events may not fire (filtered subscriptions + DELETE payloads).
+      const state = useGroceryListStore.getState();
+      const remaining = state.groceryList.filter((i) => !i.id || !gatheredIds.includes(i.id));
+      useGroceryListStore.getState().setGroceryList(remaining);
     } catch (err) {
       const error = err instanceof Error ? err : new Error("Failed to clear gathered items");
       setError(error);
@@ -312,6 +318,7 @@ export function useRemoveIngredientsForRecipe() {
 
       const updates: PromiseLike<any>[] = [];
       const idsToRemove: string[] = [];
+      const amountUpdatesById = new Map<string, number>();
 
       for (const ing of recipe.ingredients) {
         const existingItem = currentList.find(
@@ -327,6 +334,7 @@ export function useRemoveIngredientsForRecipe() {
           if (newAmount <= 0.01) {
             idsToRemove.push(existingItem.id);
           } else {
+            amountUpdatesById.set(existingItem.id, newAmount);
             updates.push(
               supabase
                 .from("grocery_list")
@@ -352,6 +360,18 @@ export function useRemoveIngredientsForRecipe() {
         console.error("Error removing ingredients from grocery list:", errors);
         throw errors[0];
       }
+
+      // Optimistic local update: Realtime UPDATE/DELETE events may not fire reliably with filtered subscriptions.
+      const state = useGroceryListStore.getState();
+      const beforeCount = state.groceryList.length;
+      const next = state.groceryList
+        .filter((i) => !i.id || !idsToRemove.includes(i.id))
+        .map((i) => {
+          if (!i.id) return i;
+          const nextAmount = amountUpdatesById.get(i.id);
+          return nextAmount === undefined ? i : { ...i, amount: nextAmount };
+        });
+      useGroceryListStore.getState().setGroceryList(next);
     } catch (err) {
       const error = err instanceof Error ? err : new Error("Failed to remove ingredients");
       setError(error);
