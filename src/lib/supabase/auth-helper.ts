@@ -8,12 +8,18 @@ export async function getAuthenticatedUser(request: Request) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (user) return { user, supabase };
+  if (user) {
+    console.log("[auth-helper] Cookie auth success:", user.email);
+    return { user, supabase };
+  }
 
   // Try Bearer token auth (mobile)
   const authHeader = request.headers.get("Authorization");
+  console.log("[auth-helper] No cookie user, checking Bearer token. Has auth header:", !!authHeader);
+
   if (authHeader?.startsWith("Bearer ")) {
     const token = authHeader.slice(7);
+    console.log("[auth-helper] Bearer token found, length:", token.length);
 
     // Use standard Supabase client for JWT token validation
     const supabaseWithToken = createClient(
@@ -30,9 +36,14 @@ export async function getAuthenticatedUser(request: Request) {
 
     const {
       data: { user: tokenUser },
+      error,
     } = await supabaseWithToken.auth.getUser();
+
+    console.log("[auth-helper] Token auth result - user:", tokenUser?.email, "error:", error?.message);
+
     if (tokenUser) return { user: tokenUser, supabase: supabaseWithToken };
   }
 
+  console.log("[auth-helper] No authenticated user found");
   return { user: null, supabase };
 }
