@@ -28,9 +28,12 @@ export async function POST(request: Request) {
       );
     }
 
+    // Use origin header for web, fallback to app URL for mobile
+    const origin = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://www.mise-ai.app";
+
     const session = await stripe.billingPortal.sessions.create({
       customer: subscription.stripe_customer_id,
-      return_url: `${request.headers.get("origin")}/pricing`,
+      return_url: `${origin}/pricing`,
     });
 
     return NextResponse.json({ url: session.url });

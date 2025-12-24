@@ -51,8 +51,11 @@ export async function POST(request: Request) {
     // We can pass `customer_email` to prefill it. 
     // If we want to link the future webhook events to this user, we can pass metadata.
 
+    // Use origin header for web, fallback to app URL for mobile
+    const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || 'https://www.mise-ai.app';
+
     const session = await stripe.checkout.sessions.create({
-      customer: customerId, // If null, Stripe creates a new one. 
+      customer: customerId, // If null, Stripe creates a new one.
       // If we don't provide customer, we should at least provide email if we have it.
       customer_email: customerId ? undefined : user.email,
       line_items: [
@@ -62,8 +65,8 @@ export async function POST(request: Request) {
         },
       ],
       mode: 'subscription',
-      success_url: `${request.headers.get('origin')}/?success=true`,
-      cancel_url: `${request.headers.get('origin')}/pricing?canceled=true`,
+      success_url: `${origin}/?success=true`,
+      cancel_url: `${origin}/pricing?canceled=true`,
       metadata: {
         user_id: user.id,
       },
