@@ -69,7 +69,7 @@ export async function POST(request: Request) {
     // Actually, refinement is part of the "creation" process, so maybe we don't deduct?
     // But it costs tokens. Let's check limit but maybe not deduct?
     // For now, let's just check the limit to ensure they aren't blocked.
-    const { allowed } = await checkRateLimit(5);
+    const { allowed } = await checkRateLimit(5, user);
 
     if (!allowed) {
       return NextResponse.json(

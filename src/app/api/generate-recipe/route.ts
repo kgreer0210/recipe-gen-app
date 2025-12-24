@@ -17,7 +17,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { allowed, remaining, error } = await checkRateLimit(5);
+    const { allowed, remaining, error } = await checkRateLimit(5, user);
 
     if (!allowed) {
       return NextResponse.json(

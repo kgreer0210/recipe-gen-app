@@ -1,12 +1,9 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
+import type { User } from "@supabase/supabase-js";
 
-export async function checkRateLimit(limit: number = 5) {
-  // We need the user ID from the session to pass to the admin RPC
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+export async function checkRateLimit(limit: number = 5, authenticatedUser?: User) {
+  // Use provided user (from Bearer token auth) or return error
+  const user = authenticatedUser;
 
   if (!user) {
     return { allowed: false, remaining: 0, error: "User not authenticated" };
