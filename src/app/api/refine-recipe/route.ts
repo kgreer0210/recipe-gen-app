@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { Recipe, RefineRecipeRequest } from "@/types";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthenticatedUser } from "@/lib/supabase/auth-helper";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { chatJson } from "@/lib/openrouter/chatJson";
 
@@ -53,10 +53,7 @@ function isRecipePayload(
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { user } = await getAuthenticatedUser(request);
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
