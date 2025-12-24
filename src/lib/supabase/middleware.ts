@@ -47,7 +47,7 @@ export async function updateSession(request: NextRequest) {
     !request.nextUrl.pathname.startsWith("/about") &&
     !request.nextUrl.pathname.startsWith("/pricing") &&
     !request.nextUrl.pathname.startsWith("/contact") &&
-    !request.nextUrl.pathname.startsWith("/api/stripe") &&
+    !request.nextUrl.pathname.startsWith("/api/") && // API routes handle their own auth (supports Bearer tokens for mobile)
     request.nextUrl.pathname !== "/"
   ) {
     // no user, potentially respond by redirecting the user to the login page
