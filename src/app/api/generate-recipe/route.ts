@@ -4,6 +4,11 @@ import { getAuthenticatedUser } from "@/lib/supabase/auth-helper";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { chatJson } from "@/lib/openrouter/chatJson";
 
+// Handle CORS preflight requests
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 200 });
+}
+
 export async function POST(request: Request) {
   try {
     const { user } = await getAuthenticatedUser(request);

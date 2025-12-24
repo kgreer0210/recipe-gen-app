@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import { getAuthenticatedUser } from '@/lib/supabase/auth-helper';
 
+// Handle CORS preflight requests
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 200 });
+}
+
 export async function POST(request: Request) {
   try {
     const { user, supabase } = await getAuthenticatedUser(request);

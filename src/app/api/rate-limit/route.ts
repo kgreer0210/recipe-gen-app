@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/supabase/auth-helper";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+// Handle CORS preflight requests
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 200 });
+}
+
 export async function GET(request: Request) {
   try {
     const { user } = await getAuthenticatedUser(request);
