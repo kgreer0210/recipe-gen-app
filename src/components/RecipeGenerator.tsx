@@ -15,7 +15,7 @@ import {
 } from "@/types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, ChefHat, ArrowRight, Check, Lock } from "lucide-react";
+import { Loader2, ChefHat, ArrowRight, ArrowLeft, Check, Lock } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 const cuisines: CuisineType[] = [
@@ -259,9 +259,47 @@ export default function RecipeGenerator() {
     setStep((prev) => prev + 1);
   };
 
-  const prevStep = () => {
+  const goToPreviousStep = () => {
     setDirection(-1);
-    setStep((prev) => prev - 1);
+    
+    if (mode === "classic") {
+      // Handle classic mode navigation
+      if (step === reviewStepIndex) {
+        // Going back from review step to preferences step
+        setStep(hasCuts ? 4 : 3);
+      } else if (step === (hasCuts ? 4 : 3)) {
+        // Going back from preferences step
+        // If protein has cuts, go to cut step (3), otherwise go to protein step (2)
+        if (hasCuts) {
+          setStep(3);
+        } else {
+          setStep(2);
+        }
+      } else if (step === 3 && hasCuts) {
+        // Going back from protein cut step (step 3) to protein step (step 2)
+        // Only handle this if hasCuts is true, otherwise step 3 is preferences
+        setStep(2);
+      } else if (step > 0) {
+        // For all other steps, simple decrement
+        setStep((prev) => prev - 1);
+      }
+    } else {
+      // Handle pantry mode navigation
+      if (step === reviewStepIndex) {
+        // Going back from review step (step 2) to preferences step (step 1)
+        setStep(1);
+      } else if (step === 1) {
+        // Going back from preferences step to ingredients step (step 0)
+        setStep(0);
+      } else if (step > 0) {
+        // For all other steps, simple decrement
+        setStep((prev) => prev - 1);
+      }
+    }
+  };
+
+  const prevStep = () => {
+    goToPreviousStep();
   };
 
   const togglePreference = (pref: string) => {
@@ -293,12 +331,14 @@ export default function RecipeGenerator() {
     selected,
     onSelect,
     onNext,
+    onBack,
   }: {
     title: string;
     options: string[];
     selected: string;
     onSelect: (val: any) => void;
     onNext: () => void;
+    onBack?: () => void;
   }) => (
     <div className="w-full">
       <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
@@ -320,7 +360,15 @@ export default function RecipeGenerator() {
           </button>
         ))}
       </div>
-      <div className="flex justify-end">
+      <div className={`flex ${onBack ? "justify-between" : "justify-end"} gap-4`}>
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-full font-semibold hover:bg-gray-200 transition-all hover:scale-105 active:scale-95"
+          >
+            <ArrowLeft className="w-5 h-5" /> Back
+          </button>
+        )}
         <button
           onClick={onNext}
           className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-full font-semibold shadow-lg hover:bg-blue-700 transition-all hover:scale-105 active:scale-95"
@@ -331,7 +379,7 @@ export default function RecipeGenerator() {
     </div>
   );
 
-  const PreferencesStep = ({ onNext }: { onNext: () => void }) => (
+  const PreferencesStep = ({ onNext, onBack }: { onNext: () => void; onBack?: () => void }) => (
     <div className="w-full">
       <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
         Any dietary preferences?
@@ -352,7 +400,15 @@ export default function RecipeGenerator() {
           </button>
         ))}
       </div>
-      <div className="flex justify-end">
+      <div className={`flex ${onBack ? "justify-between" : "justify-end"} gap-4`}>
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-full font-semibold hover:bg-gray-200 transition-all hover:scale-105 active:scale-95"
+          >
+            <ArrowLeft className="w-5 h-5" /> Back
+          </button>
+        )}
         <button
           onClick={onNext}
           className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-full font-semibold shadow-lg hover:bg-blue-700 transition-all hover:scale-105 active:scale-95"
@@ -531,7 +587,7 @@ export default function RecipeGenerator() {
               }}
               className="absolute inset-0 overflow-y-auto px-8 py-4"
             >
-              <PreferencesStep onNext={nextStep} />
+              <PreferencesStep onNext={nextStep} onBack={goToPreviousStep} />
             </motion.div>
           )}
 
@@ -555,6 +611,7 @@ export default function RecipeGenerator() {
                 selected={meal}
                 onSelect={setMeal}
                 onNext={nextStep}
+                onBack={goToPreviousStep}
               />
             </motion.div>
           )}
@@ -579,6 +636,7 @@ export default function RecipeGenerator() {
                 selected={protein}
                 onSelect={handleProteinSelect}
                 onNext={handleProteinNext}
+                onBack={goToPreviousStep}
               />
             </motion.div>
           )}
@@ -603,6 +661,7 @@ export default function RecipeGenerator() {
                 selected={proteinCut}
                 onSelect={setProteinCut}
                 onNext={nextStep}
+                onBack={goToPreviousStep}
               />
             </motion.div>
           )}
@@ -622,7 +681,7 @@ export default function RecipeGenerator() {
               }}
               className="absolute inset-0 overflow-y-auto px-8 py-4"
             >
-              <PreferencesStep onNext={nextStep} />
+              <PreferencesStep onNext={nextStep} onBack={goToPreviousStep} />
             </motion.div>
           )}
 
