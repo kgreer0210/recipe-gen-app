@@ -7,6 +7,7 @@ import { useAddToGroceryList } from '@/hooks/useGroceryListMutations';
 import { ArrowLeft, Clock, ChefHat, Utensils, ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
 import { Recipe } from '@/types';
+import { formatRecipeAmount } from '@/lib/grocery/format';
 
 export default function RecipeDetailsPage() {
     const params = useParams();
@@ -131,7 +132,10 @@ export default function RecipeDetailsPage() {
                                         <li key={index} className="flex items-start gap-3 p-3 rounded-lg bg-gray-50">
                                             <div className="w-2 h-2 mt-2 rounded-full bg-blue-400 flex-shrink-0" />
                                             <span className="text-gray-700">
-                                                <span className="font-semibold">{ingredient.amount} {ingredient.unit}</span> {ingredient.name}
+                                                <span className="font-semibold">
+                                                    {formatRecipeAmount(ingredient.amount, ingredient.unit)} {ingredient.unit}
+                                                </span>{" "}
+                                                {ingredient.name}
                                             </span>
                                         </li>
                                     ))}

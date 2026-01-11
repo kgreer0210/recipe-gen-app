@@ -12,6 +12,8 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { Unit } from "@/types";
 import { getPurchaseQuantity } from "@/lib/grocery/purchase";
+import type { IngredientUnitProfile } from "@/lib/grocery/unitProfiles";
+import { normalizeIngredientName } from "@/lib/grocery/normalize";
 import {
   ShoppingBasket,
   CheckSquare,
@@ -56,7 +58,7 @@ const CATEGORIES = [
 
 export default function GroceryList() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, supabase } = useAuth();
   const { groceryList = [] } = useGroceryListRealtime();
   const { mutate: toggleGroceryItem } = useToggleGroceryItem();
   const { mutate: removeFromGroceryList } = useRemoveFromGroceryList();
@@ -70,6 +72,10 @@ export default function GroceryList() {
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
+  const [unitProfilesByName, setUnitProfilesByName] = useState<
+    Map<string, IngredientUnitProfile>
+  >(new Map());
+  const [showPantryStaples, setShowPantryStaples] = useState(false);
 
   // Auth check helper
   const requireAuth = (action: () => void) => {
@@ -99,6 +105,59 @@ export default function GroceryList() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Best-effort fetch of unit profiles so we can show package-friendly “Buy” amounts
+  // and keep Need/Buy consistent with canonicalized grocery units.
+  useEffect(() => {
+    if (!user) {
+      setUnitProfilesByName(new Map());
+      return;
+    }
+
+    const names = Array.from(
+      new Set(
+        groceryList
+          .map((i) =>
+            typeof i.nameNormalized === "string" && i.nameNormalized.length > 0
+              ? i.nameNormalized
+              : normalizeIngredientName(i.name)
+          )
+          .filter((n) => n.length > 0)
+      )
+    );
+
+    if (names.length === 0) {
+      setUnitProfilesByName(new Map());
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("ingredient_unit_profiles")
+        .select(
+          "name_normalized, canonical_unit, grams_per_count, ml_per_count, pack_size_amount, pack_size_unit, display_name, exclude_always, pantry_staple, buy_unit_label"
+        )
+        .in("name_normalized", names);
+
+      if (cancelled) return;
+      if (error) {
+        console.warn("Failed to fetch ingredient unit profiles:", error);
+        setUnitProfilesByName(new Map());
+        return;
+      }
+
+      const map = new Map<string, IngredientUnitProfile>();
+      for (const row of data || []) {
+        map.set(row.name_normalized, row as IngredientUnitProfile);
+      }
+      setUnitProfilesByName(map);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, supabase, groceryList]);
 
   const handleAddItem = async () => {
     if (!user) {
@@ -153,7 +212,13 @@ export default function GroceryList() {
         text += `${category.toUpperCase()}\n`;
         for (const item of items) {
           const checkbox = item.isChecked ? "✓" : "☐";
-          const { buyAmount, buyUnit } = getPurchaseQuantity(item);
+          const nameNorm =
+            typeof item.nameNormalized === "string" &&
+            item.nameNormalized.length > 0
+              ? item.nameNormalized
+              : normalizeIngredientName(item.name);
+          const profile = unitProfilesByName.get(nameNorm);
+          const { buyAmount, buyUnit } = getPurchaseQuantity(item, profile);
           text += `${checkbox} ${item.name}: ${buyAmount} ${buyUnit}\n`;
         }
         text += "\n";
@@ -167,7 +232,13 @@ export default function GroceryList() {
         text += `${category.toUpperCase()}\n`;
         for (const item of items) {
           const checkbox = item.isChecked ? "✓" : "☐";
-          const { buyAmount, buyUnit } = getPurchaseQuantity(item);
+          const nameNorm =
+            typeof item.nameNormalized === "string" &&
+            item.nameNormalized.length > 0
+              ? item.nameNormalized
+              : normalizeIngredientName(item.name);
+          const profile = unitProfilesByName.get(nameNorm);
+          const { buyAmount, buyUnit } = getPurchaseQuantity(item, profile);
           text += `${checkbox} ${item.name}: ${buyAmount} ${buyUnit}\n`;
         }
         text += "\n";
@@ -183,8 +254,44 @@ export default function GroceryList() {
     }
   };
 
-  const activeItems = groceryList.filter((item) => !item.isChecked);
-  const gatheredItems = groceryList.filter((item) => item.isChecked);
+  const isPantryStaple = (item: (typeof groceryList)[number]) => {
+    const nameNorm =
+      typeof item.nameNormalized === "string" && item.nameNormalized.length > 0
+        ? item.nameNormalized
+        : normalizeIngredientName(item.name);
+    return unitProfilesByName.get(nameNorm)?.pantry_staple === true;
+  };
+
+  const activeItems = groceryList.filter(
+    (item) => !item.isChecked && (showPantryStaples || !isPantryStaple(item))
+  );
+  const gatheredItems = groceryList.filter(
+    (item) => item.isChecked && (showPantryStaples || !isPantryStaple(item))
+  );
+  const pantryStaplesCount = groceryList.filter(isPantryStaple).length;
+
+  const renderNeedBuyBadge = (item: (typeof groceryList)[number]) => {
+    const nameNorm =
+      typeof item.nameNormalized === "string" && item.nameNormalized.length > 0
+        ? item.nameNormalized
+        : normalizeIngredientName(item.name);
+    const profile = unitProfilesByName.get(nameNorm);
+    const { needAmount, needUnit, buyAmount, buyUnit } = getPurchaseQuantity(
+      item,
+      profile
+    );
+
+    return (
+      <div className="text-sm font-semibold text-blue-700 bg-blue-50 px-3 py-1 rounded-md border border-blue-100 shadow-sm leading-tight flex flex-col items-end">
+        <span className="text-[11px] font-medium text-blue-900/70">
+          Need {needAmount} {needUnit}
+        </span>
+        <span>
+          Buy {buyAmount} {buyUnit}
+        </span>
+      </div>
+    );
+  };
 
   // Add Item Modal component
   const renderAddItemModal = () => (
@@ -421,6 +528,16 @@ export default function GroceryList() {
           <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
             To Buy ({activeItems.length})
           </h3>
+          {pantryStaplesCount > 0 && (
+            <button
+              onClick={() => setShowPantryStaples((v) => !v)}
+              className="text-xs font-medium text-blue-700 hover:text-blue-900 hover:underline transition-colors mb-3"
+            >
+              {showPantryStaples
+                ? "Hide pantry staples"
+                : `Show pantry staples (${pantryStaplesCount})`}
+            </button>
+          )}
           {activeItems.length === 0 && gatheredItems.length > 0 && (
             <p className="text-sm text-gray-400 italic">
               All items gathered! Great job.
@@ -462,13 +579,7 @@ export default function GroceryList() {
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-semibold text-blue-700 bg-blue-50 px-3 py-1 rounded-md border border-blue-100 shadow-sm">
-                              {(() => {
-                                const { buyAmount, buyUnit } =
-                                  getPurchaseQuantity(item);
-                                return `${buyAmount} ${buyUnit}`;
-                              })()}
-                            </span>
+                            {renderNeedBuyBadge(item)}
                             <button
                               onClick={() =>
                                 requireAuth(() =>
@@ -521,13 +632,7 @@ export default function GroceryList() {
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-semibold text-blue-700 bg-blue-50 px-3 py-1 rounded-md border border-blue-100 shadow-sm">
-                              {(() => {
-                                const { buyAmount, buyUnit } =
-                                  getPurchaseQuantity(item);
-                                return `${buyAmount} ${buyUnit}`;
-                              })()}
-                            </span>
+                            {renderNeedBuyBadge(item)}
                             <button
                               onClick={() =>
                                 requireAuth(() =>
@@ -596,13 +701,28 @@ export default function GroceryList() {
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-gray-500 bg-gray-100 px-3 py-1 rounded-md border border-gray-200">
+                      <div className="text-sm font-semibold text-gray-500 bg-gray-100 px-3 py-1 rounded-md border border-gray-200 shadow-sm leading-tight flex flex-col items-end">
                         {(() => {
-                          const { buyAmount, buyUnit } =
-                            getPurchaseQuantity(item);
-                          return `${buyAmount} ${buyUnit}`;
+                          const nameNorm =
+                            typeof item.nameNormalized === "string" &&
+                            item.nameNormalized.length > 0
+                              ? item.nameNormalized
+                              : normalizeIngredientName(item.name);
+                          const profile = unitProfilesByName.get(nameNorm);
+                          const { needAmount, needUnit, buyAmount, buyUnit } =
+                            getPurchaseQuantity(item, profile);
+                          return (
+                            <>
+                              <span className="text-[11px] font-medium text-gray-700/70">
+                                Need {needAmount} {needUnit}
+                              </span>
+                              <span>
+                                Buy {buyAmount} {buyUnit}
+                              </span>
+                            </>
+                          );
                         })()}
-                      </span>
+                      </div>
                       <button
                         onClick={() =>
                           requireAuth(() => removeFromGroceryList(item.id!))

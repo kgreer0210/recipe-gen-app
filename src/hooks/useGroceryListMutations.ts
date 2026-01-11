@@ -2,6 +2,37 @@ import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Ingredient, Recipe } from "@/types";
 import { useGroceryListStore } from "@/lib/stores/groceryListStore";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { normalizeIngredientName } from "@/lib/grocery/normalize";
+import { canonicalizeIngredientForGroceryList } from "@/lib/grocery/canonicalize";
+import type { IngredientUnitProfile } from "@/lib/grocery/unitProfiles";
+
+async function fetchUnitProfiles(
+  supabase: SupabaseClient,
+  normalizedNames: string[]
+): Promise<Map<string, IngredientUnitProfile>> {
+  const unique = Array.from(new Set(normalizedNames)).filter((n) => n.length > 0);
+  if (unique.length === 0) return new Map();
+
+  const { data, error } = await supabase
+    .from("ingredient_unit_profiles")
+    .select(
+      "name_normalized, canonical_unit, grams_per_count, ml_per_count, pack_size_amount, pack_size_unit, display_name, exclude_always, pantry_staple, buy_unit_label"
+    )
+    .in("name_normalized", unique);
+
+  if (error) {
+    // Profiles are best-effort; fall back to safe conversions if unavailable.
+    console.warn("Failed to fetch ingredient unit profiles:", error);
+    return new Map();
+  }
+
+  const map = new Map<string, IngredientUnitProfile>();
+  for (const row of data || []) {
+    map.set(row.name_normalized, row as IngredientUnitProfile);
+  }
+  return map;
+}
 
 export function useAddToGroceryList() {
   const { supabase, user } = useAuth();
@@ -38,13 +69,26 @@ export function useAddToGroceryList() {
           ? servings / baseServings
           : servings;
 
+      const normalizedNames = recipe.ingredients.map((ing) =>
+        normalizeIngredientName(ing.name)
+      );
+      const profiles = await fetchUnitProfiles(supabase, normalizedNames);
+
       for (const ing of recipe.ingredients) {
-        const scaledAmount = ing.amount * scale;
-        const existingItem = currentList?.find(
-          (item) =>
-            item.name.toLowerCase() === ing.name.toLowerCase() &&
-            item.unit === ing.unit
-        );
+        const nameNorm = normalizeIngredientName(ing.name);
+        const profile = profiles.get(nameNorm);
+        if (profile?.exclude_always) {
+          continue;
+        }
+        const canonical = canonicalizeIngredientForGroceryList(ing, profile);
+        const scaledAmount = canonical.amount * scale;
+        const existingItem = currentList?.find((item) => {
+          const itemNameNorm =
+            typeof item.name_normalized === "string"
+              ? item.name_normalized
+              : normalizeIngredientName(String(item.name ?? ""));
+          return itemNameNorm === canonical.nameNormalized && item.unit === canonical.unit;
+        });
 
         if (existingItem) {
           updates.push(
@@ -57,10 +101,11 @@ export function useAddToGroceryList() {
           updates.push(
             supabase.from("grocery_list").insert({
               user_id: user.id,
-              name: ing.name,
+              name: canonical.displayName,
+              name_normalized: canonical.nameNormalized,
               amount: scaledAmount,
-              unit: ing.unit,
-              category: ing.category || "Other",
+              unit: canonical.unit,
+              category: canonical.category || "Other",
             })
           );
         }
@@ -108,16 +153,26 @@ export function useAddCustomGroceryItem() {
         throw fetchError;
       }
 
-      const existingItem = currentList?.find(
-        (existing) =>
-          existing.name.toLowerCase() === item.name.toLowerCase() &&
-          existing.unit === item.unit
-      );
+      const nameNorm = normalizeIngredientName(item.name);
+      const profiles = await fetchUnitProfiles(supabase, [nameNorm]);
+      const profile = profiles.get(nameNorm);
+      if (profile?.exclude_always) {
+        return;
+      }
+      const canonical = canonicalizeIngredientForGroceryList(item, profile);
+
+      const existingItem = currentList?.find((existing) => {
+        const existingNorm =
+          typeof existing.name_normalized === "string"
+            ? existing.name_normalized
+            : normalizeIngredientName(String(existing.name ?? ""));
+        return existingNorm === canonical.nameNormalized && existing.unit === canonical.unit;
+      });
 
       if (existingItem) {
         const { error: updateError } = await supabase
           .from("grocery_list")
-          .update({ amount: existingItem.amount + item.amount })
+          .update({ amount: existingItem.amount + canonical.amount })
           .match({ id: existingItem.id });
 
         if (updateError) {
@@ -127,10 +182,11 @@ export function useAddCustomGroceryItem() {
       } else {
         const { error: insertError } = await supabase.from("grocery_list").insert({
           user_id: user.id,
-          name: item.name,
-          amount: item.amount,
-          unit: item.unit,
-          category: item.category || "Other",
+          name: canonical.displayName,
+          name_normalized: canonical.nameNormalized,
+          amount: canonical.amount,
+          unit: canonical.unit,
+          category: canonical.category || "Other",
         });
 
         if (insertError) {
@@ -332,15 +388,28 @@ export function useRemoveIngredientsForRecipe() {
           ? servings / baseServings
           : servings;
 
+      const normalizedNames = recipe.ingredients.map((ing) =>
+        normalizeIngredientName(ing.name)
+      );
+      const profiles = await fetchUnitProfiles(supabase, normalizedNames);
+
       for (const ing of recipe.ingredients) {
-        const existingItem = currentList.find(
-          (item) =>
-            item.name.toLowerCase() === ing.name.toLowerCase() &&
-            item.unit === ing.unit
-        );
+        const nameNorm = normalizeIngredientName(ing.name);
+        const profile = profiles.get(nameNorm);
+        if (profile?.exclude_always) {
+          continue;
+        }
+        const canonical = canonicalizeIngredientForGroceryList(ing, profile);
+        const existingItem = currentList.find((item) => {
+          const itemNameNorm =
+            typeof item.name_normalized === "string"
+              ? item.name_normalized
+              : normalizeIngredientName(String(item.name ?? ""));
+          return itemNameNorm === canonical.nameNormalized && item.unit === canonical.unit;
+        });
 
         if (existingItem) {
-          const amountToRemove = ing.amount * scale;
+          const amountToRemove = canonical.amount * scale;
           const newAmount = existingItem.amount - amountToRemove;
 
           if (newAmount <= 0.01) {

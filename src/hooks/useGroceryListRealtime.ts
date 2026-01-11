@@ -8,6 +8,7 @@ function transformGroceryRow(row: any): Ingredient {
   return {
     id: row.id,
     name: row.name,
+    nameNormalized: row.name_normalized,
     amount: row.amount,
     unit: row.unit,
     category: row.category,

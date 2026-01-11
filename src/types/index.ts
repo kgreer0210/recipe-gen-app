@@ -17,20 +17,21 @@ export interface Subscription {
   id: string;
   user_id: string;
   status:
-  | "active"
-  | "trialing"
-  | "past_due"
-  | "canceled"
-  | "unpaid"
-  | "incomplete"
-  | "incomplete_expired"
-  | "paused";
+    | "active"
+    | "trialing"
+    | "past_due"
+    | "canceled"
+    | "unpaid"
+    | "incomplete"
+    | "incomplete_expired"
+    | "paused";
   price_id: string;
 }
 
 export interface Ingredient {
   id?: string;
   name: string;
+  nameNormalized?: string;
   amount: number;
   unit: Unit;
   category?: string;

@@ -1,10 +1,11 @@
 import { Ingredient, Unit } from "@/types";
+import type { IngredientUnitProfile } from "@/lib/grocery/unitProfiles";
 
 export type PurchaseQuantity = {
   needAmount: number;
   needUnit: Unit;
   buyAmount: number;
-  buyUnit: Unit;
+  buyUnit: string;
   reason?: string;
 };
 
@@ -35,14 +36,15 @@ function toLb(amount: number, unit: Unit): number | null {
  * - everything else: same as needed.
  */
 export function getPurchaseQuantity(
-  ingredient: Pick<Ingredient, "amount" | "unit" | "category" | "name">
+  ingredient: Pick<Ingredient, "amount" | "unit" | "category" | "name">,
+  profile?: IngredientUnitProfile
 ): PurchaseQuantity {
   const needAmount = ingredient.amount;
   const needUnit = ingredient.unit;
 
   // Default: buy exactly what you need
   let buyAmount = needAmount;
-  let buyUnit = needUnit;
+  let buyUnit: string = needUnit;
   let reason: string | undefined;
 
   const category = (ingredient.category || "").toLowerCase();
@@ -67,6 +69,38 @@ export function getPurchaseQuantity(
   // Guardrails
   if (!Number.isFinite(buyAmount) || buyAmount < 0) {
     buyAmount = 0;
+  }
+
+  // Optional: package sizing guidance from unit profiles (package_preferred).
+  // If provided, round up to common pack sizes (e.g., soy sauce: 500 ml).
+  if (
+    profile?.pack_size_amount &&
+    profile.pack_size_amount > 0 &&
+    profile.pack_size_unit
+  ) {
+    const packUnit = profile.pack_size_unit;
+    const packSize = profile.pack_size_amount;
+
+    // Only apply when the unit matches; canonicalization happens earlier on write.
+    if (needUnit === packUnit) {
+      // If we know the packaging label (bottle/bag/box), return “N bottles”, not “500 ml”.
+      if (profile.buy_unit_label) {
+        buyUnit = profile.buy_unit_label;
+        buyAmount = Math.ceil(needAmount / packSize);
+        reason = "Common package size";
+      } else {
+        buyUnit = packUnit;
+        buyAmount = Math.ceil(needAmount / packSize) * packSize;
+        reason = "Common package size";
+      }
+    }
+  }
+
+  // Pantry staples: if they appear, we generally buy a container, not teaspoons.
+  if (profile?.pantry_staple && profile.buy_unit_label) {
+    buyUnit = profile.buy_unit_label;
+    buyAmount = Math.max(1, roundUpToWhole(buyAmount));
+    reason = reason || "Pantry staple (typically sold as a container)";
   }
 
   // Display guardrail: keep at most 2 decimals to avoid noisy floats in UI.

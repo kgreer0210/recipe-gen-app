@@ -10,7 +10,11 @@ import { Subscription } from "@/types";
 import { organizationJsonLd, websiteJsonLd } from "@/lib/seo/jsonld";
 
 const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://www.mise-ai.app";
+  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
+  "https://www.mise-ai.app";
+
+const googleSiteVerification = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION;
+const bingSiteVerification = process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION;
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -72,12 +76,16 @@ export const metadata: Metadata = {
       "max-video-preview": -1,
     },
   },
-  verification: {
-    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
-    other: {
-      bing: process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION,
-    },
-  },
+  ...(googleSiteVerification || bingSiteVerification
+    ? {
+        verification: {
+          ...(googleSiteVerification ? { google: googleSiteVerification } : {}),
+          ...(bingSiteVerification
+            ? { other: { bing: bingSiteVerification } }
+            : {}),
+        },
+      }
+    : {}),
 };
 
 export default async function RootLayout({

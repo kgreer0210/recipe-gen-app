@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useSaveRecipe } from "@/hooks/useRecipesMutations";
 import { useRecipesRealtime } from "@/hooks/useRecipesRealtime";
 import { useAddToGroceryList } from "@/hooks/useGroceryListMutations";
+import { formatRecipeAmount } from "@/lib/grocery/format";
 import {
   CuisineType,
   MealType,
@@ -912,7 +913,8 @@ export default function RecipeGenerator() {
                         className="flex items-center gap-2 text-gray-600 text-sm"
                       >
                         <span className="w-1.5 h-1.5 bg-blue-400 rounded-full"></span>
-                        {ing.amount} {ing.unit} {ing.name}
+                        {formatRecipeAmount(ing.amount, ing.unit)} {ing.unit}{" "}
+                        {ing.name}
                       </li>
                     ))}
                   </ul>
