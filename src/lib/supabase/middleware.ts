@@ -47,6 +47,11 @@ export async function updateSession(request: NextRequest) {
     !request.nextUrl.pathname.startsWith("/about") &&
     !request.nextUrl.pathname.startsWith("/pricing") &&
     !request.nextUrl.pathname.startsWith("/contact") &&
+    !request.nextUrl.pathname.startsWith("/ai-recipe-generator") &&
+    !request.nextUrl.pathname.startsWith("/meal-planner") &&
+    !request.nextUrl.pathname.startsWith("/grocery-list-maker") &&
+    request.nextUrl.pathname !== "/robots.txt" &&
+    request.nextUrl.pathname !== "/sitemap.xml" &&
     !request.nextUrl.pathname.startsWith("/api/") && // API routes handle their own auth (supports Bearer tokens for mobile)
     request.nextUrl.pathname !== "/"
   ) {

@@ -27,6 +27,10 @@ export function useSaveRecipe() {
           protein: recipe.tags?.protein || "None",
           ingredients: recipe.ingredients,
           instructions: recipe.instructions,
+          servings:
+            typeof recipe.servings === "number" && Number.isFinite(recipe.servings)
+              ? recipe.servings
+              : 2,
         })
         .select()
         .single();

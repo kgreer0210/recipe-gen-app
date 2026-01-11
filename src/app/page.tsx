@@ -1,5 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Sparkles, CalendarDays, ShoppingCart, ArrowRight } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "AI Recipe Generator & Meal Planner",
+  description:
+    "Generate custom recipes with AI, plan your weekly meals, and build smart grocery lists. Mise AI helps you answer “what’s for dinner?” in seconds.",
+  alternates: {
+    canonical: "/",
+  },
+};
 
 export default function Home() {
   return (
@@ -34,7 +44,11 @@ export default function Home() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-24">
-          <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+          <Link
+            href="/ai-recipe-generator"
+            className="group bg-white p-8 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            aria-label="Learn more about the AI Recipe Generator"
+          >
             <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mb-6 text-blue-600">
               <Sparkles className="w-6 h-6" />
             </div>
@@ -46,9 +60,16 @@ export default function Home() {
               unique recipes based on your cravings, dietary needs, and
               what&apos;s in your fridge.
             </p>
-          </div>
+            <p className="mt-4 text-sm font-semibold text-blue-700 group-hover:underline">
+              Learn more →
+            </p>
+          </Link>
 
-          <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+          <Link
+            href="/meal-planner"
+            className="group bg-white p-8 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            aria-label="Learn more about the Weekly Meal Planner"
+          >
             <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center mb-6 text-green-600">
               <CalendarDays className="w-6 h-6" />
             </div>
@@ -59,9 +80,16 @@ export default function Home() {
               Add your generated recipes into a weekly Planner. Organize your
               meals effortlessly and stick to your weekly meal plan.
             </p>
-          </div>
+            <p className="mt-4 text-sm font-semibold text-blue-700 group-hover:underline">
+              Learn more →
+            </p>
+          </Link>
 
-          <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+          <Link
+            href="/grocery-list-maker"
+            className="group bg-white p-8 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            aria-label="Learn more about the Grocery List Maker"
+          >
             <div className="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center mb-6 text-orange-600">
               <ShoppingCart className="w-6 h-6" />
             </div>
@@ -72,7 +100,10 @@ export default function Home() {
               Turn your meal plan into an organized grocery list instantly.
               Combine ingredients and never forget a spice again.
             </p>
-          </div>
+            <p className="mt-4 text-sm font-semibold text-blue-700 group-hover:underline">
+              Learn more →
+            </p>
+          </Link>
         </div>
 
         <div className="bg-blue-900 rounded-3xl p-8 sm:p-16 text-center text-white mb-20 relative overflow-hidden">

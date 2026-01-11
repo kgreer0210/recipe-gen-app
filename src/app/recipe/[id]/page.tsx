@@ -37,7 +37,11 @@ export default function RecipeDetailsPage() {
     const confirmAddToGrocery = async () => {
         if (!recipe) return;
         setIsAdding(true);
-        await addToGroceryList({ recipe, servings });
+        await addToGroceryList({
+            recipe,
+            servings,
+            baseServings: recipe.servings,
+        });
         setIsAdding(false);
         setShowServingsModal(false);
         setServings(1); // Reset

@@ -632,7 +632,11 @@ export default function GroceryList() {
         onClose={() => setIsRecipeSelectorOpen(false)}
         onSelect={async (recipe, servings) =>
           requireAuth(async () => {
-            await removeIngredientsForRecipe({ recipe, servings });
+            await removeIngredientsForRecipe({
+              recipe,
+              servings,
+              baseServings: recipe.servings,
+            });
           })
         }
         title="Remove Ingredients from List"

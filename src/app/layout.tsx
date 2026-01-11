@@ -7,6 +7,10 @@ import Footer from "@/components/Footer";
 import { createClient } from "@/lib/supabase/server";
 import { AuthProvider } from "@/components/AuthProvider";
 import { Subscription } from "@/types";
+import { organizationJsonLd, websiteJsonLd } from "@/lib/seo/jsonld";
+
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://www.mise-ai.app";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -19,7 +23,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Mise AI - Your Personal AI Chef & Meal Planner",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "Mise AI - Your Personal AI Chef & Meal Planner",
+    template: "%s | Mise AI",
+  },
   description:
     "Generate custom recipes, plan your weekly meals, and automate your grocery shopping in seconds. The smart way to answer 'What's for dinner?'",
   keywords: [
@@ -29,11 +37,46 @@ export const metadata: Metadata = {
     "artificial intelligence cooking",
     "weekly meal plan",
   ],
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
     title: "Mise AI - Your Personal AI Chef",
     description:
       "Stop wondering what to cook. Generate recipes and shopping lists instantly.",
     type: "website",
+    url: siteUrl,
+    siteName: "Mise AI",
+    images: [
+      {
+        url: "/kitchen-background.jpg",
+        alt: "Mise AI - Your Personal AI Chef",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Mise AI - Your Personal AI Chef",
+    description:
+      "Stop wondering what to cook. Generate recipes and shopping lists instantly.",
+    images: ["/kitchen-background.jpg"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-snippet": -1,
+      "max-image-preview": "large",
+      "max-video-preview": -1,
+    },
+  },
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
+    other: {
+      bing: process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION,
+    },
   },
 };
 
@@ -64,6 +107,18 @@ export default async function RootLayout({
 
   return (
     <html lang="en">
+      <head>
+        <script
+          type="application/ld+json"
+          // eslint-disable-next-line react/no-danger
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify([
+              organizationJsonLd({ siteUrl }),
+              websiteJsonLd({ siteUrl }),
+            ]),
+          }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50 min-h-screen flex flex-col`}
       >

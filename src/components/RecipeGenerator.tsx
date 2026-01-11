@@ -78,7 +78,8 @@ export default function RecipeGenerator() {
   const [direction, setDirection] = useState(0);
   const [isBlocked, setIsBlocked] = useState(false);
   const [checkingLimit, setCheckingLimit] = useState(true);
-  const [servingsInput, setServingsInput] = useState("1");
+  const [servingsInput, setServingsInput] = useState("2");
+  const [generatedServings, setGeneratedServings] = useState(2);
   const [refinementInput, setRefinementInput] = useState("");
   const [isRefining, setIsRefining] = useState(false);
   const [refinementCount, setRefinementCount] = useState(0);
@@ -125,6 +126,15 @@ export default function RecipeGenerator() {
     setShowGroceryPopup(false);
     setShowLimitPopup(false);
     try {
+      const parsedServings = Number.parseInt(servingsInput, 10);
+      const servings =
+        Number.isFinite(parsedServings) && !Number.isNaN(parsedServings)
+          ? Math.min(12, Math.max(1, parsedServings))
+          : 2;
+
+      setServingsInput(String(servings));
+      setGeneratedServings(servings);
+
       if (mode === "classic") {
         // Pass the cut only if it's not "Any cut"
         const cutToSend =
@@ -136,6 +146,7 @@ export default function RecipeGenerator() {
           protein,
           proteinCut: cutToSend,
           dietaryPreferences,
+          servings,
         });
         setGeneratedRecipe(recipe);
       } else {
@@ -149,6 +160,7 @@ export default function RecipeGenerator() {
           mode: "pantry",
           ingredients: ingredientsList,
           dietaryPreferences,
+          servings,
         });
         setGeneratedRecipe(recipe);
       }
@@ -223,15 +235,23 @@ export default function RecipeGenerator() {
 
   const handleGroceryDecision = async (addToGrocery: boolean) => {
     if (addToGrocery && generatedRecipe) {
+      const parsedServings = Number.parseInt(servingsInput, 10);
+      const servings =
+        Number.isFinite(parsedServings) && !Number.isNaN(parsedServings)
+          ? Math.min(12, Math.max(1, parsedServings))
+          : 2;
+
       await addToGroceryList({
         recipe: generatedRecipe,
-        servings: parseInt(servingsInput) || 1,
+        servings,
+        baseServings: generatedServings,
       });
     }
     setStep(0);
     setGeneratedRecipe(null);
     setShowGroceryPopup(false);
-    setServingsInput("1"); // Reset servings
+    setServingsInput("2"); // Reset servings
+    setGeneratedServings(2);
     setProteinCut("Any cut"); // Reset protein cut
     setIngredientsInput(""); // Reset ingredients
     setDietaryPreferences([]); // Reset preferences
@@ -754,6 +774,56 @@ export default function RecipeGenerator() {
                 </div>
               )}
 
+              <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm mb-8 flex justify-between items-center">
+                <span className="text-gray-500">Servings</span>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      const current = parseInt(servingsInput) || 2;
+                      setServingsInput(String(Math.max(1, current - 1)));
+                    }}
+                    className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-700 hover:bg-gray-50 transition-colors"
+                    aria-label="Decrease servings"
+                  >
+                    -
+                  </button>
+                  <input
+                    type="number"
+                    min="1"
+                    max="12"
+                    value={servingsInput}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      // Allow empty string or valid integers 1-12
+                      if (
+                        value === "" ||
+                        (/^\d+$/.test(value) && parseInt(value) <= 12)
+                      ) {
+                        setServingsInput(value);
+                      }
+                    }}
+                    onBlur={() => {
+                      const num = parseInt(servingsInput);
+                      if (!servingsInput || isNaN(num) || num < 1 || num > 12) {
+                        setServingsInput("2");
+                      }
+                    }}
+                    className="w-16 text-center text-xl font-bold text-gray-800 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-200 focus:border-blue-300 p-2 no-spinner"
+                    aria-label="Servings"
+                  />
+                  <button
+                    onClick={() => {
+                      const current = parseInt(servingsInput) || 2;
+                      setServingsInput(String(Math.min(12, current + 1)));
+                    }}
+                    className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-700 hover:bg-gray-50 transition-colors"
+                    aria-label="Increase servings"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
               {error && (
                 <div
                   className={`p-4 mb-6 rounded-xl border flex gap-3 ${error.includes("daily recipe limit")
@@ -957,22 +1027,22 @@ export default function RecipeGenerator() {
                       <input
                         type="number"
                         min="1"
-                        max="20"
+                        max="12"
                         value={servingsInput}
                         onChange={(e) => {
                           const value = e.target.value;
-                          // Allow empty string or valid numbers 1-20
+                          // Allow empty string or valid integers 1-12
                           if (
                             value === "" ||
-                            (/^\d+$/.test(value) && parseInt(value) <= 20)
+                            (/^\d+$/.test(value) && parseInt(value) <= 12)
                           ) {
                             setServingsInput(value);
                           }
                         }}
                         onBlur={() => {
                           const num = parseInt(servingsInput);
-                          if (!servingsInput || isNaN(num) || num < 1) {
-                            setServingsInput("1");
+                          if (!servingsInput || isNaN(num) || num < 1 || num > 12) {
+                            setServingsInput("2");
                           }
                         }}
                         className="w-16 text-center text-2xl font-bold text-blue-600 border-none focus:ring-0 p-0 no-spinner"
@@ -980,7 +1050,7 @@ export default function RecipeGenerator() {
                       <button
                         onClick={() => {
                           const current = parseInt(servingsInput) || 1;
-                          setServingsInput(String(Math.min(20, current + 1)));
+                          setServingsInput(String(Math.min(12, current + 1)));
                         }}
                         className="w-10 h-10 rounded-full border border-blue-200 flex items-center justify-center text-blue-600 hover:bg-blue-100 transition-colors"
                       >
@@ -1013,6 +1083,8 @@ export default function RecipeGenerator() {
                     setProteinCut("Any cut");
                     setIngredientsInput("");
                     setDietaryPreferences([]);
+                    setServingsInput("2");
+                    setGeneratedServings(2);
                   }}
                   className="w-full py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors"
                 >

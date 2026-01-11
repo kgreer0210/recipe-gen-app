@@ -50,6 +50,7 @@ export interface Recipe {
   };
   prepTime: string;
   cookTime: string;
+  servings: number;
 }
 
 export type CuisineType =
@@ -126,6 +127,7 @@ export interface GenerateRecipeRequest {
   proteinCut?: string;
   ingredients?: string[];
   dietaryPreferences?: string[];
+  servings?: number;
 }
 
 export interface RefineRecipeRequest {

@@ -11,9 +11,11 @@ export function useAddToGroceryList() {
   const mutateAsync = async ({
     recipe,
     servings = 1,
+    baseServings = 1,
   }: {
     recipe: Recipe;
     servings?: number;
+    baseServings?: number;
   }) => {
     if (!user) throw new Error("User not authenticated");
 
@@ -31,9 +33,13 @@ export function useAddToGroceryList() {
       }
 
       const updates: PromiseLike<any>[] = [];
+      const scale =
+        baseServings && Number.isFinite(baseServings) && baseServings > 0
+          ? servings / baseServings
+          : servings;
 
       for (const ing of recipe.ingredients) {
-        const scaledAmount = ing.amount * servings;
+        const scaledAmount = ing.amount * scale;
         const existingItem = currentList?.find(
           (item) =>
             item.name.toLowerCase() === ing.name.toLowerCase() &&
@@ -297,9 +303,11 @@ export function useRemoveIngredientsForRecipe() {
   const mutateAsync = async ({
     recipe,
     servings = 1,
+    baseServings = 1,
   }: {
     recipe: Recipe;
     servings?: number;
+    baseServings?: number;
   }) => {
     setIsLoading(true);
     setError(null);
@@ -319,6 +327,10 @@ export function useRemoveIngredientsForRecipe() {
       const updates: PromiseLike<any>[] = [];
       const idsToRemove: string[] = [];
       const amountUpdatesById = new Map<string, number>();
+      const scale =
+        baseServings && Number.isFinite(baseServings) && baseServings > 0
+          ? servings / baseServings
+          : servings;
 
       for (const ing of recipe.ingredients) {
         const existingItem = currentList.find(
@@ -328,7 +340,7 @@ export function useRemoveIngredientsForRecipe() {
         );
 
         if (existingItem) {
-          const amountToRemove = ing.amount * servings;
+          const amountToRemove = ing.amount * scale;
           const newAmount = existingItem.amount - amountToRemove;
 
           if (newAmount <= 0.01) {

@@ -7,7 +7,14 @@ export default function Footer() {
         <div className="text-center text-sm text-gray-600">
           <p>
             Built and managed by{" "}
-            <span className="font-semibold text-gray-900">KYGR Solutions</span>
+            <a
+              href="https://www.kygrsolutions.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-gray-900 hover:underline"
+            >
+              KYGR Solutions
+            </a>
           </p>
         </div>
       </div>

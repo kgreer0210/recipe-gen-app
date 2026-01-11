@@ -23,7 +23,8 @@ export default function RecipeSelector({
 
   if (!isOpen) return null;
 
-  // Calculate max servings for each recipe based on grocery list
+  // Calculate max servings for each recipe based on grocery list.
+  // Important: `recipe.ingredients` represent `recipe.servings` (base), not 1.
   const recipesWithStatus = useMemo(() => {
     return savedRecipes.map((recipe) => {
       let maxServings = 0;
@@ -48,7 +49,11 @@ export default function RecipeSelector({
               i.unit === ing.unit
           );
           if (!item) return 0;
-          return Math.floor(item.amount / ing.amount);
+          const baseServings =
+            typeof recipe.servings === "number" && Number.isFinite(recipe.servings)
+              ? recipe.servings
+              : 1;
+          return Math.floor((item.amount / ing.amount) * baseServings);
         });
         maxServings = Math.min(...possibleServings);
       }

@@ -1,4 +1,14 @@
+import type { Metadata } from "next";
 import RecipeGenerator from "@/components/RecipeGenerator";
+
+export const metadata: Metadata = {
+  title: "Generate a Recipe",
+  description:
+    "Generate a personalized recipe with Mise AI. Choose cuisine, meal type, and ingredients to get step-by-step instructions and a clean ingredient list.",
+  alternates: {
+    canonical: "/generator",
+  },
+};
 
 export default function GeneratorPage() {
   return (

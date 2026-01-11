@@ -38,6 +38,7 @@ export async function POST(request: Request) {
       proteinCut,
       ingredients,
       dietaryPreferences,
+      servings,
     } = body as {
       mode?: "classic" | "pantry";
       cuisine?: CuisineType;
@@ -46,7 +47,13 @@ export async function POST(request: Request) {
       proteinCut?: string;
       ingredients?: string[];
       dietaryPreferences?: string[];
+      servings?: number;
     };
+
+    const normalizedServings =
+      typeof servings === "number" && Number.isFinite(servings)
+        ? Math.min(12, Math.max(1, Math.round(servings)))
+        : 2;
 
     let prompt = "";
     let systemPrompt = `You are Mise AI, an expert culinary assistant created to help home cooks discover delicious, approachable recipes. You embody the expertise of a classically trained chef combined with the warmth of a home cooking enthusiast.
@@ -56,7 +63,7 @@ Your Core Principles:
 - **Practicality**: Create recipes achievable in a home kitchen with commonly available ingredients. Suggest substitutions only when an ingredient may be hard to find.
 - **Clarity**: Write instructions that are precise yet encouraging. A beginner should feel confident, while an experienced cook should find efficiency.
 - **Flavor Balance**: Every recipe should have well-developed flavors—consider salt, acid, fat, heat, and umami in your compositions.
-- **Single Serving Excellence**: Specialize in perfectly portioned single-serving recipes that don't sacrifice quality or variety.
+- **Small Batch Excellence**: Specialize in recipes that serve 2 people by default, while still scaling cleanly for different serving sizes.
 
 Your Personality:
 - Passionate about food and eager to share culinary knowledge
@@ -80,7 +87,7 @@ Output Guidelines:
       const ingredientsList = ingredients.join(", ");
 
       prompt = `
-      Generate a unique, high-quality, single-serving recipe based on the following available ingredients:
+      Generate a unique, high-quality recipe that serves exactly ${normalizedServings} people based on the following available ingredients:
       Ingredients: ${ingredientsList}
       ${
         dietaryPreferences && dietaryPreferences.length > 0
@@ -110,7 +117,7 @@ Output Guidelines:
       Requirements:
       - VALIDATION STEP: You must first validate the input ingredients. If the input contains non-food items, gibberish, or dangerous items, you MUST return a JSON object with a single "error" field explaining why the input is invalid. Example: { "error": "I can only cook with edible ingredients. Please remove 'rocks' from your list." }
       - The recipe should primarily use the provided ingredients, but you may assume basic pantry staples (oil, salt, pepper, water, basic spices).
-      - The recipe must be single-serving only.
+      - The recipe must serve exactly ${normalizedServings} people.
       ${
         dietaryPreferences && dietaryPreferences.length > 0
           ? `- STRICTLY ADHERE to these dietary preferences: ${dietaryPreferences.join(
@@ -118,7 +125,7 @@ Output Guidelines:
             )}.`
           : ""
       }
-      - All ingredient amounts must be numeric and use one of the following units: "lb", "oz", "cup", "tbsp", "tsp", "count", "clove", "slice".
+      - All ingredient amounts must be numeric and use one of the following units: "lb", "oz", "cup", "tbsp", "tsp", "g", "kg", "ml", "l", "count", "clove", "slice", "pinch".
       - For Meat-category ingredients: avoid fractional pounds. If the amount is under 1 lb, prefer ounces (e.g., 4 oz, 6 oz, 8 oz, 12 oz) instead of values like 0.25 lb.
       - Categorize ingredients accurately.
       - Instructions must be a step-by-step array of clear, concise cooking steps.
@@ -135,16 +142,15 @@ Output Guidelines:
         );
       }
 
-      // Build the protein description including the cut if specified
-      const proteinDescription = proteinCut
-        ? `${protein}, cut: ${proteinCut}`
-        : protein;
+      const cutPreference =
+        proteinCut && proteinCut.trim().length > 0 ? proteinCut.trim() : "Any";
 
       prompt = `
-      Generate a unique, high-quality, single-serving recipe based on the following selections:
+      Generate a unique, high-quality recipe that serves exactly ${normalizedServings} people based on the following selections:
       Cuisine: ${cuisine}
       Meal: ${meal}
-      Protein: ${proteinDescription}
+      Protein (base): ${protein}
+      Protein cut preference: ${cutPreference}
       ${
         dietaryPreferences && dietaryPreferences.length > 0
           ? `Dietary Preferences/Allergies: ${dietaryPreferences.join(", ")}`
@@ -171,7 +177,8 @@ Output Guidelines:
       
       Requirements:
       - The recipe must clearly reflect the selected cuisine, meal type, and protein.
-      - The recipe must be single-serving only.
+      - Use the protein cut preference when naming/selecting the ingredient (e.g., "chicken thighs"), but tags.protein must remain the base protein.
+      - The recipe must serve exactly ${normalizedServings} people.
       ${
         dietaryPreferences && dietaryPreferences.length > 0
           ? `- STRICTLY ADHERE to these dietary preferences: ${dietaryPreferences.join(
@@ -179,12 +186,12 @@ Output Guidelines:
             )}.`
           : ""
       }
-      - All ingredient amounts must be numeric and use one of the following units: "lb", "oz", "cup", "tbsp", "tsp", "count", "clove", "slice".
+      - All ingredient amounts must be numeric and use one of the following units: "lb", "oz", "cup", "tbsp", "tsp", "g", "kg", "ml", "l", "count", "clove", "slice", "pinch".
       - For Meat-category ingredients: avoid fractional pounds. If the amount is under 1 lb, prefer ounces (e.g., 4 oz, 6 oz, 8 oz, 12 oz) instead of values like 0.25 lb.
       - Categorize ingredients accurately.
       - Instructions must be a step-by-step array of clear, concise cooking steps.
       - prepTime and cookTime should be realistic human-readable strings (e.g., "10 minutes").
-      - tags must exactly match (${cuisine}, ${meal}, ${proteinDescription}).
+      - tags must exactly match (${cuisine}, ${meal}, ${protein}).
       - Do NOT include any extra text, comments, or markdown—return ONLY the JSON object.
       `;
     }
@@ -211,10 +218,11 @@ Output Guidelines:
       );
     }
 
-    // Add a random ID since the AI doesn't generate one
+    // Add server-controlled fields since the AI doesn't generate them reliably.
     const recipe: Recipe = {
-      ...(recipeData as Omit<Recipe, "id">),
+      ...(recipeData as Omit<Recipe, "id" | "servings">),
       id: Math.random().toString(36).substr(2, 9),
+      servings: normalizedServings,
       // For pantry mode, tags are inferred by AI, so we use what's returned.
       // For classic mode, we could enforce them, but trusting the AI's return (which we instructed to match) is fine.
     };

@@ -8,6 +8,12 @@ export type PurchaseQuantity = {
   reason?: string;
 };
 
+function roundToTwoDecimals(amount: number) {
+  if (!Number.isFinite(amount)) return 0;
+  // Avoid floating-point artifacts like 1.2000000000000002
+  return Math.round((amount + Number.EPSILON) * 100) / 100;
+}
+
 function roundUpToWhole(amount: number) {
   if (!Number.isFinite(amount)) return 0;
   return Math.ceil(Math.max(0, amount));
@@ -63,5 +69,10 @@ export function getPurchaseQuantity(
     buyAmount = 0;
   }
 
-  return { needAmount, needUnit, buyAmount, buyUnit, reason };
+  // Display guardrail: keep at most 2 decimals to avoid noisy floats in UI.
+  // (We keep it numeric so existing rendering/template strings keep working.)
+  buyAmount = roundToTwoDecimals(buyAmount);
+  const roundedNeedAmount = roundToTwoDecimals(needAmount);
+
+  return { needAmount: roundedNeedAmount, needUnit, buyAmount, buyUnit, reason };
 }

@@ -18,6 +18,10 @@ function transformRecipeRow(row: any): Recipe {
       meal: row.meal_type,
       protein: row.protein || "None",
     },
+    servings:
+      typeof row.servings === "number" && Number.isFinite(row.servings)
+        ? row.servings
+        : 1,
   };
 }
 
