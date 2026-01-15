@@ -11,6 +11,7 @@ import {
   Menu,
   X,
   ChevronDown,
+  Settings,
 } from "lucide-react";
 import UserStatus from "./UserStatus";
 import { useAuth } from "@/hooks/useAuth";
@@ -140,6 +141,17 @@ export default function Navigation() {
                         Grocery List
                       </div>
                     </Link>
+                    <div className="border-t border-gray-100"></div>
+                    <Link
+                      href="/settings"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setIsToolsOpen(false)}
+                    >
+                      <div className="flex items-center">
+                        <Settings className="w-4 h-4 mr-2" />
+                        Settings
+                      </div>
+                    </Link>
                   </div>
                 )}
               </div>
@@ -260,6 +272,19 @@ export default function Navigation() {
                   <div className="flex items-center">
                     <ShoppingBasket className="w-5 h-5 mr-3" />
                     Grocery List
+                  </div>
+                </Link>
+                <Link
+                  href="/settings"
+                  onClick={closeMobileMenu}
+                  className={`block px-3 py-2 rounded-md text-base font-medium ${isActive("/settings")
+                      ? "bg-blue-50 text-blue-700"
+                      : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                    }`}
+                >
+                  <div className="flex items-center">
+                    <Settings className="w-5 h-5 mr-3" />
+                    Settings
                   </div>
                 </Link>
               </>

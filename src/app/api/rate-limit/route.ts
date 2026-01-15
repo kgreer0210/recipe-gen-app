@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/supabase/auth-helper";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { getUsageStatus } from "@/lib/usage";
 
 // Handle CORS preflight requests
 export async function OPTIONS() {
@@ -18,71 +18,49 @@ export async function GET(request: Request) {
     // Check if user is admin
     if (process.env.ADMIN_USER_ID && user.id === process.env.ADMIN_USER_ID) {
       return NextResponse.json({
-        remaining: 9999,
-        limit: 9999,
+        remaining: null,
+        limit: null,
         isBlocked: false,
-      });
-    } else if (process.env.ADMIN_USER_ID) {
-      console.log(
-        `[API] Admin check failed. User: ${user.id}, Expected: ${process.env.ADMIN_USER_ID}`
-      );
-    }
-
-    const admin = createAdminClient();
-
-    // Check for active subscription
-    const { data: subscription } = await admin
-      .from("subscriptions")
-      .select("status")
-      .eq("user_id", user.id)
-      .in("status", ["active", "trialing"])
-      .single();
-
-    if (subscription) {
-      return NextResponse.json({
-        remaining: 9999,
-        limit: 9999,
-        isBlocked: false,
+        planKey: "admin",
+        generate: { remaining: null, limit: null, count: 0 },
+        refine: { remaining: null, limit: null, count: 0 },
+        resetAt: null,
       });
     }
 
-    const { data: rateLimit, error } = await admin
-      .from("user_rate_limits")
-      .select("*")
-      .eq("user_id", user.id)
-      .single();
+    const status = await getUsageStatus(user);
 
-    if (error && error.code !== "PGRST116") {
-      // PGRST116 is "not found"
-      console.error("Error fetching rate limit:", error);
+    if (!status) {
       return NextResponse.json(
-        { error: "Failed to fetch rate limit" },
+        { error: "Failed to fetch usage status" },
         { status: 500 }
       );
     }
 
-    const limit = 5; // Hardcoded for now, ideally shared constant
-    let count = 0;
-
-    if (rateLimit) {
-      const lastReset = new Date(rateLimit.last_reset);
-      const now = new Date();
-      const oneDay = 24 * 60 * 60 * 1000;
-
-      if (now.getTime() - lastReset.getTime() > oneDay) {
-        count = 0;
-      } else {
-        count = rateLimit.count;
-      }
-    }
-
-    const remaining = Math.max(0, limit - count);
-    const isBlocked = remaining === 0;
+    // For backward compatibility, return generate remaining as primary
+    const remaining = status.generate.remaining;
+    const limit = status.generate.hardLimit;
+    const isBlocked = remaining !== null && remaining === 0;
 
     return NextResponse.json({
       remaining,
       limit,
       isBlocked,
+      planKey: status.planKey,
+      generate: {
+        remaining: status.generate.remaining,
+        limit: status.generate.hardLimit,
+        count: status.generate.count,
+        softLimited: status.softLimited && status.generate.count > (status.generate.softLimit ?? 0),
+      },
+      refine: {
+        remaining: status.refine.remaining,
+        limit: status.refine.hardLimit,
+        count: status.refine.count,
+        softLimited: status.softLimited && status.refine.count > (status.refine.softLimit ?? 0),
+      },
+      resetAt: status.resetAt,
+      softLimited: status.softLimited,
     });
   } catch (error) {
     console.error("Error in rate-limit API:", error);

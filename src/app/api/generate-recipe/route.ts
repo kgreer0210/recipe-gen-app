@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { Recipe, CuisineType, MealType, ProteinType } from "@/types";
 import { getAuthenticatedUser } from "@/lib/supabase/auth-helper";
-import { checkRateLimit } from "@/lib/rate-limit";
+import {
+  checkAndIncrementUsage,
+  recordUsageTokens,
+  getUsageErrorMessage,
+} from "@/lib/usage";
 import { chatJson } from "@/lib/openrouter/chatJson";
 
 // Handle CORS preflight requests
@@ -17,13 +21,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { allowed, remaining, error } = await checkRateLimit(5, user);
+    // Check usage before processing request
+    const usageCheck = await checkAndIncrementUsage("generate", user);
 
-    if (!allowed) {
+    if (!usageCheck.allowed) {
       return NextResponse.json(
         {
-          error:
-            "You've reached your daily recipe limit! 🧑‍🍳 Our chefs are taking a break. Please come back tomorrow for more delicious ideas.",
+          error: getUsageErrorMessage(usageCheck.reason, usageCheck.planKey),
         },
         { status: 429 }
       );
@@ -49,6 +53,39 @@ export async function POST(request: Request) {
       dietaryPreferences?: string[];
       servings?: number;
     };
+
+    // Input validation to prevent token abuse
+    if (mode === "pantry") {
+      if (ingredients && ingredients.length > 50) {
+        return NextResponse.json(
+          { error: "Too many ingredients. Please limit to 50 items." },
+          { status: 400 }
+        );
+      }
+      if (ingredients && ingredients.some((ing) => ing.length > 200)) {
+        return NextResponse.json(
+          { error: "Individual ingredient names are too long." },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (dietaryPreferences && dietaryPreferences.length > 10) {
+      return NextResponse.json(
+        { error: "Too many dietary preferences. Please limit to 10." },
+        { status: 400 }
+      );
+    }
+
+    if (
+      dietaryPreferences &&
+      dietaryPreferences.some((pref) => pref.length > 100)
+    ) {
+      return NextResponse.json(
+        { error: "Dietary preference names are too long." },
+        { status: 400 }
+      );
+    }
 
     const normalizedServings =
       typeof servings === "number" && Number.isFinite(servings)
@@ -131,7 +168,8 @@ Output Guidelines:
       - All ingredient amounts must be numeric and use one of the following units: "lb", "oz", "cup", "tbsp", "tsp", "g", "kg", "ml", "l", "count", "clove", "slice", "pinch".
       - For Meat-category ingredients: avoid fractional pounds. If the amount is under 1 lb, prefer ounces (e.g., 4 oz, 6 oz, 8 oz, 12 oz) instead of values like 0.25 lb.
       - Categorize ingredients accurately.
-      - Instructions must be a step-by-step array of clear, concise cooking steps.
+      - CRITICAL - Ingredient Formatting: Ingredient names must be SIMPLE and contain NO preparation methods. Do NOT include terms like "minced", "diced", "chopped", "sliced", "crushed", "julienned", "grated", or any other cutting/cooking methods in ingredient names. Example: Use "2 clove garlic" NOT "2 clove garlic, minced". Use "1 cup onion" NOT "1 cup diced onion". ALL preparation instructions (mincing, dicing, chopping, etc.) must go in the cooking instructions/steps instead.
+      - Instructions must be a step-by-step array of clear, concise cooking steps. Include ALL preparation methods here (e.g., "Mince the garlic", "Dice the onion", "Slice the chicken").
       - prepTime and cookTime should be realistic human-readable strings (e.g., "10 minutes").
       - tags: Infer the cuisine, meal, and protein based on the generated recipe.
       - Do NOT include any extra text, comments, or markdown—return ONLY the JSON object.
@@ -198,14 +236,15 @@ Output Guidelines:
       - All ingredient amounts must be numeric and use one of the following units: "lb", "oz", "cup", "tbsp", "tsp", "g", "kg", "ml", "l", "count", "clove", "slice", "pinch".
       - For Meat-category ingredients: avoid fractional pounds. If the amount is under 1 lb, prefer ounces (e.g., 4 oz, 6 oz, 8 oz, 12 oz) instead of values like 0.25 lb.
       - Categorize ingredients accurately.
-      - Instructions must be a step-by-step array of clear, concise cooking steps.
+      - CRITICAL - Ingredient Formatting: Ingredient names must be SIMPLE and contain NO preparation methods. Do NOT include terms like "minced", "diced", "chopped", "sliced", "crushed", "julienned", "grated", or any other cutting/cooking methods in ingredient names. Example: Use "2 clove garlic" NOT "2 clove garlic, minced". Use "1 cup onion" NOT "1 cup diced onion". ALL preparation instructions (mincing, dicing, chopping, etc.) must go in the cooking instructions/steps instead.
+      - Instructions must be a step-by-step array of clear, concise cooking steps. Include ALL preparation methods here (e.g., "Mince the garlic", "Dice the onion", "Slice the chicken").
       - prepTime and cookTime should be realistic human-readable strings (e.g., "10 minutes").
       - tags must exactly match (${cuisine}, ${meal}, ${protein}).
       - Do NOT include any extra text, comments, or markdown—return ONLY the JSON object.
       `;
     }
 
-    const { data: recipeData } = await chatJson<Record<string, unknown>>(
+    const { data: recipeData, usage } = await chatJson<Record<string, unknown>>(
       systemPrompt,
       prompt,
       {
@@ -213,6 +252,9 @@ Output Guidelines:
         treatErrorFieldAsFailure: mode !== "pantry",
       }
     );
+
+    // Record token usage (even if request fails, to prevent gaming)
+    await recordUsageTokens("generate", user, usage?.totalTokens);
 
     // Handle validation error from AI
     if (

@@ -5,7 +5,10 @@ import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useRecipesRealtime } from "@/hooks/useRecipesRealtime";
 import { useAddToGroceryList } from "@/hooks/useGroceryListMutations";
-import { useAddToWeeklyPlan, useRemoveFromWeeklyPlan } from "@/hooks/useWeeklyPlanMutations";
+import {
+  useAddToWeeklyPlan,
+  useRemoveFromWeeklyPlan,
+} from "@/hooks/useWeeklyPlanMutations";
 import { useWeeklyPlanRealtime } from "@/hooks/useWeeklyPlanRealtime";
 import { useWeeklyPlanStore } from "@/lib/stores/weeklyPlanStore";
 import {
@@ -272,7 +275,7 @@ export default function RecipeDetailsPage() {
                         key={index}
                         className="flex items-start gap-3 p-3 rounded-lg bg-gray-50"
                       >
-                        <div className="w-2 h-2 mt-2 rounded-full bg-blue-400 flex-shrink-0" />
+                        <div className="w-2 h-2 mt-2 rounded-full bg-blue-400 shrink-0" />
                         <span className="text-gray-700">
                           <span className="font-semibold">
                             {formatRecipeAmount(scaledAmount, ingredient.unit)}{" "}
@@ -295,7 +298,7 @@ export default function RecipeDetailsPage() {
                   {recipe.instructions && recipe.instructions.length > 0 ? (
                     recipe.instructions.map((step, index) => (
                       <div key={index} className="flex gap-4">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
+                        <div className="shrink-0 w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
                           {index + 1}
                         </div>
                         <p className="text-gray-700 mt-1 leading-relaxed">

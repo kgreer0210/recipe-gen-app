@@ -37,6 +37,12 @@ export function useSaveRecipe() {
 
       if (insertError) {
         console.error("Error saving recipe:", insertError);
+        // Check if it's a save limit error from DB trigger
+        if (insertError.message?.includes("mise_blocked:save_limit") || insertError.code === "P0001") {
+          const error = new Error("You've reached your saved recipe limit. Please upgrade your plan to save more recipes.");
+          setError(error);
+          throw error;
+        }
         throw insertError;
       }
 

@@ -117,7 +117,7 @@ export default function Home() {
             </p>
             <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full border border-white/20 text-sm font-medium">
               <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-              Free Daily Recipe Limit Included
+              Free Weekly Recipe Limit Included
             </div>
           </div>
 

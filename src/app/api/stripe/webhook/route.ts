@@ -39,6 +39,20 @@ export async function POST(request: Request) {
     const userId = session.metadata?.user_id;
 
     if (userId) {
+      // Determine plan_key from price_id or metadata
+      const priceId = subscription.items.data[0].price.id;
+      const planFromMetadata = session.metadata?.plan || subscription.metadata?.plan;
+      
+      // Map price_id to plan_key (fallback to metadata, then default to plus for legacy)
+      let planKey: string | undefined;
+      if (planFromMetadata === 'pro' || planFromMetadata === 'plus') {
+        planKey = planFromMetadata;
+      } else {
+        // Try to infer from price_id patterns (you can customize this)
+        // For now, default to plus for backward compatibility
+        planKey = 'plus';
+      }
+
       // Upsert subscription data
       const { error } = await supabase
         .from('subscriptions')
@@ -47,7 +61,8 @@ export async function POST(request: Request) {
           stripe_customer_id: session.customer as string,
           stripe_subscription_id: subscription.id,
           status: subscription.status,
-          price_id: subscription.items.data[0].price.id,
+          price_id: priceId,
+          plan_key: planKey,
           updated_at: new Date().toISOString(),
         });
 
@@ -80,11 +95,29 @@ export async function POST(request: Request) {
     }
 
     if (userId) {
+        const priceId = subscription.items.data[0].price.id;
+        const planFromMetadata = subscription.metadata?.plan;
+        
+        // Determine plan_key (try metadata first, then infer from price_id)
+        let planKey: string | undefined;
+        if (planFromMetadata === 'pro' || planFromMetadata === 'plus') {
+          planKey = planFromMetadata;
+        } else {
+          // Try to infer from existing subscription or default to plus
+          const { data: existing } = await supabase
+            .from('subscriptions')
+            .select('plan_key')
+            .eq('stripe_subscription_id', subscription.id)
+            .single();
+          planKey = existing?.plan_key || 'plus';
+        }
+
         const { error } = await supabase
             .from('subscriptions')
             .update({
                 status: subscription.status,
-                price_id: subscription.items.data[0].price.id,
+                price_id: priceId,
+                plan_key: planKey,
                 updated_at: new Date().toISOString(),
             })
             .eq('stripe_subscription_id', subscription.id);

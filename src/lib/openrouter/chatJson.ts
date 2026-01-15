@@ -20,6 +20,11 @@ type ChatJsonOptions = {
 export type ChatJsonResult<T> = {
   data: T;
   modelUsed: string;
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
 };
 
 function safeRequestId(): string {
@@ -30,7 +35,7 @@ async function callModelOnce<T>(
   model: string,
   systemPrompt: string,
   userPrompt: string
-): Promise<T> {
+): Promise<{ data: T; usage?: { promptTokens: number; completionTokens: number; totalTokens: number } }> {
   const result = await openRouter.chat.send({
     model,
     messages: [
@@ -68,7 +73,18 @@ async function callModelOnce<T>(
     throw new Error("No text content received from model");
   }
 
-  return JSON.parse(content) as T;
+  const parsedData = JSON.parse(content) as T;
+
+  // Extract usage if available
+  const usage = result.usage
+    ? {
+        promptTokens: result.usage.promptTokens,
+        completionTokens: result.usage.completionTokens,
+        totalTokens: result.usage.totalTokens,
+      }
+    : undefined;
+
+  return { data: parsedData, usage };
 }
 
 export async function chatJson<T>(
@@ -95,9 +111,9 @@ export async function chatJson<T>(
   };
 
   try {
-    const data = await callModelOnce<T>(primary, systemPrompt, userPrompt);
-    validate(data);
-    return { data, modelUsed: primary };
+    const result = await callModelOnce<T>(primary, systemPrompt, userPrompt);
+    validate(result.data);
+    return { data: result.data, modelUsed: primary, usage: result.usage };
   } catch (primaryErr) {
     const shouldTryFallback = fallback && fallback !== primary;
     if (!shouldTryFallback) {
@@ -111,8 +127,8 @@ export async function chatJson<T>(
       }`
     );
 
-    const data = await callModelOnce<T>(fallback, systemPrompt, userPrompt);
-    validate(data);
-    return { data, modelUsed: fallback };
+    const result = await callModelOnce<T>(fallback, systemPrompt, userPrompt);
+    validate(result.data);
+    return { data: result.data, modelUsed: fallback, usage: result.usage };
   }
 }

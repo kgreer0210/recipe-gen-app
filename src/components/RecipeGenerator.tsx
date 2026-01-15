@@ -60,6 +60,7 @@ const dietaryPreferencesList = [
   "Low-Carb",
   "Keto",
   "Paleo",
+  "Bariatric",
 ];
 
 export default function RecipeGenerator() {
@@ -86,9 +87,24 @@ export default function RecipeGenerator() {
   const [refinementCount, setRefinementCount] = useState(0);
   const [refinementHistory, setRefinementHistory] = useState<string[]>([]);
   const [rateLimit, setRateLimit] = useState<{
-    remaining: number;
-    limit: number;
+    remaining: number | null;
+    limit: number | null;
     isBlocked: boolean;
+    planKey?: string;
+    generate?: {
+      remaining: number | null;
+      limit: number | null;
+      count: number;
+      softLimited?: boolean;
+    };
+    refine?: {
+      remaining: number | null;
+      limit: number | null;
+      count: number;
+      softLimited?: boolean;
+    };
+    resetAt?: string;
+    softLimited?: boolean;
   } | null>(null);
 
   // Check if current protein has cuts available
@@ -190,7 +206,7 @@ export default function RecipeGenerator() {
     } catch (error: any) {
       console.error("Failed to generate recipe", error);
       setError(error.message || "Failed to generate recipe. Please try again.");
-      if (error.message?.includes("daily recipe limit")) {
+      if (error.message?.includes("weekly recipe limit") || error.message?.includes("recipe limit")) {
         setIsBlocked(true);
       }
     } finally {
@@ -238,11 +254,16 @@ export default function RecipeGenerator() {
       return;
     }
 
-    // Check for subscription limit
+    // Save limit is now enforced at DB level, but we can still show a helpful message
+    // The DB trigger will catch it if they somehow bypass this check
     const isSubscriber =
       subscription?.status === "active" || subscription?.status === "trialing";
+    
+    // Check save limits based on plan
+    const planKey = subscription?.plan_key || "free";
+    const saveLimit = planKey === "pro" ? 2000 : planKey === "plus" ? 200 : 20;
 
-    if (!isSubscriber && savedRecipes.length >= 20) {
+    if (savedRecipes.length >= saveLimit) {
       setShowLimitPopup(true);
       return;
     }
@@ -327,7 +348,7 @@ export default function RecipeGenerator() {
     } catch (error: any) {
       console.error("Failed to regenerate recipe", error);
       setError(error.message || "Failed to generate recipe. Please try again.");
-      if (error.message?.includes("daily recipe limit")) {
+      if (error.message?.includes("weekly recipe limit") || error.message?.includes("recipe limit")) {
         setIsBlocked(true);
       }
     } finally {
@@ -410,14 +431,16 @@ export default function RecipeGenerator() {
   const RateLimitIndicator = ({
     remaining,
     limit,
+    resetAt,
   }: {
-    remaining: number;
-    limit: number;
+    remaining: number | null;
+    limit: number | null;
+    resetAt?: string;
   }) => {
-    // Don't show for unlimited users (subscribers/admin)
-    if (remaining >= 9999) return null;
+    // Don't show for unlimited users (null remaining/limit)
+    if (remaining === null || limit === null) return null;
 
-    const percentage = (remaining / limit) * 100;
+    const percentage = limit > 0 ? (remaining / limit) * 100 : 0;
     const isLow = remaining <= 2;
 
     return (
@@ -430,7 +453,7 @@ export default function RecipeGenerator() {
           >
             {remaining} recipe{remaining !== 1 ? "s" : ""} left
           </span>
-          <span className="text-xs text-gray-400">today</span>
+          <span className="text-xs text-gray-400">this week</span>
         </div>
         <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
           <motion.div
@@ -582,13 +605,13 @@ export default function RecipeGenerator() {
             Chef's Nap Time
           </h2>
           <p className="text-gray-600 max-w-md mb-8">
-            You've reached your daily recipe limit! Our chefs are taking a
-            well-deserved break. Please come back tomorrow for more delicious
+            You've reached your weekly recipe limit! Our chefs are taking a
+            well-deserved break. Please come back next week for more delicious
             ideas.
           </p>
           <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 mb-6">
             <p className="text-sm text-blue-800 font-medium">
-              Limit: 5 recipes per day
+              Limit: 5 recipes per week
             </p>
           </div>
 
@@ -596,7 +619,7 @@ export default function RecipeGenerator() {
             href="/pricing"
             className="px-6 py-3 bg-blue-600 text-white rounded-full font-semibold shadow-lg hover:bg-blue-700 transition-all hover:scale-105 active:scale-95 inline-block"
           >
-            Unlock Unlimited Recipes
+            Upgrade to Plus or Pro
           </Link>
         </div>
       </div>
@@ -623,8 +646,9 @@ export default function RecipeGenerator() {
         <div className="flex items-center gap-4">
           {rateLimit && (
             <RateLimitIndicator
-              remaining={rateLimit.remaining}
-              limit={rateLimit.limit}
+              remaining={rateLimit.remaining ?? rateLimit.generate?.remaining ?? null}
+              limit={rateLimit.limit ?? rateLimit.generate?.limit ?? null}
+              resetAt={rateLimit.resetAt}
             />
           )}
 
@@ -955,12 +979,12 @@ export default function RecipeGenerator() {
 
               {error && (
                 <div
-                  className={`p-4 mb-6 rounded-xl border flex gap-3 ${error.includes("daily recipe limit")
+                  className={`p-4 mb-6 rounded-xl border flex gap-3 ${error.includes("weekly recipe limit") || error.includes("recipe limit")
                     ? "bg-orange-50 border-orange-100 text-orange-800"
                     : "bg-red-50 border-red-100 text-red-600"
                     }`}
                 >
-                  {error.includes("daily recipe limit") ? (
+                  {error.includes("weekly recipe limit") || error.includes("recipe limit") ? (
                     <>
                       <span className="text-2xl">👨‍🍳</span>
                       <div>

@@ -26,6 +26,7 @@ export interface Subscription {
     | "incomplete_expired"
     | "paused";
   price_id: string;
+  plan_key?: "free" | "plus" | "pro";
 }
 
 export interface Ingredient {

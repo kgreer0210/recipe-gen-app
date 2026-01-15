@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { Recipe, RefineRecipeRequest } from "@/types";
 import { getAuthenticatedUser } from "@/lib/supabase/auth-helper";
-import { checkRateLimit } from "@/lib/rate-limit";
+import {
+  checkAndIncrementUsage,
+  recordUsageTokens,
+  getUsageErrorMessage,
+} from "@/lib/usage";
 import { chatJson } from "@/lib/openrouter/chatJson";
 
 // Handle CORS preflight requests
@@ -64,18 +68,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Rate limiting - reusing the same limit as generation for now, or maybe a separate one?
-    // The prompt implies we should just allow it, but let's be safe and check limit.
-    // Actually, refinement is part of the "creation" process, so maybe we don't deduct?
-    // But it costs tokens. Let's check limit but maybe not deduct?
-    // For now, let's just check the limit to ensure they aren't blocked.
-    const { allowed } = await checkRateLimit(5, user);
+    // Check usage for refine action (separate bucket from generate)
+    const usageCheck = await checkAndIncrementUsage("refine", user);
 
-    if (!allowed) {
+    if (!usageCheck.allowed) {
       return NextResponse.json(
         {
-          error:
-            "You've reached your daily recipe limit! 🧑‍🍳 Our chefs are taking a break. Please come back tomorrow for more delicious ideas.",
+          error: getUsageErrorMessage(usageCheck.reason, usageCheck.planKey),
         },
         { status: 429 }
       );
@@ -87,6 +86,14 @@ export async function POST(request: Request) {
     if (!currentRecipe || !instructions) {
       return NextResponse.json(
         { error: "Missing required fields" },
+        { status: 400 }
+      );
+    }
+
+    // Input validation to prevent token abuse
+    if (instructions.length > 2000) {
+      return NextResponse.json(
+        { error: "Refinement instructions are too long. Please limit to 2000 characters." },
         { status: 400 }
       );
     }
@@ -135,6 +142,8 @@ Refinement Requirements (VALID only):
 - All ingredient amounts must be numeric.
 - Units must be one of: "lb", "oz", "cup", "tbsp", "tsp", "g", "kg", "ml", "l", "count", "clove", "slice", "pinch".
 - For Meat-category ingredients: avoid fractional pounds. If the amount is under 1 lb, prefer ounces (e.g., 4 oz, 6 oz, 8 oz, 12 oz) instead of values like 0.25 lb.
+- CRITICAL - Ingredient Formatting: Ingredient names must be SIMPLE and contain NO preparation methods. Do NOT include terms like "minced", "diced", "chopped", "sliced", "crushed", "julienned", "grated", or any other cutting/cooking methods in ingredient names. Example: Use "2 clove garlic" NOT "2 clove garlic, minced". Use "1 cup onion" NOT "1 cup diced onion". ALL preparation instructions (mincing, dicing, chopping, etc.) must go in the cooking instructions/steps instead.
+- Instructions must be a step-by-step array of clear, concise cooking steps. Include ALL preparation methods here (e.g., "Mince the garlic", "Dice the onion", "Slice the chicken").
 - Return ONLY the JSON object (no markdown, no commentary).
 `;
 
@@ -148,12 +157,15 @@ Refinement Requirements (VALID only):
     Refine the recipe above according to the instructions.
     `;
 
-    const { data: recipeData } = await chatJson<Record<string, unknown>>(
+    const { data: recipeData, usage } = await chatJson<Record<string, unknown>>(
       systemPrompt,
       prompt,
       // For refinement, { error: string } indicates invalid/off-topic instructions.
       { treatErrorFieldAsFailure: false }
     );
+
+    // Record token usage (even if request fails, to prevent gaming)
+    await recordUsageTokens("refine", user, usage?.totalTokens);
 
     if (
       recipeData &&

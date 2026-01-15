@@ -15,16 +15,29 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { interval = 'month' } = await request.json();
+    const { interval = 'month', plan = 'plus' } = await request.json();
 
-    const priceId =
-      interval === 'year'
-        ? process.env.STRIPE_ANNUAL_PRICE_ID
-        : process.env.STRIPE_PRICE_ID;
+    // Map plan to price IDs
+    // Environment variables should be:
+    // STRIPE_PLUS_PRICE_ID, STRIPE_PLUS_ANNUAL_PRICE_ID
+    // STRIPE_PRO_PRICE_ID, STRIPE_PRO_ANNUAL_PRICE_ID
+    // Legacy: STRIPE_PRICE_ID, STRIPE_ANNUAL_PRICE_ID (treated as Plus)
+    let priceId: string | undefined;
+
+    if (plan === 'pro') {
+      priceId = interval === 'year'
+        ? process.env.STRIPE_PRO_ANNUAL_PRICE_ID
+        : process.env.STRIPE_PRO_PRICE_ID;
+    } else {
+      // Default to Plus
+      priceId = interval === 'year'
+        ? process.env.STRIPE_PLUS_ANNUAL_PRICE_ID || process.env.STRIPE_ANNUAL_PRICE_ID
+        : process.env.STRIPE_PLUS_PRICE_ID || process.env.STRIPE_PRICE_ID;
+    }
 
     if (!priceId) {
       return NextResponse.json(
-        { error: 'Stripe price ID is not configured' },
+        { error: 'Stripe price ID is not configured for this plan' },
         { status: 500 }
       );
     }
@@ -69,10 +82,12 @@ export async function POST(request: Request) {
       cancel_url: `${origin}/pricing?canceled=true`,
       metadata: {
         user_id: user.id,
+        plan: plan,
       },
       subscription_data: {
         metadata: {
           user_id: user.id,
+          plan: plan,
         }
       }
     });

@@ -6,6 +6,7 @@ create table if not exists subscriptions (
   stripe_subscription_id text,
   status text, -- 'active', 'trialing', 'past_due', 'canceled', 'unpaid', 'incomplete', 'incomplete_expired', 'paused'
   price_id text,
+  plan_key text, -- 'free', 'plus', or 'pro' (determined from Stripe price_id or metadata)
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );

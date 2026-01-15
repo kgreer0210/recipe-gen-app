@@ -10,7 +10,7 @@ const faqs: FaqItem[] = [
   {
     question: "Is Mise AI free to use?",
     answer:
-      "Yes. You can start generating recipes with a free daily limit. If you cook often, upgrading increases your daily generation limit.",
+      "Yes. You can start generating recipes with a free weekly limit. If you cook often, upgrading increases your weekly generation limit.",
   },
   {
     question: "Can I generate recipes from ingredients I already have?",
