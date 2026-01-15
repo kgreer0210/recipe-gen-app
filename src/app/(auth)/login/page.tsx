@@ -3,16 +3,17 @@
 import { login } from '../actions'
 import Link from 'next/link'
 import { useState } from 'react'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Eye, EyeOff } from 'lucide-react'
 
 export default function LoginPage() {
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState('')
+    const [showPassword, setShowPassword] = useState(false)
 
     async function handleSubmit(formData: FormData) {
         setIsLoading(true)
         setError('')
-        
+
         const res = await login(formData)
         if (res?.error) {
             setError(res.error)
@@ -57,15 +58,27 @@ export default function LoginPage() {
                         <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                             Password
                         </label>
-                        <div className="mt-1">
+                        <div className="mt-1 relative">
                             <input
                                 id="password"
                                 name="password"
-                                type="password"
+                                type={showPassword ? 'text' : 'password'}
                                 autoComplete="current-password"
                                 required
-                                className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-base sm:text-sm"
+                                className="appearance-none block w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-base sm:text-sm"
                             />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                                tabIndex={-1}
+                            >
+                                {showPassword ? (
+                                    <EyeOff className="h-5 w-5" />
+                                ) : (
+                                    <Eye className="h-5 w-5" />
+                                )}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -99,4 +112,3 @@ export default function LoginPage() {
         </div>
     )
 }
-

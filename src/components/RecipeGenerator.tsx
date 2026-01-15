@@ -16,7 +16,7 @@ import {
 } from "@/types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, ChefHat, ArrowRight, ArrowLeft, Check, Lock } from "lucide-react";
+import { Loader2, ChefHat, ArrowRight, ArrowLeft, Check, Lock, Sparkles, RefreshCw, Save } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 const cuisines: CuisineType[] = [
@@ -85,6 +85,11 @@ export default function RecipeGenerator() {
   const [isRefining, setIsRefining] = useState(false);
   const [refinementCount, setRefinementCount] = useState(0);
   const [refinementHistory, setRefinementHistory] = useState<string[]>([]);
+  const [rateLimit, setRateLimit] = useState<{
+    remaining: number;
+    limit: number;
+    isBlocked: boolean;
+  } | null>(null);
 
   // Check if current protein has cuts available
   const hasCuts = protein in proteinCuts;
@@ -107,6 +112,7 @@ export default function RecipeGenerator() {
         const res = await fetch("/api/rate-limit");
         if (res.ok) {
           const data = await res.json();
+          setRateLimit(data);
           if (data.isBlocked) {
             setIsBlocked(true);
           }
@@ -120,12 +126,28 @@ export default function RecipeGenerator() {
     checkLimit();
   }, []);
 
+  const refreshRateLimit = async () => {
+    try {
+      const res = await fetch("/api/rate-limit");
+      if (res.ok) {
+        const data = await res.json();
+        setRateLimit(data);
+      }
+    } catch (err) {
+      console.error("Failed to refresh rate limit", err);
+    }
+  };
+
   const handleGenerate = async () => {
     setLoading(true);
     setError(null);
     setGeneratedRecipe(null);
     setShowGroceryPopup(false);
     setShowLimitPopup(false);
+
+    // Advance to result step immediately to show loading animation
+    nextStep();
+
     try {
       const parsedServings = Number.parseInt(servingsInput, 10);
       const servings =
@@ -165,7 +187,6 @@ export default function RecipeGenerator() {
         });
         setGeneratedRecipe(recipe);
       }
-      nextStep();
     } catch (error: any) {
       console.error("Failed to generate recipe", error);
       setError(error.message || "Failed to generate recipe. Please try again.");
@@ -174,6 +195,7 @@ export default function RecipeGenerator() {
       }
     } finally {
       setLoading(false);
+      await refreshRateLimit();
     }
   };
 
@@ -258,6 +280,62 @@ export default function RecipeGenerator() {
     setDietaryPreferences([]); // Reset preferences
   };
 
+  const handleRegenerate = async () => {
+    setLoading(true);
+    setError(null);
+    setGeneratedRecipe(null);
+    setRefinementHistory([]);
+    setRefinementCount(0);
+    setShowGroceryPopup(false);
+    setShowLimitPopup(false);
+
+    try {
+      const parsedServings = Number.parseInt(servingsInput, 10);
+      const servings =
+        Number.isFinite(parsedServings) && !Number.isNaN(parsedServings)
+          ? Math.min(12, Math.max(1, parsedServings))
+          : 2;
+
+      if (mode === "classic") {
+        const cutToSend =
+          hasCuts && proteinCut !== "Any cut" ? proteinCut : undefined;
+        const recipe = await generateRecipe({
+          mode: "classic",
+          cuisine,
+          meal,
+          protein,
+          proteinCut: cutToSend,
+          dietaryPreferences,
+          servings,
+        });
+        setGeneratedRecipe(recipe);
+      } else {
+        // Pantry Mode
+        const ingredientsList = ingredientsInput
+          .split(",")
+          .map((i) => i.trim())
+          .filter((i) => i.length > 0);
+
+        const recipe = await generateRecipe({
+          mode: "pantry",
+          ingredients: ingredientsList,
+          dietaryPreferences,
+          servings,
+        });
+        setGeneratedRecipe(recipe);
+      }
+    } catch (error: any) {
+      console.error("Failed to regenerate recipe", error);
+      setError(error.message || "Failed to generate recipe. Please try again.");
+      if (error.message?.includes("daily recipe limit")) {
+        setIsBlocked(true);
+      }
+    } finally {
+      setLoading(false);
+      await refreshRateLimit();
+    }
+  };
+
   // Handle protein selection - reset cut when protein changes
   const handleProteinSelect = (newProtein: ProteinType) => {
     setProtein(newProtein);
@@ -326,6 +404,47 @@ export default function RecipeGenerator() {
   const togglePreference = (pref: string) => {
     setDietaryPreferences((prev) =>
       prev.includes(pref) ? prev.filter((p) => p !== pref) : [...prev, pref]
+    );
+  };
+
+  const RateLimitIndicator = ({
+    remaining,
+    limit,
+  }: {
+    remaining: number;
+    limit: number;
+  }) => {
+    // Don't show for unlimited users (subscribers/admin)
+    if (remaining >= 9999) return null;
+
+    const percentage = (remaining / limit) * 100;
+    const isLow = remaining <= 2;
+
+    return (
+      <div className="flex flex-col gap-1 min-w-[160px]">
+        <div className="flex items-center justify-between gap-2">
+          <span
+            className={`text-xs font-medium ${
+              isLow ? "text-orange-600" : "text-gray-600"
+            }`}
+          >
+            {remaining} recipe{remaining !== 1 ? "s" : ""} left
+          </span>
+          <span className="text-xs text-gray-400">today</span>
+        </div>
+        <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+          <motion.div
+            className={`h-full ${
+              isLow
+                ? "bg-gradient-to-r from-orange-400 to-orange-500"
+                : "bg-gradient-to-r from-blue-400 to-blue-600"
+            }`}
+            initial={{ width: `${percentage}%` }}
+            animate={{ width: `${percentage}%` }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+          />
+        </div>
+      </div>
     );
   };
 
@@ -501,8 +620,16 @@ export default function RecipeGenerator() {
           <h1 className="text-xl font-bold text-gray-800">Mise AI</h1>
         </div>
 
-        {step === 0 && (
-          <div className="flex bg-gray-100 p-1 rounded-lg">
+        <div className="flex items-center gap-4">
+          {rateLimit && (
+            <RateLimitIndicator
+              remaining={rateLimit.remaining}
+              limit={rateLimit.limit}
+            />
+          )}
+
+          {step === 0 && (
+            <div className="flex bg-gray-100 p-1 rounded-lg">
             <button
               onClick={() => setMode("classic")}
               className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${mode === "classic"
@@ -522,7 +649,8 @@ export default function RecipeGenerator() {
               Pantry
             </button>
           </div>
-        )}
+          )}
+        </div>
       </div>
 
       <div className="relative flex-1 w-full overflow-hidden">
@@ -868,6 +996,38 @@ export default function RecipeGenerator() {
             </motion.div>
           )}
 
+          {step === resultStepIndex && loading && !generatedRecipe && (
+            <motion.div
+              key="loading"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="absolute inset-0 flex flex-col items-center justify-center"
+            >
+              <motion.div
+                animate={{
+                  rotate: 360,
+                  scale: [1, 1.1, 1]
+                }}
+                transition={{
+                  rotate: { duration: 2, repeat: Infinity, ease: "linear" },
+                  scale: { duration: 2, repeat: Infinity, ease: "easeInOut" }
+                }}
+                className="mb-6"
+              >
+                <Sparkles className="w-16 h-16 text-blue-600" />
+              </motion.div>
+              <motion.p
+                animate={{ opacity: [0.6, 1, 0.6] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="text-gray-600 font-medium text-lg"
+              >
+                Generating your recipe...
+              </motion.p>
+            </motion.div>
+          )}
+
           {step === resultStepIndex && generatedRecipe && (
             <motion.div
               key="result"
@@ -1077,6 +1237,23 @@ export default function RecipeGenerator() {
                     </div>
                   </div>
                 )}
+                <div className="flex flex-col items-center gap-1">
+                  <button
+                    onClick={handleRegenerate}
+                    disabled={loading}
+                    className="w-full py-3 px-4 bg-purple-100 hover:bg-purple-200 text-purple-700 font-medium rounded-xl transition-colors disabled:opacity-70 flex items-center justify-center gap-2"
+                  >
+                    {loading ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-5 h-5" />
+                    )}
+                    Regenerate
+                  </button>
+                  <p className="text-xs text-gray-500">
+                    New recipe with same selections
+                  </p>
+                </div>
                 <button
                   onClick={() => {
                     setStep(0);
