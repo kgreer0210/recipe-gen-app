@@ -96,13 +96,6 @@ export function getPurchaseQuantity(
     }
   }
 
-  // Pantry staples: if they appear, we generally buy a container, not teaspoons.
-  if (profile?.pantry_staple && profile.buy_unit_label) {
-    buyUnit = profile.buy_unit_label;
-    buyAmount = Math.max(1, roundUpToWhole(buyAmount));
-    reason = reason || "Pantry staple (typically sold as a container)";
-  }
-
   // Display guardrail: keep at most 2 decimals to avoid noisy floats in UI.
   // (We keep it numeric so existing rendering/template strings keep working.)
   buyAmount = roundToTwoDecimals(buyAmount);

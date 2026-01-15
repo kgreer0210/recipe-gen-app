@@ -75,7 +75,6 @@ export default function GroceryList() {
   const [unitProfilesByName, setUnitProfilesByName] = useState<
     Map<string, IngredientUnitProfile>
   >(new Map());
-  const [showPantryStaples, setShowPantryStaples] = useState(false);
 
   // Auth check helper
   const requireAuth = (action: () => void) => {
@@ -254,41 +253,20 @@ export default function GroceryList() {
     }
   };
 
-  const isPantryStaple = (item: (typeof groceryList)[number]) => {
-    const nameNorm =
-      typeof item.nameNormalized === "string" && item.nameNormalized.length > 0
-        ? item.nameNormalized
-        : normalizeIngredientName(item.name);
-    return unitProfilesByName.get(nameNorm)?.pantry_staple === true;
-  };
+  const activeItems = groceryList.filter((item) => !item.isChecked);
+  const gatheredItems = groceryList.filter((item) => item.isChecked);
 
-  const activeItems = groceryList.filter(
-    (item) => !item.isChecked && (showPantryStaples || !isPantryStaple(item))
-  );
-  const gatheredItems = groceryList.filter(
-    (item) => item.isChecked && (showPantryStaples || !isPantryStaple(item))
-  );
-  const pantryStaplesCount = groceryList.filter(isPantryStaple).length;
-
-  const renderNeedBuyBadge = (item: (typeof groceryList)[number]) => {
+  const renderBuyBadge = (item: (typeof groceryList)[number]) => {
     const nameNorm =
       typeof item.nameNormalized === "string" && item.nameNormalized.length > 0
         ? item.nameNormalized
         : normalizeIngredientName(item.name);
     const profile = unitProfilesByName.get(nameNorm);
-    const { needAmount, needUnit, buyAmount, buyUnit } = getPurchaseQuantity(
-      item,
-      profile
-    );
+    const { buyAmount, buyUnit } = getPurchaseQuantity(item, profile);
 
     return (
-      <div className="text-sm font-semibold text-blue-700 bg-blue-50 px-3 py-1 rounded-md border border-blue-100 shadow-sm leading-tight flex flex-col items-end">
-        <span className="text-[11px] font-medium text-blue-900/70">
-          Need {needAmount} {needUnit}
-        </span>
-        <span>
-          Buy {buyAmount} {buyUnit}
-        </span>
+      <div className="text-sm font-semibold text-blue-700 bg-blue-50 px-3 py-1 rounded-md border border-blue-100 shadow-sm">
+        {buyAmount} {buyUnit}
       </div>
     );
   };
@@ -528,16 +506,6 @@ export default function GroceryList() {
           <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
             To Buy ({activeItems.length})
           </h3>
-          {pantryStaplesCount > 0 && (
-            <button
-              onClick={() => setShowPantryStaples((v) => !v)}
-              className="text-xs font-medium text-blue-700 hover:text-blue-900 hover:underline transition-colors mb-3"
-            >
-              {showPantryStaples
-                ? "Hide pantry staples"
-                : `Show pantry staples (${pantryStaplesCount})`}
-            </button>
-          )}
           {activeItems.length === 0 && gatheredItems.length > 0 && (
             <p className="text-sm text-gray-400 italic">
               All items gathered! Great job.
@@ -579,7 +547,7 @@ export default function GroceryList() {
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
-                            {renderNeedBuyBadge(item)}
+                            {renderBuyBadge(item)}
                             <button
                               onClick={() =>
                                 requireAuth(() =>
@@ -632,7 +600,7 @@ export default function GroceryList() {
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
-                            {renderNeedBuyBadge(item)}
+                            {renderBuyBadge(item)}
                             <button
                               onClick={() =>
                                 requireAuth(() =>
@@ -701,7 +669,7 @@ export default function GroceryList() {
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="text-sm font-semibold text-gray-500 bg-gray-100 px-3 py-1 rounded-md border border-gray-200 shadow-sm leading-tight flex flex-col items-end">
+                      <div className="text-sm font-semibold text-gray-500 bg-gray-100 px-3 py-1 rounded-md border border-gray-200 shadow-sm">
                         {(() => {
                           const nameNorm =
                             typeof item.nameNormalized === "string" &&
@@ -709,18 +677,9 @@ export default function GroceryList() {
                               ? item.nameNormalized
                               : normalizeIngredientName(item.name);
                           const profile = unitProfilesByName.get(nameNorm);
-                          const { needAmount, needUnit, buyAmount, buyUnit } =
+                          const { buyAmount, buyUnit } =
                             getPurchaseQuantity(item, profile);
-                          return (
-                            <>
-                              <span className="text-[11px] font-medium text-gray-700/70">
-                                Need {needAmount} {needUnit}
-                              </span>
-                              <span>
-                                Buy {buyAmount} {buyUnit}
-                              </span>
-                            </>
-                          );
+                          return `${buyAmount} ${buyUnit}`;
                         })()}
                       </div>
                       <button
@@ -742,8 +701,8 @@ export default function GroceryList() {
 
       <div className="mt-6 pt-4 border-t border-gray-100 text-center">
         <p className="text-xs text-gray-400">
-          Items are aggregated by name and unit. “Buy” amounts are rounded to
-          common purchase sizes.
+          Items are aggregated by name and unit. Amounts are rounded to common
+          purchase sizes.
         </p>
       </div>
 

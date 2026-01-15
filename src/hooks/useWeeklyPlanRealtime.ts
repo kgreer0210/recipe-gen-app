@@ -85,10 +85,19 @@ export function useWeeklyPlanRealtime() {
 
           switch (payload.eventType) {
             case "INSERT":
-              addRecipeId(payload.new.recipe_id);
+              if (payload.new?.recipe_id) {
+                addRecipeId(payload.new.recipe_id);
+              }
               break;
             case "DELETE":
-              removeRecipeId(payload.old.recipe_id);
+              // Supabase DELETE events may not include the old record data by default
+              // If available, remove the recipe ID; otherwise re-fetch the entire plan
+              if (payload.old?.recipe_id) {
+                removeRecipeId(payload.old.recipe_id);
+              } else {
+                // Re-fetch to ensure consistency if old data is not available
+                fetchInitialWeeklyPlan();
+              }
               break;
           }
         }

@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useRecipesRealtime } from '@/hooks/useRecipesRealtime';
 import { useAddToGroceryList } from '@/hooks/useGroceryListMutations';
-import { ArrowLeft, Clock, ChefHat, Utensils, ShoppingCart } from 'lucide-react';
+import { useAddToWeeklyPlan } from '@/hooks/useWeeklyPlanMutations';
+import { useWeeklyPlanRealtime } from '@/hooks/useWeeklyPlanRealtime';
+import { ArrowLeft, Clock, ChefHat, Utensils, ShoppingCart, CalendarPlus } from 'lucide-react';
 import Link from 'next/link';
 import { Recipe } from '@/types';
 import { formatRecipeAmount } from '@/lib/grocery/format';
@@ -14,10 +16,12 @@ export default function RecipeDetailsPage() {
     const router = useRouter();
     const { recipes: savedRecipes = [], loading: isLoading } = useRecipesRealtime();
     const { mutateAsync: addToGroceryList } = useAddToGroceryList();
+    const { mutate: addToWeeklyPlan, isLoading: isAddingToPlan } = useAddToWeeklyPlan();
+    const { weeklyPlan } = useWeeklyPlanRealtime();
     const [recipe, setRecipe] = useState<Recipe | null>(null);
     const [isAdding, setIsAdding] = useState(false);
-    const [showServingsModal, setShowServingsModal] = useState(false);
     const [servings, setServings] = useState(1);
+    const [toast, setToast] = useState<string | null>(null);
 
     const id = params.id as string;
 
@@ -26,27 +30,53 @@ export default function RecipeDetailsPage() {
             const found = savedRecipes.find(r => r.id === id);
             if (found) {
                 setRecipe(found);
+                setServings(found.servings || 1);
             }
         }
     }, [savedRecipes, id]);
 
-    const handleAddToGrocery = () => {
-        if (!recipe) return;
-        setShowServingsModal(true);
-    };
-
-    const confirmAddToGrocery = async () => {
+    const handleAddToGrocery = async () => {
         if (!recipe) return;
         setIsAdding(true);
-        await addToGroceryList({
-            recipe,
-            servings,
-            baseServings: recipe.servings,
-        });
-        setIsAdding(false);
-        setShowServingsModal(false);
-        setServings(1); // Reset
+        try {
+            await addToGroceryList({
+                recipe,
+                servings,
+                baseServings: recipe.servings,
+            });
+            setToast(`Added ingredients for ${servings} ${servings === 1 ? 'serving' : 'servings'} to your grocery list`);
+            setTimeout(() => setToast(null), 2000);
+        } catch {
+            setToast('Failed to add to grocery list');
+            setTimeout(() => setToast(null), 3000);
+        } finally {
+            setIsAdding(false);
+        }
     };
+
+    const handleAddToWeeklyPlan = async () => {
+        if (!recipe) return;
+
+        // Check if recipe is already in weekly plan
+        const isAlreadyAdded = weeklyPlan.some(r => r.id === recipe.id);
+        if (isAlreadyAdded) {
+            setToast('This recipe is already in your weekly plan');
+            setTimeout(() => setToast(null), 3000);
+            return;
+        }
+
+        try {
+            await addToWeeklyPlan(recipe);
+            setToast('Added recipe to your weekly plan');
+            setTimeout(() => setToast(null), 2000);
+        } catch {
+            setToast('Failed to add recipe to weekly plan');
+            setTimeout(() => setToast(null), 3000);
+        }
+    };
+
+    // Calculate scale factor for ingredient amounts
+    const scale = recipe?.servings ? servings / recipe.servings : 1;
 
     if (isLoading && !recipe) {
         return (
@@ -84,17 +114,30 @@ export default function RecipeDetailsPage() {
                     <div className="p-8">
                         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                             <h1 className="text-3xl font-bold text-gray-900">{recipe.title}</h1>
-                            <button
-                                onClick={handleAddToGrocery}
-                                disabled={isAdding}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${isAdding
-                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                    : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm hover:shadow'
-                                    }`}
-                            >
-                                <ShoppingCart className="w-4 h-4" />
-                                {isAdding ? 'Adding...' : 'Add to Grocery List'}
-                            </button>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleAddToWeeklyPlan}
+                                    disabled={isAddingToPlan}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${isAddingToPlan
+                                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                        : 'bg-green-600 text-white hover:bg-green-700 shadow-sm hover:shadow'
+                                        }`}
+                                >
+                                    <CalendarPlus className="w-4 h-4" />
+                                    {isAddingToPlan ? 'Adding...' : 'Add to Weekly Plan'}
+                                </button>
+                                <button
+                                    onClick={handleAddToGrocery}
+                                    disabled={isAdding}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${isAdding
+                                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                        : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm hover:shadow'
+                                        }`}
+                                >
+                                    <ShoppingCart className="w-4 h-4" />
+                                    {isAdding ? 'Adding...' : 'Add to Grocery List'}
+                                </button>
+                            </div>
                         </div>
 
                         <div className="flex flex-wrap gap-3 mb-8">
@@ -123,22 +166,50 @@ export default function RecipeDetailsPage() {
 
                         <div className="grid md:grid-cols-2 gap-8">
                             <div>
-                                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                    <ChefHat className="w-5 h-5 text-blue-600" />
-                                    Ingredients
-                                </h2>
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                                        <ChefHat className="w-5 h-5 text-blue-600" />
+                                        Ingredients
+                                    </h2>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm text-gray-600">Servings:</span>
+                                        <button
+                                            onClick={() => setServings(Math.max(1, servings - 1))}
+                                            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 font-bold transition-colors"
+                                        >
+                                            -
+                                        </button>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            max="20"
+                                            value={servings}
+                                            onChange={(e) => setServings(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
+                                            className="w-12 text-center text-lg font-bold text-blue-600 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 no-spinner"
+                                        />
+                                        <button
+                                            onClick={() => setServings(Math.min(20, servings + 1))}
+                                            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 font-bold transition-colors"
+                                        >
+                                            +
+                                        </button>
+                                    </div>
+                                </div>
                                 <ul className="space-y-3">
-                                    {recipe.ingredients.map((ingredient, index) => (
-                                        <li key={index} className="flex items-start gap-3 p-3 rounded-lg bg-gray-50">
-                                            <div className="w-2 h-2 mt-2 rounded-full bg-blue-400 flex-shrink-0" />
-                                            <span className="text-gray-700">
-                                                <span className="font-semibold">
-                                                    {formatRecipeAmount(ingredient.amount, ingredient.unit)} {ingredient.unit}
-                                                </span>{" "}
-                                                {ingredient.name}
-                                            </span>
-                                        </li>
-                                    ))}
+                                    {recipe.ingredients.map((ingredient, index) => {
+                                        const scaledAmount = ingredient.amount * scale;
+                                        return (
+                                            <li key={index} className="flex items-start gap-3 p-3 rounded-lg bg-gray-50">
+                                                <div className="w-2 h-2 mt-2 rounded-full bg-blue-400 flex-shrink-0" />
+                                                <span className="text-gray-700">
+                                                    <span className="font-semibold">
+                                                        {formatRecipeAmount(scaledAmount, ingredient.unit)} {ingredient.unit}
+                                                    </span>{" "}
+                                                    {ingredient.name}
+                                                </span>
+                                            </li>
+                                        );
+                                    })}
                                 </ul>
                             </div>
 
@@ -167,51 +238,10 @@ export default function RecipeDetailsPage() {
                 </div>
             </div>
 
-            {showServingsModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl animate-in fade-in zoom-in-95 duration-200">
-                        <h3 className="text-xl font-bold text-gray-900 mb-4 text-center">Add to Grocery List</h3>
-                        <p className="text-gray-600 mb-6 text-center">How many people are you feeding?</p>
-
-                        <div className="flex items-center justify-center gap-3 mb-8">
-                            <button
-                                onClick={() => setServings(Math.max(1, servings - 1))}
-                                className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50"
-                            >
-                                -
-                            </button>
-                            <input
-                                type="number"
-                                min="1"
-                                max="20"
-                                value={servings}
-                                onChange={(e) => setServings(Math.max(1, parseInt(e.target.value) || 1))}
-                                className="w-16 text-center text-2xl font-bold text-blue-600 border-none focus:ring-0 p-0 no-spinner"
-                            />
-                            <button
-                                onClick={() => setServings(Math.min(20, servings + 1))}
-                                className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50"
-                            >
-                                +
-                            </button>
-                        </div>
-
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => setShowServingsModal(false)}
-                                className="flex-1 py-2.5 px-4 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 transition-colors"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={confirmAddToGrocery}
-                                disabled={isAdding}
-                                className="flex-1 py-2.5 px-4 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200"
-                            >
-                                {isAdding ? 'Adding...' : 'Add to List'}
-                            </button>
-                        </div>
-                    </div>
+            {/* Toast notification */}
+            {toast && (
+                <div className="fixed bottom-4 right-4 z-50 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-300">
+                    {toast}
                 </div>
             )}
         </div>

@@ -36,11 +36,11 @@ export function useAddToWeeklyPlan() {
 }
 
 export function useRemoveFromWeeklyPlan() {
-  const { supabase } = useAuth();
+  const { supabase, user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const mutate = async (recipeId: string) => {
+  const mutateAsync = async (recipeId: string) => {
     setIsLoading(true);
     setError(null);
 
@@ -48,7 +48,7 @@ export function useRemoveFromWeeklyPlan() {
       const { error: deleteError } = await supabase
         .from("weekly_plan")
         .delete()
-        .match({ recipe_id: recipeId });
+        .match({ user_id: user?.id, recipe_id: recipeId });
 
       if (deleteError) {
         console.error("Error removing from weekly plan:", deleteError);
@@ -63,6 +63,6 @@ export function useRemoveFromWeeklyPlan() {
     }
   };
 
-  return { mutate, isLoading, error };
+  return { mutate: mutateAsync, mutateAsync, isLoading, error };
 }
 
