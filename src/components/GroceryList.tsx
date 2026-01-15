@@ -6,7 +6,6 @@ import {
   useRemoveFromGroceryList,
   useClearGathered,
   useSelectAllGroceryItems,
-  useRemoveIngredientsForRecipe,
   useAddCustomGroceryItem,
 } from "@/hooks/useGroceryListMutations";
 import { useAuth } from "@/hooks/useAuth";
@@ -19,16 +18,11 @@ import {
   CheckSquare,
   Square,
   Trash2,
-  ChefHat,
-  ClipboardCopy,
-  Check,
   Plus,
   X,
-  MoreHorizontal,
 } from "lucide-react";
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import RecipeSelector from "./RecipeSelector";
 
 const UNITS: Unit[] = [
   "count",
@@ -64,14 +58,8 @@ export default function GroceryList() {
   const { mutate: removeFromGroceryList } = useRemoveFromGroceryList();
   const { mutate: clearGathered } = useClearGathered();
   const { mutate: selectAllGroceryItems } = useSelectAllGroceryItems();
-  const { mutateAsync: removeIngredientsForRecipe } =
-    useRemoveIngredientsForRecipe();
   const { mutateAsync: addCustomGroceryItem } = useAddCustomGroceryItem();
-  const [isRecipeSelectorOpen, setIsRecipeSelectorOpen] = useState(false);
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
-  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const moreMenuRef = useRef<HTMLDivElement>(null);
   const [unitProfilesByName, setUnitProfilesByName] = useState<
     Map<string, IngredientUnitProfile>
   >(new Map());
@@ -90,20 +78,6 @@ export default function GroceryList() {
   const [newItemAmount, setNewItemAmount] = useState("1");
   const [newItemUnit, setNewItemUnit] = useState<Unit>("count");
   const [newItemCategory, setNewItemCategory] = useState("Other");
-
-  // Close more menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        moreMenuRef.current &&
-        !moreMenuRef.current.contains(event.target as Node)
-      ) {
-        setIsMoreMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   // Best-effort fetch of unit profiles so we can show package-friendly “Buy” amounts
   // and keep Need/Buy consistent with canonicalized grocery units.
@@ -178,79 +152,6 @@ export default function GroceryList() {
     setNewItemUnit("count");
     setNewItemCategory("Other");
     setIsAddItemOpen(false);
-  };
-
-  const copyToClipboard = async () => {
-    const CATEGORY_ORDER = [
-      "Produce",
-      "Meat",
-      "Dairy",
-      "Bakery",
-      "Frozen",
-      "Pantry",
-      "Spices",
-      "Other",
-    ];
-
-    // Group all items by category
-    const grouped = groceryList.reduce((acc, item) => {
-      const category = item.category || "Other";
-      if (!acc[category]) acc[category] = [];
-      acc[category].push(item);
-      return acc;
-    }, {} as Record<string, typeof groceryList>);
-
-    // Build formatted text
-    let text = "🛒 Grocery List\n";
-    text += "═".repeat(20) + "\n\n";
-
-    // First, output categories in order
-    for (const category of CATEGORY_ORDER) {
-      const items = grouped[category];
-      if (items && items.length > 0) {
-        text += `${category.toUpperCase()}\n`;
-        for (const item of items) {
-          const checkbox = item.isChecked ? "✓" : "☐";
-          const nameNorm =
-            typeof item.nameNormalized === "string" &&
-            item.nameNormalized.length > 0
-              ? item.nameNormalized
-              : normalizeIngredientName(item.name);
-          const profile = unitProfilesByName.get(nameNorm);
-          const { buyAmount, buyUnit } = getPurchaseQuantity(item, profile);
-          text += `${checkbox} ${item.name}: ${buyAmount} ${buyUnit}\n`;
-        }
-        text += "\n";
-      }
-    }
-
-    // Then any remaining categories not in the order
-    for (const category of Object.keys(grouped)) {
-      if (!CATEGORY_ORDER.includes(category)) {
-        const items = grouped[category];
-        text += `${category.toUpperCase()}\n`;
-        for (const item of items) {
-          const checkbox = item.isChecked ? "✓" : "☐";
-          const nameNorm =
-            typeof item.nameNormalized === "string" &&
-            item.nameNormalized.length > 0
-              ? item.nameNormalized
-              : normalizeIngredientName(item.name);
-          const profile = unitProfilesByName.get(nameNorm);
-          const { buyAmount, buyUnit } = getPurchaseQuantity(item, profile);
-          text += `${checkbox} ${item.name}: ${buyAmount} ${buyUnit}\n`;
-        }
-        text += "\n";
-      }
-    }
-
-    try {
-      await navigator.clipboard.writeText(text.trim());
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error("Failed to copy to clipboard:", err);
-    }
   };
 
   const activeItems = groceryList.filter((item) => !item.isChecked);
@@ -420,48 +321,32 @@ export default function GroceryList() {
           <h2 className="text-xl font-bold text-gray-800">Grocery List</h2>
         </div>
 
-        {/* Toolbar: Add Item button + More actions dropdown */}
-        <div className="flex items-center gap-2">
-          {/* Primary action: Add Item */}
-          <button
-            onClick={() => setIsAddItemOpen(true)}
-            className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add Item</span>
-          </button>
+        {/* Add Item button */}
+        <button
+          onClick={() => setIsAddItemOpen(true)}
+          className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Add Item</span>
+        </button>
+      </div>
 
-          {/* Copy to clipboard */}
-          <button
-            onClick={copyToClipboard}
-            className={`p-2 rounded-lg transition-all ${
-              copied
-                ? "text-green-600 bg-green-50"
-                : "text-gray-500 hover:bg-gray-100"
-            }`}
-            title="Copy list to clipboard"
-          >
-            {copied ? (
-              <Check className="w-4 h-4" />
-            ) : (
-              <ClipboardCopy className="w-4 h-4" />
-            )}
-          </button>
+      {/* Add Item Modal */}
+      {isAddItemOpen && renderAddItemModal()}
 
-          {/* More actions dropdown */}
-          <div className="relative" ref={moreMenuRef}>
-            <button
-              onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
-              className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
-              title="More actions"
-            >
-              <MoreHorizontal className="w-4 h-4" />
-            </button>
-
-            {isMoreMenuOpen && (
-              <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
-                <button
-                  onClick={() => {
+      <div className="space-y-8">
+        {/* To Buy Section */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+              To Buy ({activeItems.length})
+            </h3>
+            {groceryList.length > 0 && (
+              <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600 hover:text-gray-800 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={groceryList.length > 0 && groceryList.every((i) => i.isChecked)}
+                  onChange={() => {
                     requireAuth(() => {
                       const allSelected = groceryList.every((i) => i.isChecked);
                       const ids = groceryList
@@ -471,41 +356,14 @@ export default function GroceryList() {
                         ids,
                         isChecked: !allSelected,
                       });
-                      setIsMoreMenuOpen(false);
                     });
                   }}
-                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                >
-                  <CheckSquare className="w-4 h-4" />
-                  {groceryList.every((i) => i.isChecked)
-                    ? "Deselect All"
-                    : "Select All"}
-                </button>
-                <button
-                  onClick={() => {
-                    setIsRecipeSelectorOpen(true);
-                    setIsMoreMenuOpen(false);
-                  }}
-                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                >
-                  <ChefHat className="w-4 h-4" />
-                  Remove Recipe Items
-                </button>
-              </div>
+                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
+                />
+                <span>{groceryList.every((i) => i.isChecked) ? "Deselect All" : "Select All"}</span>
+              </label>
             )}
           </div>
-        </div>
-      </div>
-
-      {/* Add Item Modal */}
-      {isAddItemOpen && renderAddItemModal()}
-
-      <div className="space-y-8">
-        {/* To Buy Section */}
-        <div>
-          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
-            To Buy ({activeItems.length})
-          </h3>
           {activeItems.length === 0 && gatheredItems.length > 0 && (
             <p className="text-sm text-gray-400 italic">
               All items gathered! Great job.
@@ -705,21 +563,6 @@ export default function GroceryList() {
           purchase sizes.
         </p>
       </div>
-
-      <RecipeSelector
-        isOpen={isRecipeSelectorOpen}
-        onClose={() => setIsRecipeSelectorOpen(false)}
-        onSelect={async (recipe, servings) =>
-          requireAuth(async () => {
-            await removeIngredientsForRecipe({
-              recipe,
-              servings,
-              baseServings: recipe.servings,
-            });
-          })
-        }
-        title="Remove Ingredients from List"
-      />
     </div>
   );
 }

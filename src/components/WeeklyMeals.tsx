@@ -8,6 +8,7 @@ import { Check, Clock } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 
 export default function WeeklyMeals() {
   const router = useRouter();
@@ -15,7 +16,6 @@ export default function WeeklyMeals() {
   const { weeklyPlan = [] } = useWeeklyPlanRealtime();
   const { mutateAsync: removeFromWeeklyPlan } = useRemoveFromWeeklyPlan();
   const [removingRecipeId, setRemovingRecipeId] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
 
   const handleMarkAsCooked = async (recipeId: string) => {
     if (!user) {
@@ -32,14 +32,12 @@ export default function WeeklyMeals() {
 
       // Delete from server in background
       await removeFromWeeklyPlan(recipeId);
-      setToast('Recipe removed from weekly plan');
-      setTimeout(() => setToast(null), 2000);
+      toast.success('Recipe removed from weekly plan');
     } catch {
       // If deletion fails, restore the recipe to the list
       const { addRecipeId } = useWeeklyPlanStore.getState();
       addRecipeId(recipeId);
-      setToast('Failed to remove recipe from weekly plan');
-      setTimeout(() => setToast(null), 3000);
+      toast.error('Failed to remove recipe from weekly plan');
     } finally {
       setRemovingRecipeId(null);
     }
@@ -127,13 +125,6 @@ export default function WeeklyMeals() {
           ))}
         </div>
       </div>
-
-      {/* Toast notification */}
-      {toast && (
-        <div className="fixed bottom-4 right-4 z-50 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-300">
-          {toast}
-        </div>
-      )}
     </>
   );
 }
