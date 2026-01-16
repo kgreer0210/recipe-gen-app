@@ -57,17 +57,19 @@ The project uses Supabase for PostgreSQL and Authentication.
 - `recipes`: Stores generated recipe JSON data.
 - `collections`: Links users to saved recipes.
 - `weekly_plan`: Maps recipes to specific days/slots for a user.
-- `user_rate_limits`: Tracks daily usage for AI generation.
+- `user_usage_counters`: Tracks usage for AI generation and refinement.
+- `plan_entitlements`: Defines limits per subscription plan.
 
 **Security (RLS):**
 Row Level Security (RLS) policies are strictly enforced. Users can only `SELECT`, `INSERT`, `UPDATE`, or `DELETE` rows where `user_id` matches their authenticated UUID.
 
-**Rate Limiting Implementation:**
-To prevent abuse and manage costs, a custom **PostgreSQL RPC (Remote Procedure Call)** function `check_and_increment_rate_limit` is used.
+**Usage Tracking Implementation:**
+To prevent abuse and manage costs, PostgreSQL RPC functions are used:
 
-- **Logic**: It atomicallly checks if a user has exceeded their daily limit. If not, it increments the counter.
-- **Reset**: The counter automatically resets if the `last_reset` timestamp is older than 24 hours.
-- **Code**: See `src/lib/supabase/rate_limit.sql`.
+- `check_and_increment_usage`: Atomically checks weekly, per-minute, and per-hour limits before incrementing.
+- `get_usage_status`: Returns current usage counts and remaining limits.
+- `record_usage_tokens`: Records token consumption after AI requests.
+- **Reset**: Weekly counters reset based on user timezone (Monday 00:00).
 
 ---
 

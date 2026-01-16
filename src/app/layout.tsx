@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 import "./globals.css";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
+import AnnouncementBanner from "@/components/AnnouncementBanner";
 import { createClient } from "@/lib/supabase/server";
 import { AuthProvider } from "@/components/AuthProvider";
 import { Subscription } from "@/types";
@@ -131,6 +132,7 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50 min-h-screen flex flex-col`}
       >
+        <AnnouncementBanner />
         <AuthProvider initialUser={user} initialSubscription={subscription}>
           <Navigation />
           <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 flex-1">

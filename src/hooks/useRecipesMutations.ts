@@ -15,23 +15,35 @@ export function useSaveRecipe() {
     setError(null);
 
     try {
+      // Validate servings is in allowed range
+      const servings =
+        typeof recipe.servings === "number" && Number.isFinite(recipe.servings)
+          ? Math.max(1, Math.min(12, recipe.servings))
+          : 2;
+
+      // Ensure instructions is an array of strings
+      const instructions = Array.isArray(recipe.instructions)
+        ? recipe.instructions
+        : [];
+
+      const insertData = {
+        user_id: user.id,
+        title: recipe.title,
+        cuisine: recipe.tags?.cuisine || "Other",
+        meal_type: recipe.tags?.meal || "Dinner",
+        prep_time: recipe.prepTime,
+        cook_time: recipe.cookTime,
+        protein: recipe.tags?.protein || "None",
+        ingredients: recipe.ingredients || [],
+        instructions: instructions,
+        servings: servings,
+      };
+
+      console.log("Saving recipe with data:", insertData);
+
       const { data, error: insertError } = await supabase
         .from("recipes")
-        .insert({
-          user_id: user.id,
-          title: recipe.title,
-          cuisine: recipe.tags?.cuisine || "Other",
-          meal_type: recipe.tags?.meal || "Dinner",
-          prep_time: recipe.prepTime,
-          cook_time: recipe.cookTime,
-          protein: recipe.tags?.protein || "None",
-          ingredients: recipe.ingredients,
-          instructions: recipe.instructions,
-          servings:
-            typeof recipe.servings === "number" && Number.isFinite(recipe.servings)
-              ? recipe.servings
-              : 2,
-        })
+        .insert(insertData)
         .select()
         .single();
 
@@ -43,7 +55,11 @@ export function useSaveRecipe() {
           setError(error);
           throw error;
         }
-        throw insertError;
+        // Create an error message from the Supabase error
+        const errorMessage = insertError.message || "Failed to save recipe to database";
+        const error = new Error(errorMessage);
+        setError(error);
+        throw error;
       }
 
       return data;

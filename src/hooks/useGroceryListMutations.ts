@@ -225,6 +225,9 @@ export function useRemoveFromGroceryList() {
         console.error("Error removing grocery item:", deleteError);
         throw deleteError;
       }
+
+      // Optimistic local update: Realtime DELETE events may not fire (filtered subscriptions + DELETE payloads).
+      useGroceryListStore.getState().removeItem(itemId);
     } catch (err) {
       const error = err instanceof Error ? err : new Error("Failed to remove grocery item");
       setError(error);

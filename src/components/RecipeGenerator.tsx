@@ -254,11 +254,13 @@ export default function RecipeGenerator() {
       return;
     }
 
+    setError(null);
+
     // Save limit is now enforced at DB level, but we can still show a helpful message
     // The DB trigger will catch it if they somehow bypass this check
     const isSubscriber =
       subscription?.status === "active" || subscription?.status === "trialing";
-    
+
     // Check save limits based on plan
     const planKey = subscription?.plan_key || "free";
     const saveLimit = planKey === "pro" ? 2000 : planKey === "plus" ? 200 : 20;
@@ -269,10 +271,15 @@ export default function RecipeGenerator() {
     }
 
     if (generatedRecipe) {
-      const saved = await saveRecipe(generatedRecipe);
-      if (saved) {
-        setGeneratedRecipe(saved);
-        setShowGroceryPopup(true);
+      try {
+        const saved = await saveRecipe(generatedRecipe);
+        if (saved) {
+          setGeneratedRecipe(saved);
+          setShowGroceryPopup(true);
+        }
+      } catch (err) {
+        console.error("Failed to save recipe:", err);
+        setError(err instanceof Error ? err.message : "Failed to save recipe");
       }
     }
   };
@@ -1157,6 +1164,27 @@ export default function RecipeGenerator() {
               </div>
 
               <div className="p-6 bg-white/80 backdrop-blur-md border-t border-gray-100 space-y-3 z-10">
+                {error && (
+                  <div
+                    className={`p-4 mb-6 rounded-xl border flex gap-3 ${
+                      error.includes("recipe limit")
+                        ? "bg-orange-50 border-orange-100 text-orange-800"
+                        : "bg-red-50 border-red-100 text-red-600"
+                    }`}
+                  >
+                    {error.includes("recipe limit") ? (
+                      <>
+                        <span className="text-2xl">👨‍🍳</span>
+                        <div>
+                          <p className="font-semibold">Chef's Nap Time</p>
+                          <p className="text-sm opacity-90">{error}</p>
+                        </div>
+                      </>
+                    ) : (
+                      error
+                    )}
+                  </div>
+                )}
                 {!showGroceryPopup && !showLimitPopup ? (
                   <button
                     onClick={handleSave}

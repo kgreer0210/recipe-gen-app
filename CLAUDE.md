@@ -58,12 +58,12 @@ src/
 - **React Context**: Auth session and subscription status
 
 ### Key API Routes
-- `POST /api/generate-recipe` - AI recipe generation with rate limiting
+- `POST /api/generate-recipe` - AI recipe generation with usage tracking
 - `POST /api/refine-recipe` - Recipe refinement based on user instructions
-- `POST /api/rate-limit` - Check/increment daily usage via Supabase RPC
+- `GET /api/rate-limit` - Get current usage status
 
-### Rate Limiting
-Uses PostgreSQL RPC `check_and_increment_rate_limit` for atomic rate limit checks. Free users: 5 recipes/day. Resets after 24 hours based on `last_reset` timestamp.
+### Usage Tracking
+Uses PostgreSQL RPC functions (`check_and_increment_usage`, `get_usage_status`, `record_usage_tokens`) with the `user_usage_counters` table. Supports weekly limits, per-minute/per-hour burst limits, soft/hard limits, and token tracking. Plan entitlements are defined in `plan_entitlements` table.
 
 ### AI Integration
 OpenRouter is primary (`chatJson()` wrapper in `src/lib/openrouter/chatJson.ts`). Automatic fallback to secondary model on failure. Models configured via environment variables.

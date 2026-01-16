@@ -6,7 +6,7 @@ It’s written based on the current web implementation and its “source of trut
 
 - Auth & Supabase client patterns: `src/components/AuthProvider.tsx`, `src/lib/supabase/client.ts`, `src/lib/supabase/server.ts`, `src/lib/supabase/middleware.ts`
 - AI generation/refinement API routes: `src/app/api/generate-recipe/route.ts`, `src/app/api/refine-recipe/route.ts`
-- Rate limiting: `src/app/api/rate-limit/route.ts`, `src/lib/rate-limit.ts`, `src/lib/supabase/rate_limit.sql`
+- Usage tracking: `src/app/api/rate-limit/route.ts`, `src/lib/usage.ts`
 - Data flows + realtime subscriptions: `src/hooks/useRecipesRealtime.ts`, `src/hooks/useGroceryListRealtime.ts`, `src/hooks/useWeeklyPlanRealtime.ts`
 - Mutations: `src/hooks/useRecipesMutations.ts`, `src/hooks/useGroceryListMutations.ts`, `src/hooks/useWeeklyPlanMutations.ts`
 - Stripe (web-based): `src/app/api/stripe/checkout/route.ts`, `src/app/api/stripe/portal/route.ts`, `src/app/api/stripe/webhook/route.ts`, `src/lib/supabase/subscriptions.sql`
@@ -35,22 +35,38 @@ If you just want the rough order of operations:
 
 ---
 
-## 0) What “parity” means for this app
+## 0) What "parity" means for this app
 
 These are the core flows the mobile app should reproduce:
 
 - **Generate recipe (AI)**: classic mode (cuisine/meal/protein/proteinCut/preferences) and pantry mode (freeform ingredients + preferences).
   - Web client calls `fetch("/api/generate-recipe")` via `src/lib/generator.ts`
-  - Server route enforces auth + rate limit before calling OpenRouter: `src/app/api/generate-recipe/route.ts`
-- **Refine recipe (AI)**: refine an existing recipe (free users limited to 2 refinements per recipe in UI; server also rate-checks): `src/app/api/refine-recipe/route.ts`, UI in `src/components/RecipeGenerator.tsx`
-- **Save to collection**: inserts into `recipes` table: `src/hooks/useRecipesMutations.ts`
-- **Weekly plan**: insert/delete `weekly_plan` rows referencing recipe IDs: `src/hooks/useWeeklyPlanMutations.ts`, schema in `src/lib/supabase/weekly_plan.sql`
-- **Grocery list**: insert/update/delete items in `grocery_list` with quantity scaling and aggregation by name+unit: `src/hooks/useGroceryListMutations.ts`
+  - Server route enforces auth + usage limits before calling OpenRouter: `src/app/api/generate-recipe/route.ts`
+  - **Supports dynamic servings** (1-12) — pass `servings` param to generate recipes for specific portion sizes
+- **Refine recipe (AI)**: refine an existing recipe with natural language instructions
+  - `src/app/api/refine-recipe/route.ts`, UI in `src/components/RecipeGenerator.tsx`
+  - Maintains serving size through refinements
+  - Free users limited to 2 refinements per recipe in UI; server also enforces weekly limits
+- **Save to collection**: inserts into `recipes` table with `servings` field: `src/hooks/useRecipesMutations.ts`
+  - Database trigger enforces save limits per plan
+- **Weekly plan**: insert/delete `weekly_plan` rows referencing recipe IDs: `src/hooks/useWeeklyPlanMutations.ts`
+  - Can add recipes to plan from recipe detail page (`src/app/recipe/[id]/page.tsx`)
+- **Grocery list**: insert/update/delete items in `grocery_list` with quantity scaling and aggregation by normalized name+unit: `src/hooks/useGroceryListMutations.ts`
+  - Uses `ingredient_unit_profiles` table for smart unit conversion and purchase quantity calculation
+  - Ingredients with `exclude_always=true` are filtered out (e.g., water)
 - **Realtime updates**: initial fetch + Supabase Realtime subscription per user for `recipes`, `weekly_plan`, `grocery_list`: `src/hooks/use*Realtime.ts`
-- **Rate limiting**: enforced via `check_and_increment_rate_limit` RPC called with service role: `src/lib/rate-limit.ts`, `src/lib/supabase/rate_limit.sql`
+- **Usage tracking** (weekly limits, not daily):
+  - Enforced via `check_and_increment_usage` RPC: `src/lib/usage.ts`
+  - Separate limits for generate vs refine actions
+  - Per-minute and per-hour burst limits
+  - Weekly counters reset based on user's timezone (Monday 00:00)
+  - Token tracking for fair-use enforcement
+- **User settings**: timezone preference stored in `user_settings` table
+  - API route: `/api/user/settings/timezone`
+- **Toast notifications**: Sonner library for user feedback across the app
 - **Subscription gating** (Stripe):
-  - Unlimited rate limit bypass when subscription is active/trialing
-  - Subscription state is stored in `subscriptions` table; UI reads it in `AuthProvider`: `src/components/AuthProvider.tsx`
+  - Pro users bypass most limits (still have fair-use caps)
+  - Subscription state is stored in `subscriptions` table with `plan_key`; UI reads it in `AuthProvider`: `src/components/AuthProvider.tsx`
   - Checkout/Portal URLs are returned from Next routes: `src/app/api/stripe/checkout/route.ts`, `src/app/api/stripe/portal/route.ts`
 
 ---
@@ -68,10 +84,11 @@ Web routes (from `src/app/`) and a practical mobile mapping:
 
 ### Auth screens
 
-- `/login` → **LoginScreen**
-- `/signup` → **SignupScreen**
+- `/login` → **LoginScreen** (includes password visibility toggle)
+- `/signup` → **SignupScreen** (includes password visibility toggle)
 - `/forgot-password` → **ForgotPasswordScreen**
-- `/reset-password` → **ResetPasswordScreen**
+- `/reset-password` → **ResetPasswordScreen** (includes password visibility toggle + confirmation validation)
+- `/settings` → **SettingsScreen** (timezone preferences)
 
 ### Authenticated “Tools” (shown under Tools menu in `src/components/Navigation.tsx`)
 
@@ -147,6 +164,13 @@ This is a “parity-first” dependency checklist (you can prune later).
   - optional: `react-native-webview` if you want embedded flows (higher complexity)
 - Secure token storage:
   - `expo-secure-store` (recommended for Supabase session persistence)
+
+### Toast notifications
+
+The web uses **Sonner** for toast notifications. For mobile parity:
+
+- **Recommended**: `react-native-toast-message` or `burnt` (native toasts)
+- Alternative: Custom toast component with `react-native-reanimated`
 
 ### Styling parity options
 
@@ -455,23 +479,35 @@ If you do Option B, ensure your Supabase project has the right “Site URL” an
 
 This app relies on RLS. Mobile must not bypass RLS; it should always operate under the authed user session.
 
-### `user_rate_limits` and RPC
+### `user_usage_counters` and RPC
 
-Defined in `src/lib/supabase/rate_limit.sql`:
+- Table: `user_usage_counters(user_id, scope, window_start, count, tokens)` - composite PK
+- Scopes: `week_generate`, `week_refine`, `minute_generate`, `minute_refine`, `hour_generate`, `hour_refine`
+- RLS: users can `SELECT` their own rows
+- RPCs (called via service role server-side):
+  - `check_and_increment_usage(p_user_id, p_action, p_request_meta)` - atomic limit check + increment
+  - `get_usage_status(p_user_id)` - returns current usage without incrementing
+  - `record_usage_tokens(p_user_id, p_action, p_tokens)` - records token consumption
 
-- Table: `user_rate_limits(user_id PK, count, last_reset)`
-- RLS:
-  - users can `SELECT` their own row
-  - no user insert/update/delete
-- RPC: `check_and_increment_rate_limit(user_id uuid, limit_count int)` (called via service role server-side)
+### `plan_entitlements`
+
+- Table: `plan_entitlements(plan_key PK, weekly_generate_*, weekly_refine_*, per_minute_*, per_hour_*, save_limit, weekly_token_*)`
+- Defines soft/hard limits per plan (free, pro, etc.)
+- RLS: read-only for authenticated users
 
 ### `subscriptions`
 
 Defined in `src/lib/supabase/subscriptions.sql`:
 
-- Table includes `stripe_customer_id`, `stripe_subscription_id`, `status`, `price_id`, timestamps
-- RLS: users can `SELECT` their own subscription only
-- Updates are done by Stripe webhook via service role (`src/app/api/stripe/webhook/route.ts`)
+- `id` (uuid PK)
+- `user_id` (uuid, unique, FK to auth.users)
+- `stripe_customer_id`, `stripe_subscription_id` (text, nullable)
+- `status` (text, nullable) — active, trialing, past_due, canceled, etc.
+- `price_id` (text, nullable)
+- `plan_key` (text, nullable) — **NEW: maps to `plan_entitlements` for usage limits** (e.g., "free", "pro")
+- `created_at`, `updated_at` (timestamptz)
+
+RLS: users can `SELECT` their own subscription only. Updates are done by Stripe webhook via service role (`src/app/api/stripe/webhook/route.ts`).
 
 ### `weekly_plan`
 
@@ -480,35 +516,77 @@ Defined in `src/lib/supabase/weekly_plan.sql`:
 - `weekly_plan(user_id, recipe_id)` unique per pair
 - RLS: users can select/insert/delete their own rows
 
-### `recipes` (inferred from usage)
+### `recipes`
 
 Used by:
 
 - insert fields in `src/hooks/useRecipesMutations.ts`
 - select `*` in `src/hooks/useRecipesRealtime.ts`
 
-Mobile should assume the `recipes` table stores at least:
+Table schema:
 
-- `id` (uuid PK)
-- `user_id` uuid
-- `title`, `description` (nullable on web reads)
-- `cuisine`, `meal_type`, `protein`
-- `prep_time`, `cook_time`
-- `ingredients` (json)
-- `instructions` (json/text array)
-- `created_at`
+- `id` (uuid PK, default `uuid_generate_v4()`)
+- `user_id` (uuid, FK to auth.users)
+- `title` (text)
+- `cuisine`, `meal_type`, `protein` (text, nullable)
+- `prep_time`, `cook_time` (text, nullable)
+- `ingredients` (jsonb, default `[]`)
+- `instructions` (jsonb, default `[]`)
+- `servings` (integer, default 2, check 1-12) — **NEW: dynamic serving sizes**
+- `created_at` (timestamptz)
 
-### `grocery_list` (inferred from usage)
+RLS: users can select/insert/update/delete their own rows.
+
+**Note**: A database trigger `enforce_saved_recipe_limit` checks the user's plan entitlements before allowing inserts (free users have a save limit).
+
+### `grocery_list`
 
 Used heavily by `src/hooks/useGroceryList*`:
 
-- `id` (uuid PK)
-- `user_id`
-- `name`, `amount`, `unit`, `category`
-- `is_checked` boolean
-- `created_at`
+- `id` (uuid PK, default `uuid_generate_v4()`)
+- `user_id` (uuid, FK to auth.users)
+- `name` (text) — display name
+- `name_normalized` (text) — **NEW: normalized name for matching/aggregation**
+- `amount` (numeric, nullable)
+- `unit` (text, nullable)
+- `category` (text, nullable)
+- `is_checked` (boolean, default false)
+- `created_at` (timestamptz)
 
-> If your Supabase project doesn’t have `recipes` and `grocery_list` created yet, you’ll need to add matching SQL migrations. This repo only includes SQL for `weekly_plan`, `subscriptions`, and `rate_limit` in `src/lib/supabase/` in the current workspace snapshot.
+RLS: users can select/insert/update/delete their own rows.
+
+### `ingredient_unit_profiles`
+
+**NEW table** for ingredient normalization and purchase quantity guidance:
+
+- `name_normalized` (text PK) — e.g., "chicken breast", "olive oil"
+- `canonical_unit` (text) — preferred unit for this ingredient
+- `grams_per_count` (numeric, nullable) — weight conversion
+- `ml_per_count` (numeric, nullable) — volume conversion
+- `pack_size_amount`, `pack_size_unit` (nullable) — common package sizes
+- `display_name` (text, nullable) — pretty display name
+- `exclude_always` (boolean, default false) — exclude from grocery list (e.g., water)
+- `pantry_staple` (boolean, default false) — common pantry items
+- `buy_unit_label` (text, nullable) — e.g., "bag", "can", "bottle"
+
+RLS: read-only for all authenticated users.
+
+Used by `src/lib/grocery/*` for:
+- Normalizing ingredient names (`normalize.ts`)
+- Canonicalizing units (`canonicalize.ts`)
+- Calculating purchase quantities (`purchase.ts`)
+
+### `user_settings`
+
+**NEW table** for user preferences:
+
+- `user_id` (uuid PK, FK to auth.users)
+- `timezone` (text, default 'UTC') — user's timezone for weekly reset calculations
+- `created_at`, `updated_at` (timestamptz)
+
+RLS: users can select/insert/update their own row.
+
+API route: `GET/POST /api/user/settings/timezone`
 
 ---
 
@@ -633,7 +711,7 @@ export function useSomeRealtimeThing() {
   - `/api/rate-limit` directly in `src/components/RecipeGenerator.tsx`
 - Server routes:
   - use `createClient()` from `src/lib/supabase/server.ts` and `supabase.auth.getUser()`
-  - enforce daily recipe limit via `checkRateLimit(5)` (service role RPC) in `src/app/api/generate-recipe/route.ts`
+  - enforce usage limits via `checkAndIncrementUsage()` (service role RPC) in `src/app/api/generate-recipe/route.ts`
   - call OpenRouter (server-only) via `src/lib/openrouter/*`
 
 ### Mobile request contract (what the Expo app should do)
@@ -699,25 +777,60 @@ Now your generator parity functions mirror `src/lib/generator.ts` (web), but hit
 import type { Recipe } from "@/types";
 import { apiFetch } from "@/lib/api";
 
-export function generateRecipe(params: any) {
+type GenerateParams = {
+  mode: "classic" | "pantry";
+  servings?: number; // 1-12, defaults to 2
+  // classic mode params:
+  cuisine?: string;
+  meal?: string;
+  protein?: string;
+  proteinCut?: string;
+  preferences?: string;
+  // pantry mode params:
+  ingredients?: string;
+};
+
+export function generateRecipe(params: GenerateParams) {
   return apiFetch<Recipe>("/api/generate-recipe", {
     method: "POST",
     body: JSON.stringify(params),
   });
 }
 
-export function refineRecipe(currentRecipe: Recipe, instructions: string) {
+export function refineRecipe(
+  currentRecipe: Recipe,
+  instructions: string,
+  servings?: number
+) {
   return apiFetch<Recipe>("/api/refine-recipe", {
     method: "POST",
-    body: JSON.stringify({ currentRecipe, instructions }),
+    body: JSON.stringify({ currentRecipe, instructions, servings }),
   });
 }
 
-export function getRateLimit() {
-  return apiFetch<{ remaining: number; limit: number; isBlocked: boolean }>(
-    "/api/rate-limit",
-    { method: "GET" }
-  );
+type UsageStatus = {
+  remaining: number | null;
+  limit: number | null;
+  isBlocked: boolean;
+  planKey: string;
+  generate: {
+    remaining: number | null;
+    limit: number | null;
+    count: number;
+    softLimited?: boolean;
+  };
+  refine: {
+    remaining: number | null;
+    limit: number | null;
+    count: number;
+    softLimited?: boolean;
+  };
+  resetAt: string | null;
+  softLimited: boolean;
+};
+
+export function getUsageStatus() {
+  return apiFetch<UsageStatus>("/api/rate-limit", { method: "GET" });
 }
 ```
 
@@ -876,31 +989,44 @@ Run through these in a real device build (not only simulator).
 
 - Sign up → verify user created and session persists app restart
 - Login/logout
+- Password visibility toggle works on login/signup/reset screens
 - Password reset flow works (browser-based or deep link-based)
+- Password confirmation validation on reset screen
+- Settings screen: can view and update timezone preference
 
-### Generator + rate limit
+### Generator + usage limits
 
-- Call `/api/rate-limit` and show “blocked” UI when `isBlocked: true` (web behavior is in `src/components/RecipeGenerator.tsx`)
-- Generate recipe classic mode
+- Call `GET /api/rate-limit` and display usage status (remaining generations/refinements)
+- Show "blocked" UI when weekly limit reached (web behavior is in `src/components/RecipeGenerator.tsx`)
+- Generate recipe classic mode with servings parameter (1-12)
 - Generate recipe pantry mode (including invalid ingredient error handling)
-- Hit daily limit and confirm 429 message surfaces cleanly
+- Refine recipe and verify serving size is maintained
+- Hit weekly limit and confirm appropriate error message surfaces
+- Test per-minute burst limit (rapid requests should be throttled)
 
 ### Save + realtime
 
 - Save a recipe to `recipes` table and confirm it appears in collection via realtime
+- Verify `servings` field is saved correctly
 - Delete recipe and confirm local UI updates (even if realtime delete event is flaky)
+- Test save limit enforcement (free users should see error when limit reached)
 
 ### Weekly plan
 
-- Add recipe to weekly plan and see it appear
+- Add recipe to weekly plan from collection and see it appear
+- Add recipe to weekly plan from recipe detail screen
 - Remove (mark as cooked) and confirm it disappears
+- Toast notification appears on add/remove actions
 
 ### Grocery list
 
 - Add ingredients from saved recipe with servings scaling
-- Verify aggregation behavior (same name + unit) matches `useAddToGroceryList`
+- Verify aggregation behavior (same normalized name + unit) matches `useAddToGroceryList`
+- Confirm `exclude_always` ingredients (e.g., water) are filtered out
+- Verify "Buy" quantities use `ingredient_unit_profiles` for smart rounding
 - Toggle items checked/unchecked
 - Select all / clear gathered (ensure optimistic updates match web)
+- Delete individual items (verify optimistic UI update)
 - Copy to clipboard exports a readable list grouped by category (same category ordering as web)
 
 ### Stripe
@@ -912,8 +1038,25 @@ Run through these in a real device build (not only simulator).
 
 ## 13) Implementation notes to keep parity with web constraints
 
-- **Never call OpenRouter directly from the mobile app.** Web enforces rate limit + keeps keys server-side in `src/app/api/*`.
+- **Never call OpenRouter directly from the mobile app.** Web enforces usage limits + keeps keys server-side in `src/app/api/*`.
 - **Keep RLS intact.** Mobile uses anon key + user session; service-role remains server-only.
-- **Reuse “active/trialing” semantics** across gating:
-  - web checks subscription status in `AuthProvider` and in rate-limit logic (`src/lib/rate-limit.ts`, `src/app/api/rate-limit/route.ts`)
+- **Reuse "active/trialing" semantics** across gating:
+  - web checks subscription status in `AuthProvider` and in usage tracking logic (`src/lib/usage.ts`, `src/app/api/rate-limit/route.ts`)
 - **Keep ingredient units consistent** with `Unit` union in `src/types/index.ts` for cross-platform compatibility.
+- **Servings validation**: enforce 1-12 range on mobile before sending to API.
+- **Ingredient normalization**: use the same logic from `src/lib/grocery/normalize.ts` for consistent matching.
+- **Weekly reset timing**: counters reset Monday 00:00 in user's timezone. Display accurate "resets in X days" messaging.
+- **Toast feedback**: show toasts for key actions (save recipe, add to plan, add to grocery list) matching web UX.
+
+---
+
+## 14) New API endpoints summary
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/generate-recipe` | POST | Generate recipe with servings support |
+| `/api/refine-recipe` | POST | Refine existing recipe |
+| `/api/rate-limit` | GET | Get usage status (generate/refine counts, limits, reset time) |
+| `/api/user/settings/timezone` | GET/POST | Get/set user timezone |
+| `/api/stripe/checkout` | POST | Create Stripe checkout session |
+| `/api/stripe/portal` | POST | Create Stripe billing portal session |
