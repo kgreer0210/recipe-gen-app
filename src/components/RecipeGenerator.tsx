@@ -16,7 +16,17 @@ import {
 } from "@/types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, ChefHat, ArrowRight, ArrowLeft, Check, Lock, Sparkles, RefreshCw, Save } from "lucide-react";
+import {
+  Loader2,
+  ChefHat,
+  ArrowRight,
+  ArrowLeft,
+  Check,
+  Lock,
+  Sparkles,
+  RefreshCw,
+  Save,
+} from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 const cuisines: CuisineType[] = [
@@ -206,7 +216,10 @@ export default function RecipeGenerator() {
     } catch (error: any) {
       console.error("Failed to generate recipe", error);
       setError(error.message || "Failed to generate recipe. Please try again.");
-      if (error.message?.includes("weekly recipe limit") || error.message?.includes("recipe limit")) {
+      if (
+        error.message?.includes("weekly recipe limit") ||
+        error.message?.includes("recipe limit")
+      ) {
         setIsBlocked(true);
       }
     } finally {
@@ -355,7 +368,10 @@ export default function RecipeGenerator() {
     } catch (error: any) {
       console.error("Failed to regenerate recipe", error);
       setError(error.message || "Failed to generate recipe. Please try again.");
-      if (error.message?.includes("weekly recipe limit") || error.message?.includes("recipe limit")) {
+      if (
+        error.message?.includes("weekly recipe limit") ||
+        error.message?.includes("recipe limit")
+      ) {
         setIsBlocked(true);
       }
     } finally {
@@ -388,7 +404,7 @@ export default function RecipeGenerator() {
 
   const goToPreviousStep = () => {
     setDirection(-1);
-    
+
     if (mode === "classic") {
       // Handle classic mode navigation
       if (step === reviewStepIndex) {
@@ -466,8 +482,8 @@ export default function RecipeGenerator() {
           <motion.div
             className={`h-full ${
               isLow
-                ? "bg-gradient-to-r from-orange-400 to-orange-500"
-                : "bg-gradient-to-r from-blue-400 to-blue-600"
+                ? "bg-linear-to-r from-orange-400 to-orange-500"
+                : "bg-linear-to-r from-blue-400 to-blue-600"
             }`}
             initial={{ width: `${percentage}%` }}
             animate={{ width: `${percentage}%` }}
@@ -520,17 +536,20 @@ export default function RecipeGenerator() {
             key={option}
             onClick={() => onSelect(option)}
             className={`p-4 rounded-xl border-2 transition-all duration-200 flex flex-col items-center justify-center gap-2
-                            ${selected === option
-                ? "border-blue-600 bg-blue-50 text-blue-700 shadow-md scale-105"
-                : "border-gray-100 bg-white text-gray-600 hover:border-blue-200 hover:bg-gray-50"
-              }`}
+                            ${
+                              selected === option
+                                ? "border-blue-600 bg-blue-50 text-blue-700 shadow-md scale-105"
+                                : "border-gray-100 bg-white text-gray-600 hover:border-blue-200 hover:bg-gray-50"
+                            }`}
           >
             <span className="font-medium">{option}</span>
             {selected === option && <Check className="w-4 h-4" />}
           </button>
         ))}
       </div>
-      <div className={`flex ${onBack ? "justify-between" : "justify-end"} gap-4`}>
+      <div
+        className={`flex ${onBack ? "justify-between" : "justify-end"} gap-4`}
+      >
         {onBack && (
           <button
             onClick={onBack}
@@ -549,7 +568,13 @@ export default function RecipeGenerator() {
     </div>
   );
 
-  const PreferencesStep = ({ onNext, onBack }: { onNext: () => void; onBack?: () => void }) => (
+  const PreferencesStep = ({
+    onNext,
+    onBack,
+  }: {
+    onNext: () => void;
+    onBack?: () => void;
+  }) => (
     <div className="w-full">
       <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
         Any dietary preferences?
@@ -560,17 +585,20 @@ export default function RecipeGenerator() {
             key={pref}
             onClick={() => togglePreference(pref)}
             className={`p-3 rounded-xl border-2 transition-all duration-200 flex items-center justify-center gap-2 text-sm
-                            ${dietaryPreferences.includes(pref)
-                ? "border-blue-600 bg-blue-50 text-blue-700 shadow-md"
-                : "border-gray-100 bg-white text-gray-600 hover:border-blue-200 hover:bg-gray-50"
-              }`}
+                            ${
+                              dietaryPreferences.includes(pref)
+                                ? "border-blue-600 bg-blue-50 text-blue-700 shadow-md"
+                                : "border-gray-100 bg-white text-gray-600 hover:border-blue-200 hover:bg-gray-50"
+                            }`}
           >
             {dietaryPreferences.includes(pref) && <Check className="w-3 h-3" />}
             <span className="font-medium">{pref}</span>
           </button>
         ))}
       </div>
-      <div className={`flex ${onBack ? "justify-between" : "justify-end"} gap-4`}>
+      <div
+        className={`flex ${onBack ? "justify-between" : "justify-end"} gap-4`}
+      >
         {onBack && (
           <button
             onClick={onBack}
@@ -653,7 +681,9 @@ export default function RecipeGenerator() {
         <div className="flex items-center gap-4">
           {rateLimit && (
             <RateLimitIndicator
-              remaining={rateLimit.remaining ?? rateLimit.generate?.remaining ?? null}
+              remaining={
+                rateLimit.remaining ?? rateLimit.generate?.remaining ?? null
+              }
               limit={rateLimit.limit ?? rateLimit.generate?.limit ?? null}
               resetAt={rateLimit.resetAt}
             />
@@ -661,25 +691,27 @@ export default function RecipeGenerator() {
 
           {step === 0 && (
             <div className="flex bg-gray-100 p-1 rounded-lg">
-            <button
-              onClick={() => setMode("classic")}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${mode === "classic"
-                ? "bg-white text-blue-600 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
+              <button
+                onClick={() => setMode("classic")}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                  mode === "classic"
+                    ? "bg-white text-blue-600 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
                 }`}
-            >
-              Classic
-            </button>
-            <button
-              onClick={() => setMode("pantry")}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${mode === "pantry"
-                ? "bg-white text-blue-600 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
+              >
+                Classic
+              </button>
+              <button
+                onClick={() => setMode("pantry")}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                  mode === "pantry"
+                    ? "bg-white text-blue-600 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
                 }`}
-            >
-              Pantry
-            </button>
-          </div>
+              >
+                Pantry
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -986,12 +1018,15 @@ export default function RecipeGenerator() {
 
               {error && (
                 <div
-                  className={`p-4 mb-6 rounded-xl border flex gap-3 ${error.includes("weekly recipe limit") || error.includes("recipe limit")
-                    ? "bg-orange-50 border-orange-100 text-orange-800"
-                    : "bg-red-50 border-red-100 text-red-600"
-                    }`}
+                  className={`p-4 mb-6 rounded-xl border flex gap-3 ${
+                    error.includes("weekly recipe limit") ||
+                    error.includes("recipe limit")
+                      ? "bg-orange-50 border-orange-100 text-orange-800"
+                      : "bg-red-50 border-red-100 text-red-600"
+                  }`}
                 >
-                  {error.includes("weekly recipe limit") || error.includes("recipe limit") ? (
+                  {error.includes("weekly recipe limit") ||
+                  error.includes("recipe limit") ? (
                     <>
                       <span className="text-2xl">👨‍🍳</span>
                       <div>
@@ -1039,11 +1074,11 @@ export default function RecipeGenerator() {
               <motion.div
                 animate={{
                   rotate: 360,
-                  scale: [1, 1.1, 1]
+                  scale: [1, 1.1, 1],
                 }}
                 transition={{
                   rotate: { duration: 2, repeat: Infinity, ease: "linear" },
-                  scale: { duration: 2, repeat: Infinity, ease: "easeInOut" }
+                  scale: { duration: 2, repeat: Infinity, ease: "easeInOut" },
                 }}
                 className="mb-6"
               >
@@ -1255,7 +1290,12 @@ export default function RecipeGenerator() {
                         }}
                         onBlur={() => {
                           const num = parseInt(servingsInput);
-                          if (!servingsInput || isNaN(num) || num < 1 || num > 12) {
+                          if (
+                            !servingsInput ||
+                            isNaN(num) ||
+                            num < 1 ||
+                            num > 12
+                          ) {
                             setServingsInput("2");
                           }
                         }}
