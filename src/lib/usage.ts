@@ -60,6 +60,21 @@ export async function checkAndIncrementUsage(
     };
   }
 
+  // Admin bypass - unlimited usage for admin users
+  if (
+    process.env.ADMIN_USER_ID &&
+    authenticatedUser.id === process.env.ADMIN_USER_ID
+  ) {
+    return {
+      allowed: true,
+      planKey: "admin",
+      weekCount: 0,
+      weekLimitHard: null,
+      weekLimitSoft: null,
+      softLimited: false,
+    };
+  }
+
   const admin = createAdminClient();
 
   try {
@@ -148,6 +163,45 @@ export async function getUsageStatus(
 ): Promise<UsageStatus | null> {
   if (!authenticatedUser) {
     return null;
+  }
+
+  // Admin bypass - unlimited usage for admin users
+  if (
+    process.env.ADMIN_USER_ID &&
+    authenticatedUser.id === process.env.ADMIN_USER_ID
+  ) {
+    const now = new Date();
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - now.getDay());
+    weekStart.setHours(0, 0, 0, 0);
+    const resetAt = new Date(weekStart);
+    resetAt.setDate(resetAt.getDate() + 7);
+
+    return {
+      planKey: "admin",
+      weekStart: weekStart.toISOString(),
+      resetAt: resetAt.toISOString(),
+      generate: {
+        count: 0,
+        remaining: null,
+        hardLimit: null,
+        softLimit: null,
+        tokens: 0,
+      },
+      refine: {
+        count: 0,
+        remaining: null,
+        hardLimit: null,
+        softLimit: null,
+        tokens: 0,
+      },
+      weeklyTokens: {
+        softLimit: null,
+        hardLimit: null,
+        totalTokens: 0,
+      },
+      softLimited: false,
+    };
   }
 
   const admin = createAdminClient();

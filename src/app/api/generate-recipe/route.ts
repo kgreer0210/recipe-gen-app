@@ -7,6 +7,7 @@ import {
   getUsageErrorMessage,
 } from "@/lib/usage";
 import { chatJson } from "@/lib/openrouter/chatJson";
+import { getModelForTier } from "@/lib/openrouter/models";
 
 // Handle CORS preflight requests
 export async function OPTIONS() {
@@ -244,12 +245,17 @@ Output Guidelines:
       `;
     }
 
+    // Select model based on user's plan tier
+    const tierModel = getModelForTier(usageCheck.planKey);
+
     const { data: recipeData, usage } = await chatJson<Record<string, unknown>>(
       systemPrompt,
       prompt,
       {
         // Pantry mode can legitimately return { error: string } for invalid inputs.
         treatErrorFieldAsFailure: mode !== "pantry",
+        // Use tier-appropriate model
+        model: tierModel,
       }
     );
 

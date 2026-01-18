@@ -79,8 +79,14 @@ NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY
 OPEN_ROUTER_API_KEY (or OPENROUTER_API_KEY)
-OPENROUTER_PRIMARY_MODEL (default: google/gemini-2.5-flash-lite)
-OPENROUTER_FALLBACK_MODEL (default: anthropic/claude-3.5-haiku)
+```
+
+Optional tier-based model configuration:
+```
+OPENROUTER_FREE_TIER_MODEL (default: google/gemini-2.5-flash-lite)
+OPENROUTER_PLUS_TIER_MODEL (default: google/gemini-2.5-flash)
+OPENROUTER_PRO_TIER_MODEL (default: google/gemini-3-flash-preview)
+OPENROUTER_FALLBACK_MODEL (default: free tier model)
 ```
 
 ## Key Patterns

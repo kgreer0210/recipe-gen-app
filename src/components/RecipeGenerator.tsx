@@ -171,6 +171,24 @@ export default function RecipeGenerator() {
     setShowGroceryPopup(false);
     setShowLimitPopup(false);
 
+    // Re-check rate limit before generating to catch edge cases
+    // (e.g., user had 1 remaining when page loaded but limit changed)
+    try {
+      const res = await fetch("/api/rate-limit");
+      if (res.ok) {
+        const data = await res.json();
+        setRateLimit(data);
+        if (data.isBlocked) {
+          setIsBlocked(true);
+          setLoading(false);
+          return;
+        }
+      }
+    } catch (err) {
+      console.error("Failed to check rate limit before generate", err);
+      // Continue with generation attempt - backend will catch if truly blocked
+    }
+
     // Advance to result step immediately to show loading animation
     nextStep();
 

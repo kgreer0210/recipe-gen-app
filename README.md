@@ -98,13 +98,19 @@ NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_for_admin_tasks
 OPEN_ROUTER_API_KEY=your_openrouter_api_key
-OPENROUTER_PRIMARY_MODEL=google/gemini-2.5-flash-lite
-OPENROUTER_FALLBACK_MODEL=anthropic/claude-3.5-haiku
+
+# Optional: Tier-based model configuration
+OPENROUTER_FREE_TIER_MODEL=google/gemini-2.5-flash-lite
+OPENROUTER_PLUS_TIER_MODEL=google/gemini-2.5-flash
+OPENROUTER_PRO_TIER_MODEL=google/gemini-3-flash-preview
+OPENROUTER_FALLBACK_MODEL=google/gemini-2.5-flash-lite
 ```
 
 _Note: `SUPABASE_SERVICE_ROLE_KEY` is required for the rate-limit check API route which needs to bypass RLS to reliably increment counters via RPC._
 
 _Note: The app also supports `OPENROUTER_API_KEY` (without the underscore) for compatibility with the OpenRouter SDK docs._
+
+_Note: Different subscription tiers use different AI models. Free users get a lighter model, while Plus and Pro users get faster, higher-quality models._
 
 ### 4. Database Setup
 

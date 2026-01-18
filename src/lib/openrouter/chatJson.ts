@@ -1,7 +1,7 @@
 import "server-only";
 
 import { openRouter } from "@/lib/openrouter/client";
-import { FALLBACK_MODEL, PRIMARY_MODEL } from "@/lib/openrouter/models";
+import { FALLBACK_MODEL } from "@/lib/openrouter/models";
 
 type ChatJsonOptions = {
   /**
@@ -11,10 +11,10 @@ type ChatJsonOptions = {
   treatErrorFieldAsFailure?: boolean;
 
   /**
-   * Optional override. If provided, we will still fallback to FALLBACK_MODEL if
-   * the override fails (unless override === FALLBACK_MODEL).
+   * The model to use for this request. Required - use getModelForTier() to
+   * get the appropriate model for a user's plan tier.
    */
-  modelOverride?: string;
+  model: string;
 };
 
 export type ChatJsonResult<T> = {
@@ -90,10 +90,10 @@ async function callModelOnce<T>(
 export async function chatJson<T>(
   systemPrompt: string,
   userPrompt: string,
-  options: ChatJsonOptions = {}
+  options: ChatJsonOptions
 ): Promise<ChatJsonResult<T>> {
   const requestId = safeRequestId();
-  const primary = options.modelOverride ?? PRIMARY_MODEL;
+  const primary = options.model;
   const fallback = FALLBACK_MODEL;
 
   const treatErrorFieldAsFailure = options.treatErrorFieldAsFailure ?? false;
