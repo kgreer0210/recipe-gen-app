@@ -7,7 +7,7 @@ import {
   getUsageErrorMessage,
 } from "@/lib/usage";
 import { chatJson } from "@/lib/openrouter/chatJson";
-import { getModelForTier } from "@/lib/openrouter/models";
+import { getModelForTier, isValidAdminModelOverride } from "@/lib/openrouter/models";
 
 // Handle CORS preflight requests
 export async function OPTIONS() {
@@ -44,6 +44,7 @@ export async function POST(request: Request) {
       ingredients,
       dietaryPreferences,
       servings,
+      adminModelOverride,
     } = body as {
       mode?: "classic" | "pantry";
       cuisine?: CuisineType;
@@ -53,6 +54,7 @@ export async function POST(request: Request) {
       ingredients?: string[];
       dietaryPreferences?: string[];
       servings?: number;
+      adminModelOverride?: string;
     };
 
     // Input validation to prevent token abuse
@@ -246,7 +248,17 @@ Output Guidelines:
     }
 
     // Select model based on user's plan tier
-    const tierModel = getModelForTier(usageCheck.planKey);
+    let modelToUse = getModelForTier(usageCheck.planKey);
+
+    // Admin override with server-side verification
+    if (adminModelOverride && usageCheck.planKey === "admin") {
+      if (isValidAdminModelOverride(adminModelOverride)) {
+        modelToUse = adminModelOverride;
+        console.log(`[Admin Override] User ${user.id} using model: ${adminModelOverride}`);
+      } else {
+        console.warn(`[Admin Override] Invalid model rejected: ${adminModelOverride}`);
+      }
+    }
 
     const { data: recipeData, usage } = await chatJson<Record<string, unknown>>(
       systemPrompt,
@@ -255,7 +267,7 @@ Output Guidelines:
         // Pantry mode can legitimately return { error: string } for invalid inputs.
         treatErrorFieldAsFailure: mode !== "pantry",
         // Use tier-appropriate model
-        model: tierModel,
+        model: modelToUse,
       }
     );
 

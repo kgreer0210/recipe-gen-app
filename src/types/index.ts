@@ -130,6 +130,7 @@ export interface GenerateRecipeRequest {
   ingredients?: string[];
   dietaryPreferences?: string[];
   servings?: number;
+  adminModelOverride?: string;
 }
 
 export interface RefineRecipeRequest {

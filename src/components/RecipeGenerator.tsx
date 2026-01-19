@@ -14,6 +14,7 @@ import {
   Recipe,
   proteinCuts,
 } from "@/types";
+import { isAdminUser, ADMIN_MODEL_OPTIONS } from "@/lib/admin";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -96,6 +97,8 @@ export default function RecipeGenerator() {
   const [isRefining, setIsRefining] = useState(false);
   const [refinementCount, setRefinementCount] = useState(0);
   const [refinementHistory, setRefinementHistory] = useState<string[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string | null>(null);
+  const [currentRecipeModel, setCurrentRecipeModel] = useState<string | null>(null);
   const [rateLimit, setRateLimit] = useState<{
     remaining: number | null;
     limit: number | null;
@@ -131,6 +134,9 @@ export default function RecipeGenerator() {
   const { mutateAsync: saveRecipe } = useSaveRecipe();
   const { recipes: savedRecipes = [] } = useRecipesRealtime();
   const { mutateAsync: addToGroceryList } = useAddToGroceryList();
+
+  // Admin check for model selection UI
+  const isAdmin = isAdminUser(user?.id);
 
   useEffect(() => {
     const checkLimit = async () => {
@@ -214,8 +220,10 @@ export default function RecipeGenerator() {
           proteinCut: cutToSend,
           dietaryPreferences,
           servings,
+          adminModelOverride: selectedModel || undefined,
         });
         setGeneratedRecipe(recipe);
+        setCurrentRecipeModel(selectedModel);
       } else {
         // Pantry Mode
         const ingredientsList = ingredientsInput
@@ -228,8 +236,10 @@ export default function RecipeGenerator() {
           ingredients: ingredientsList,
           dietaryPreferences,
           servings,
+          adminModelOverride: selectedModel || undefined,
         });
         setGeneratedRecipe(recipe);
+        setCurrentRecipeModel(selectedModel);
       }
     } catch (error: any) {
       console.error("Failed to generate recipe", error);
@@ -366,6 +376,7 @@ export default function RecipeGenerator() {
           proteinCut: cutToSend,
           dietaryPreferences,
           servings,
+          adminModelOverride: currentRecipeModel || undefined,
         });
         setGeneratedRecipe(recipe);
       } else {
@@ -380,6 +391,7 @@ export default function RecipeGenerator() {
           ingredients: ingredientsList,
           dietaryPreferences,
           servings,
+          adminModelOverride: currentRecipeModel || undefined,
         });
         setGeneratedRecipe(recipe);
       }
@@ -968,6 +980,28 @@ export default function RecipeGenerator() {
                 </div>
               )}
 
+              {isAdmin && (
+                <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm mb-8">
+                  <span className="text-gray-500 block mb-2">
+                    AI Model (Admin Only)
+                  </span>
+                  <select
+                    value={selectedModel || ""}
+                    onChange={(e) =>
+                      setSelectedModel(e.target.value || null)
+                    }
+                    className="w-full px-4 py-2 bg-white border border-gray-200 rounded-lg text-gray-800 font-medium focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="">Default (Tier-Based)</option>
+                    {ADMIN_MODEL_OPTIONS.map((model) => (
+                      <option key={model.value} value={model.value}>
+                        {model.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {dietaryPreferences.length > 0 && (
                 <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm mb-8">
                   <span className="text-gray-500 block mb-2">Preferences</span>
@@ -1347,6 +1381,41 @@ export default function RecipeGenerator() {
                     </div>
                   </div>
                 )}
+
+                {isAdmin && (
+                  <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-xl border border-purple-100 shadow-sm mb-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Sparkles className="w-4 h-4 text-purple-600" />
+                      <span className="text-sm font-medium text-purple-900">
+                        AI Model (Admin)
+                      </span>
+                    </div>
+                    <select
+                      value={currentRecipeModel || ""}
+                      onChange={(e) =>
+                        setCurrentRecipeModel(e.target.value || null)
+                      }
+                      className="w-full px-4 py-2 bg-white border border-purple-200 rounded-lg text-gray-800 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+                    >
+                      <option value="">Default (Tier-Based)</option>
+                      {ADMIN_MODEL_OPTIONS.map((model) => (
+                        <option key={model.value} value={model.value}>
+                          {model.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-purple-700 mt-2">
+                      {currentRecipeModel
+                        ? `Current recipe generated with: ${
+                            ADMIN_MODEL_OPTIONS.find(
+                              (m) => m.value === currentRecipeModel
+                            )?.label || currentRecipeModel
+                          }`
+                        : "Current recipe used tier-based model"}
+                    </p>
+                  </div>
+                )}
+
                 <div className="flex flex-col items-center gap-1">
                   <button
                     onClick={handleRegenerate}
@@ -1374,6 +1443,8 @@ export default function RecipeGenerator() {
                     setDietaryPreferences([]);
                     setServingsInput("2");
                     setGeneratedServings(2);
+                    setSelectedModel(null);
+                    setCurrentRecipeModel(null);
                   }}
                   className="w-full py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors"
                 >
