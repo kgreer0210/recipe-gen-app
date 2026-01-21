@@ -29,7 +29,13 @@ export async function POST(request: Request) {
 
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session;
-    
+
+    // Skip if no subscription (expired session, failed payment, etc.)
+    if (!session.subscription) {
+      console.log('Skipping checkout.session.completed: no subscription');
+      return new NextResponse(null, { status: 200 });
+    }
+
     // Retrieve the subscription details from Stripe
     const subscription = await stripe.subscriptions.retrieve(
       session.subscription as string
