@@ -112,7 +112,7 @@ export default function Home() {
               Start Cooking Smarter Today
             </h2>
             <p className="text-blue-100 text-lg mb-8">
-              Join thousands of home cooks saving time and eating better. No
+              Join other home cooks that are saving time and eating better. No
               credit card required to start generating recipes.
             </p>
             <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full border border-white/20 text-sm font-medium">
