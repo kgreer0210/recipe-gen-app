@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('Authorization')
   const expectedSecret = process.env.CRON_SECRET
 
