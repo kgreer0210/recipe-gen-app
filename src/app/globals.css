@@ -29,3 +29,8 @@ body {
 .no-spinner {
   -moz-appearance: textfield;
 }
+
+/* Safe area insets for bottom nav (iPhone home indicator) */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}

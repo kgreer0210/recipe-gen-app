@@ -5,7 +5,7 @@ import { Toaster } from "sonner";
 import "./globals.css";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
-import AnnouncementBanner from "@/components/AnnouncementBanner";
+import MobileNav from "@/components/MobileNav";
 import { createClient } from "@/lib/supabase/server";
 import { AuthProvider } from "@/components/AuthProvider";
 import { Subscription } from "@/types";
@@ -27,6 +27,12 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -132,13 +138,17 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50 min-h-screen flex flex-col`}
       >
-        <AnnouncementBanner />
         <AuthProvider initialUser={user} initialSubscription={subscription}>
-          <Navigation />
-          <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 flex-1">
+          <div className="hidden md:block">
+            <Navigation />
+          </div>
+          <main className="w-full max-w-7xl mx-auto py-0 md:py-8 px-0 md:px-4 sm:px-6 lg:px-8 flex-1 pb-16 md:pb-0">
             {children}
           </main>
-          <Footer />
+          <div className="hidden md:block">
+            <Footer />
+          </div>
+          <MobileNav />
         </AuthProvider>
         <Analytics />
         <Toaster />

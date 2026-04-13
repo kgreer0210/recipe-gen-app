@@ -12,8 +12,8 @@ export const metadata: Metadata = {
 
 export default function GeneratorPage() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-[80vh]">
-      <div className="text-center mb-12">
+    <div className="flex flex-col items-center justify-center md:min-h-[80vh] md:pb-8">
+      <div className="hidden md:block text-center mb-12">
         <h1 className="text-4xl font-extrabold text-gray-900 sm:text-5xl sm:tracking-tight lg:text-6xl">
           Mise <span className="text-blue-600">AI</span>
         </h1>

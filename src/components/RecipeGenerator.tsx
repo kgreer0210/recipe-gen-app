@@ -14,7 +14,6 @@ import {
   Recipe,
   proteinCuts,
 } from "@/types";
-import { isAdminUser, ADMIN_MODEL_OPTIONS } from "@/lib/admin";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -23,6 +22,7 @@ import {
   ArrowRight,
   ArrowLeft,
   Check,
+  ChevronRight,
   Lock,
   Sparkles,
   RefreshCw,
@@ -72,6 +72,7 @@ const dietaryPreferencesList = [
   "Keto",
   "Paleo",
   "Bariatric",
+  "Heart Healthy",
 ];
 
 export default function RecipeGenerator() {
@@ -134,9 +135,6 @@ export default function RecipeGenerator() {
   const { mutateAsync: saveRecipe } = useSaveRecipe();
   const { recipes: savedRecipes = [] } = useRecipesRealtime();
   const { mutateAsync: addToGroceryList } = useAddToGroceryList();
-
-  // Admin check for model selection UI
-  const isAdmin = isAdminUser(user?.id);
 
   useEffect(() => {
     const checkLimit = async () => {
@@ -560,25 +558,25 @@ export default function RecipeGenerator() {
       <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
         {title}
       </h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+      <div className="grid grid-cols-2 gap-3 md:gap-4 mb-8">
         {options.map((option) => (
           <button
             key={option}
             onClick={() => onSelect(option)}
-            className={`p-4 rounded-xl border-2 transition-all duration-200 flex flex-col items-center justify-center gap-2
+            className={`p-4 min-h-[3.5rem] rounded-xl border-2 transition-all duration-200 flex flex-col items-center justify-center gap-2
                             ${
                               selected === option
                                 ? "border-blue-600 bg-blue-50 text-blue-700 shadow-md scale-105"
                                 : "border-gray-100 bg-white text-gray-600 hover:border-blue-200 hover:bg-gray-50"
                             }`}
           >
-            <span className="font-medium">{option}</span>
-            {selected === option && <Check className="w-4 h-4" />}
+            <span className="font-medium text-center w-full leading-tight break-words">{option}</span>
+            {selected === option && <Check className="w-4 h-4 shrink-0" />}
           </button>
         ))}
       </div>
       <div
-        className={`flex ${onBack ? "justify-between" : "justify-end"} gap-4`}
+        className={`flex w-full ${onBack ? "justify-between" : "justify-end"} gap-4`}
       >
         {onBack && (
           <button
@@ -609,7 +607,7 @@ export default function RecipeGenerator() {
       <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
         Any dietary preferences?
       </h2>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-8">
         {dietaryPreferencesList.map((pref) => (
           <button
             key={pref}
@@ -627,7 +625,7 @@ export default function RecipeGenerator() {
         ))}
       </div>
       <div
-        className={`flex ${onBack ? "justify-between" : "justify-end"} gap-4`}
+        className={`flex w-full ${onBack ? "justify-between" : "justify-end"} gap-4`}
       >
         {onBack && (
           <button
@@ -649,7 +647,7 @@ export default function RecipeGenerator() {
 
   if (checkingLimit) {
     return (
-      <div className="w-full max-w-2xl mx-auto min-h-[600px] md:h-[700px] flex items-center justify-center bg-white/50 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20">
+      <div className="w-full md:max-w-2xl mx-auto min-h-[100dvh] md:min-h-[300px] flex items-center justify-center bg-white/50 backdrop-blur-sm rounded-none md:rounded-3xl shadow-none md:shadow-xl border-0 md:border md:border-white/20">
         <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
       </div>
     );
@@ -657,7 +655,7 @@ export default function RecipeGenerator() {
 
   if (isBlocked) {
     return (
-      <div className="w-full max-w-2xl mx-auto min-h-[600px] md:h-[700px] flex flex-col relative overflow-hidden bg-white/50 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20">
+      <div className="w-full md:max-w-2xl mx-auto min-h-[100dvh] md:min-h-0 flex flex-col relative overflow-hidden bg-white/50 backdrop-blur-sm rounded-none md:rounded-3xl shadow-none md:shadow-xl border-0 md:border md:border-white/20">
         <div className="flex items-center justify-center gap-2 py-6 bg-white/50 backdrop-blur-sm z-10 border-b border-white/20">
           <ChefHat className="w-8 h-8 text-blue-600" />
           <h1 className="text-xl font-bold text-gray-800">Mise AI</h1>
@@ -692,7 +690,7 @@ export default function RecipeGenerator() {
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto min-h-[600px] md:h-[700px] flex flex-col relative overflow-hidden bg-white/50 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20">
+    <div className="w-full md:max-w-2xl mx-auto min-h-[100dvh] md:min-h-0 flex flex-col relative overflow-hidden bg-white/50 backdrop-blur-sm rounded-none md:rounded-3xl shadow-none md:shadow-xl border-0 md:border md:border-white/20">
       <div className="absolute top-0 left-0 w-full h-1 bg-gray-100 z-20">
         <motion.div
           className="h-full bg-blue-600"
@@ -702,7 +700,7 @@ export default function RecipeGenerator() {
         />
       </div>
 
-      <div className="flex flex-col sm:flex-row items-center justify-between px-6 py-6 bg-white/50 backdrop-blur-sm z-10 border-b border-white/20 gap-4">
+      <div className="flex flex-col sm:flex-row items-center justify-between px-4 md:px-6 py-4 md:py-6 bg-white/50 backdrop-blur-sm z-10 border-b border-white/20 gap-4">
         <div className="flex items-center gap-2">
           <ChefHat className="w-8 h-8 text-blue-600" />
           <h1 className="text-xl font-bold text-gray-800">Mise AI</h1>
@@ -746,7 +744,7 @@ export default function RecipeGenerator() {
         </div>
       </div>
 
-      <div className="relative flex-1 w-full overflow-hidden">
+      <div className="grid w-full overflow-hidden [&>*]:col-start-1 [&>*]:row-start-1">
         <AnimatePresence mode="wait" custom={direction}>
           {step === 0 && mode === "classic" && (
             <motion.div
@@ -760,7 +758,7 @@ export default function RecipeGenerator() {
                 x: { type: "spring", stiffness: 300, damping: 30 },
                 opacity: { duration: 0.2 },
               }}
-              className="absolute inset-0 overflow-y-auto px-8 py-4"
+              className="px-4 md:px-8 py-4"
             >
               <StepCard
                 title="What are you craving?"
@@ -784,7 +782,7 @@ export default function RecipeGenerator() {
                 x: { type: "spring", stiffness: 300, damping: 30 },
                 opacity: { duration: 0.2 },
               }}
-              className="absolute inset-0 overflow-y-auto px-8 py-4 flex flex-col"
+              className="px-4 md:px-8 py-4 flex flex-col"
             >
               <div className="w-full max-w-lg mx-auto flex-1 flex flex-col">
                 <h2 className="text-2xl font-bold text-gray-800 mb-2 text-center">
@@ -827,7 +825,7 @@ export default function RecipeGenerator() {
                 x: { type: "spring", stiffness: 300, damping: 30 },
                 opacity: { duration: 0.2 },
               }}
-              className="absolute inset-0 overflow-y-auto px-8 py-4"
+              className="px-4 md:px-8 py-4"
             >
               <PreferencesStep onNext={nextStep} onBack={goToPreviousStep} />
             </motion.div>
@@ -845,7 +843,7 @@ export default function RecipeGenerator() {
                 x: { type: "spring", stiffness: 300, damping: 30 },
                 opacity: { duration: 0.2 },
               }}
-              className="absolute inset-0 overflow-y-auto px-8 py-4"
+              className="px-4 md:px-8 py-4"
             >
               <StepCard
                 title="Which meal is this for?"
@@ -870,7 +868,7 @@ export default function RecipeGenerator() {
                 x: { type: "spring", stiffness: 300, damping: 30 },
                 opacity: { duration: 0.2 },
               }}
-              className="absolute inset-0 overflow-y-auto px-8 py-4"
+              className="px-4 md:px-8 py-4"
             >
               <StepCard
                 title="Choose your protein"
@@ -895,7 +893,7 @@ export default function RecipeGenerator() {
                 x: { type: "spring", stiffness: 300, damping: 30 },
                 opacity: { duration: 0.2 },
               }}
-              className="absolute inset-0 overflow-y-auto px-8 py-4"
+              className="px-4 md:px-8 py-4"
             >
               <StepCard
                 title={`What type of ${protein.toLowerCase()}?`}
@@ -921,7 +919,7 @@ export default function RecipeGenerator() {
                 x: { type: "spring", stiffness: 300, damping: 30 },
                 opacity: { duration: 0.2 },
               }}
-              className="absolute inset-0 overflow-y-auto px-8 py-4"
+              className="px-4 md:px-8 py-4"
             >
               <PreferencesStep onNext={nextStep} onBack={goToPreviousStep} />
             </motion.div>
@@ -939,7 +937,7 @@ export default function RecipeGenerator() {
                 x: { type: "spring", stiffness: 300, damping: 30 },
                 opacity: { duration: 0.2 },
               }}
-              className="absolute inset-0 overflow-y-auto px-8 py-4"
+              className="px-4 md:px-8 py-4"
             >
               <h2 className="text-2xl font-bold text-gray-800 mb-8 text-center">
                 Review your choices
@@ -947,64 +945,66 @@ export default function RecipeGenerator() {
 
               {mode === "classic" ? (
                 <div className="space-y-4 mb-8">
-                  <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex justify-between items-center">
+                  <button
+                    onClick={() => { setDirection(-1); setStep(0); }}
+                    className="w-full bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex justify-between items-center hover:border-blue-200 hover:bg-blue-50/30 transition-colors cursor-pointer text-left"
+                  >
                     <span className="text-gray-500">Cuisine</span>
-                    <span className="font-semibold text-gray-800">
+                    <span className="font-semibold text-gray-800 flex items-center gap-2">
                       {cuisine}
+                      <ChevronRight className="w-4 h-4 text-gray-400" />
                     </span>
-                  </div>
-                  <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex justify-between items-center">
+                  </button>
+                  <button
+                    onClick={() => { setDirection(-1); setStep(1); }}
+                    className="w-full bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex justify-between items-center hover:border-blue-200 hover:bg-blue-50/30 transition-colors cursor-pointer text-left"
+                  >
                     <span className="text-gray-500">Meal</span>
-                    <span className="font-semibold text-gray-800">{meal}</span>
-                  </div>
-                  <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex justify-between items-center">
+                    <span className="font-semibold text-gray-800 flex items-center gap-2">
+                      {meal}
+                      <ChevronRight className="w-4 h-4 text-gray-400" />
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => { setDirection(-1); setStep(2); }}
+                    className="w-full bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex justify-between items-center hover:border-blue-200 hover:bg-blue-50/30 transition-colors cursor-pointer text-left"
+                  >
                     <span className="text-gray-500">Protein</span>
-                    <span className="font-semibold text-gray-800">
+                    <span className="font-semibold text-gray-800 flex items-center gap-2">
                       {protein}
                       {hasCuts && proteinCut !== "Any cut"
                         ? ` - ${proteinCut}`
                         : ""}
+                      <ChevronRight className="w-4 h-4 text-gray-400" />
                     </span>
-                  </div>
+                  </button>
                 </div>
               ) : (
                 <div className="space-y-4 mb-8">
-                  <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-                    <span className="text-gray-500 block mb-2">
-                      Ingredients
-                    </span>
-                    <p className="font-semibold text-gray-800">
-                      {ingredientsInput}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {isAdmin && (
-                <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm mb-8">
-                  <span className="text-gray-500 block mb-2">
-                    AI Model (Admin Only)
-                  </span>
-                  <select
-                    value={selectedModel || ""}
-                    onChange={(e) =>
-                      setSelectedModel(e.target.value || null)
-                    }
-                    className="w-full px-4 py-2 bg-white border border-gray-200 rounded-lg text-gray-800 font-medium focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  <button
+                    onClick={() => { setDirection(-1); setStep(0); }}
+                    className="w-full bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex justify-between items-center hover:border-blue-200 hover:bg-blue-50/30 transition-colors cursor-pointer text-left"
                   >
-                    <option value="">Default (Tier-Based)</option>
-                    {ADMIN_MODEL_OPTIONS.map((model) => (
-                      <option key={model.value} value={model.value}>
-                        {model.label}
-                      </option>
-                    ))}
-                  </select>
+                    <span className="text-gray-500">Ingredients</span>
+                    <span className="font-semibold text-gray-800 flex items-center gap-2 text-right">
+                      {ingredientsInput.length > 30
+                        ? ingredientsInput.slice(0, 30) + "..."
+                        : ingredientsInput}
+                      <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+                    </span>
+                  </button>
                 </div>
               )}
 
               {dietaryPreferences.length > 0 && (
-                <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm mb-8">
-                  <span className="text-gray-500 block mb-2">Preferences</span>
+                <button
+                  onClick={() => { setDirection(-1); setStep(mode === "classic" ? (hasCuts ? 4 : 3) : 1); }}
+                  className="w-full bg-white p-4 rounded-xl border border-gray-100 shadow-sm mb-8 hover:border-blue-200 hover:bg-blue-50/30 transition-colors cursor-pointer text-left"
+                >
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-gray-500">Preferences</span>
+                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     {dietaryPreferences.map((pref) => (
                       <span
@@ -1015,7 +1015,7 @@ export default function RecipeGenerator() {
                       </span>
                     ))}
                   </div>
-                </div>
+                </button>
               )}
 
               <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm mb-8 flex justify-between items-center">
@@ -1121,7 +1121,7 @@ export default function RecipeGenerator() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3 }}
-              className="absolute inset-0 flex flex-col items-center justify-center"
+              className="flex flex-col items-center justify-center min-h-[300px] py-12"
             >
               <motion.div
                 animate={{
@@ -1158,9 +1158,9 @@ export default function RecipeGenerator() {
                 x: { type: "spring", stiffness: 300, damping: 30 },
                 opacity: { duration: 0.2 },
               }}
-              className="absolute inset-0 flex flex-col"
+              className="flex flex-col"
             >
-              <div className="flex-1 overflow-y-auto px-8 pb-4">
+              <div className="px-4 md:px-8 pb-4">
                 <div className="text-center mb-6 pt-4">
                   <h2 className="text-2xl font-bold text-gray-800 mb-2">
                     {generatedRecipe.title}
@@ -1379,40 +1379,6 @@ export default function RecipeGenerator() {
                         No, Thanks
                       </button>
                     </div>
-                  </div>
-                )}
-
-                {isAdmin && (
-                  <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-xl border border-purple-100 shadow-sm mb-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Sparkles className="w-4 h-4 text-purple-600" />
-                      <span className="text-sm font-medium text-purple-900">
-                        AI Model (Admin)
-                      </span>
-                    </div>
-                    <select
-                      value={currentRecipeModel || ""}
-                      onChange={(e) =>
-                        setCurrentRecipeModel(e.target.value || null)
-                      }
-                      className="w-full px-4 py-2 bg-white border border-purple-200 rounded-lg text-gray-800 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
-                    >
-                      <option value="">Default (Tier-Based)</option>
-                      {ADMIN_MODEL_OPTIONS.map((model) => (
-                        <option key={model.value} value={model.value}>
-                          {model.label}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-xs text-purple-700 mt-2">
-                      {currentRecipeModel
-                        ? `Current recipe generated with: ${
-                            ADMIN_MODEL_OPTIONS.find(
-                              (m) => m.value === currentRecipeModel
-                            )?.label || currentRecipeModel
-                          }`
-                        : "Current recipe used tier-based model"}
-                    </p>
                   </div>
                 )}
 
