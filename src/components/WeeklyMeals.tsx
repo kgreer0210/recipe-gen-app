@@ -74,7 +74,10 @@ export default function WeeklyMeals() {
             >
               <div className="p-5 flex-1">
                 <Link href={`/recipe/${recipe.id}`} className="block group">
-                  <h3 className="font-bold text-xl text-gray-900 group-hover:text-blue-600 transition-colors mb-2">
+                  <h3
+                    className="font-bold text-xl text-gray-900 group-hover:text-blue-600 transition-colors mb-2 line-clamp-2"
+                    title={recipe.title}
+                  >
                     {recipe.title}
                   </h3>
                 </Link>

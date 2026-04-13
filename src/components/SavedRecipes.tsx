@@ -139,7 +139,10 @@ export default function SavedRecipes() {
                   </button>
                 </div>
 
-                <h3 className="font-bold text-lg text-gray-800 mb-1 pr-24 group-hover:text-blue-600 transition-colors">
+                <h3
+                  className="font-bold text-lg text-gray-800 mb-1 pr-24 group-hover:text-blue-600 transition-colors line-clamp-2"
+                  title={recipe.title}
+                >
                   {recipe.title}
                 </h3>
                 <div className="flex gap-2 mb-3">
