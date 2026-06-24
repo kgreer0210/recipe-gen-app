@@ -30,9 +30,18 @@ export async function signup(formData: FormData) {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
 
+  const origin = (
+    process.env.NEXT_PUBLIC_SITE_URL || "https://www.mise-ai.app"
+  ).replace(/\/$/, "");
+
   const { error } = await supabase.auth.signUp({
     email,
     password,
+    options: {
+      // Send the confirmation link through our PKCE callback so the session is
+      // exchanged into cookies and the redirect tab lands signed in.
+      emailRedirectTo: `${origin}/auth/callback?next=/generator`,
+    },
   });
 
   if (error) {
