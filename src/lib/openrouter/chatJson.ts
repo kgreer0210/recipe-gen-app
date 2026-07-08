@@ -37,13 +37,15 @@ async function callModelOnce<T>(
   userPrompt: string
 ): Promise<{ data: T; usage?: { promptTokens: number; completionTokens: number; totalTokens: number } }> {
   const result = await openRouter.chat.send({
-    model,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-    stream: false,
-    responseFormat: { type: "json_object" },
+    chatRequest: {
+      model,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      stream: false,
+      responseFormat: { type: "json_object" },
+    },
   });
 
   const rawContent = result.choices?.[0]?.message?.content;
@@ -55,14 +57,14 @@ async function callModelOnce<T>(
     typeof rawContent === "string"
       ? rawContent
       : rawContent
-          .map((part) => {
+          .map((part: unknown) => {
             if (part && typeof part === "object" && "type" in part) {
               // Text parts are the only ones we expect in JSON mode.
               if (
                 (part as { type?: unknown }).type === "text" &&
                 typeof (part as { text?: unknown }).text === "string"
               ) {
-                return (part as { text: string }).text;
+                return (part as unknown as { text: string }).text;
               }
             }
             return "";
