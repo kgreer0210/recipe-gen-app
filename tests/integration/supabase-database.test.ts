@@ -48,15 +48,24 @@ describe("Supabase recipe storage", () => {
       password,
       email_confirm: true,
     });
+    if (first.error || !first.data.user) {
+      throw first.error ?? new Error("Could not create test user A");
+    }
+    userAId = first.data.user.id;
+
     const second = await admin.auth.admin.createUser({
       email: emails[1],
       password,
       email_confirm: true,
     });
 
-    if (first.error || !first.data.user) throw first.error ?? new Error("Could not create test user A");
-    if (second.error || !second.data.user) throw second.error ?? new Error("Could not create test user B");
-    userAId = first.data.user.id;
+    if (second.error || !second.data.user) {
+      // Do not leave user A behind when provisioning user B fails. If this
+      // first cleanup attempt fails, retain the ID so afterAll can retry it.
+      const cleanup = await admin.auth.admin.deleteUser(userAId);
+      if (!cleanup.error) userAId = "";
+      throw second.error ?? new Error("Could not create test user B");
+    }
     userBId = second.data.user.id;
 
     userA = createClient(supabaseUrl, anonKey, {
