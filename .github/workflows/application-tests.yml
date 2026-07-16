@@ -1,0 +1,87 @@
+name: Application Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  business-rules:
+    name: Business rules
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the application
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install the locked dependencies
+        run: npm ci
+      - name: Check business rules
+        run: npm run test:unit
+
+  database:
+    name: Database integration
+    # GitHub withholds repository secrets from forks and Dependabot pull
+    # requests. Skip only this secret-backed layer; business rules still run.
+    if: github.event_name == 'push' || (github.event.pull_request.head.repo.fork == false && github.actor != 'dependabot[bot]')
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - name: Check out the application
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install the locked dependencies
+        run: npm ci
+      - name: Check real database behavior
+        run: npm run test:integration
+
+  critical-paths:
+    name: Critical paths
+    # These browser journeys use real test authentication, so they need the
+    # same secret-availability guard as the database integration layer.
+    if: github.event_name == 'push' || (github.event.pull_request.head.repo.fork == false && github.actor != 'dependabot[bot]')
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - name: Check out the application
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install the locked dependencies
+        run: npm ci
+      - name: Install the Chromium test browser
+        run: npx playwright install --with-deps chromium
+      - name: Walk through the three critical user journeys
+        run: npm run test:e2e
+      - name: Keep browser evidence when a check fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
