@@ -20,6 +20,9 @@ jobs:
   classify-and-merge:
     if: ${{ contains(fromJson('["dependabot[bot]", "renovate[bot]"]'), github.actor) }}
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
     steps:
       - name: Fetch Dependabot metadata
         if: ${{ github.actor == 'dependabot[bot]' }}
@@ -35,8 +38,6 @@ jobs:
           gh pr edit ${{ github.event.pull_request.number }} \
             --add-label "needs-review" \
             --remove-label "automated" 2>/dev/null || true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Label security patches
         if: ${{ github.actor == 'dependabot[bot]' && steps.dependabot-metadata.outputs.vulnerability-alert-id != '' }}
@@ -44,13 +45,9 @@ jobs:
           gh pr edit ${{ github.event.pull_request.number }} \
             --add-label "security" \
             --remove-label "automated" 2>/dev/null || true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Approve and auto-merge safe bumps
         if: ${{ (github.actor == 'dependabot[bot]' && steps.dependabot-metadata.outputs.update-type != 'version-update:semver-major' && steps.dependabot-metadata.outputs.vulnerability-alert-id == '') || github.actor == 'renovate[bot]' }}
         run: |
           gh pr review --approve ${{ github.event.pull_request.number }}
           gh pr merge --auto --squash ${{ github.event.pull_request.number }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
