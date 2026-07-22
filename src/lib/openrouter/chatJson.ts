@@ -48,6 +48,12 @@ async function callModelOnce<T>(
     },
   });
 
+  // stream is false above, so an EventStream response is unexpected; this
+  // check also narrows the SDK's ChatResult | EventStream union.
+  if (!("choices" in result)) {
+    throw new Error("Unexpected streaming response from model");
+  }
+
   const rawContent = result.choices?.[0]?.message?.content;
   if (!rawContent) {
     throw new Error("No content received from model");
