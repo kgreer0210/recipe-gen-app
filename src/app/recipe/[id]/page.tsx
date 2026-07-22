@@ -19,10 +19,12 @@ import {
   ShoppingCart,
   CalendarPlus,
   ArrowRight,
+  Share2,
 } from "lucide-react";
 import Link from "next/link";
 import { Recipe } from "@/types";
 import { formatRecipeAmount } from "@/lib/grocery/format";
+import { buildRecipeShareText, shareRecipe } from "@/lib/share/recipeShareText";
 
 export default function RecipeDetailsPage() {
   const params = useParams();
@@ -125,6 +127,17 @@ export default function RecipeDetailsPage() {
     setIsTogglingPlan(false);
   };
 
+  const handleShare = () => {
+    if (!recipe) return;
+    void shareRecipe(
+      recipe.title,
+      buildRecipeShareText(recipe, {
+        includeInstructions: true,
+        servingsOverride: servings,
+      })
+    );
+  };
+
   // Calculate scale factor for ingredient amounts
   const scale = recipe?.servings ? servings / recipe.servings : 1;
 
@@ -171,7 +184,7 @@ export default function RecipeDetailsPage() {
               <h1 className="text-3xl font-bold text-gray-900">
                 {recipe.title}
               </h1>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button
                   onClick={handleToggleWeeklyPlan}
                   disabled={isTogglingPlan}
@@ -201,6 +214,13 @@ export default function RecipeDetailsPage() {
                 >
                   <ShoppingCart className="w-4 h-4" />
                   {isAdding ? "Adding..." : "Add to Grocery List"}
+                </button>
+                <button
+                  onClick={handleShare}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 shadow-sm hover:shadow"
+                >
+                  <Share2 className="w-4 h-4" />
+                  Share
                 </button>
               </div>
             </div>
