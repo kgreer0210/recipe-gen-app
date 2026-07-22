@@ -184,7 +184,7 @@ export default function RecipeDetailsPage() {
               <h1 className="text-3xl font-bold text-gray-900">
                 {recipe.title}
               </h1>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button
                   onClick={handleToggleWeeklyPlan}
                   disabled={isTogglingPlan}
