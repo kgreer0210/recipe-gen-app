@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@openrouter/sdk": "^1.0.7",
-    "@stripe/stripe-js": "^9.9.0",
+    "@stripe/stripe-js": "^9.12.0",
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.110.8",
     "@vercel/analytics": "^2.0.1",
