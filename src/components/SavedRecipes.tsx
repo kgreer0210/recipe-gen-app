@@ -6,7 +6,9 @@ import { useRemoveRecipe } from "@/hooks/useRecipesMutations";
 import { useWeeklyPlanRealtime } from "@/hooks/useWeeklyPlanRealtime";
 import { useAddToWeeklyPlan, useRemoveFromWeeklyPlan } from "@/hooks/useWeeklyPlanMutations";
 import { useWeeklyPlanStore } from "@/lib/stores/weeklyPlanStore";
-import { Trash2, Clock, Calendar, Check, ArrowRight } from "lucide-react";
+import { Trash2, Clock, Calendar, Check, ArrowRight, Share2 } from "lucide-react";
+import { buildRecipeShareText, shareRecipe } from "@/lib/share/recipeShareText";
+import type { Recipe } from "@/types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -78,6 +80,13 @@ export default function SavedRecipes() {
     setDeleteConfirmId(recipeId);
   };
 
+  const handleShareRecipe = (recipe: Recipe) => {
+    void shareRecipe(
+      recipe.title,
+      buildRecipeShareText(recipe, { includeInstructions: false })
+    );
+  };
+
   const confirmDelete = (recipeId: string) => {
     removeRecipe(recipeId);
     setDeleteConfirmId(null);
@@ -104,6 +113,17 @@ export default function SavedRecipes() {
             >
               <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-blue-300 transition-all relative">
                 <div className="absolute top-4 right-4 flex gap-2 z-10">
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleShareRecipe(recipe);
+                    }}
+                    className="p-2 rounded-full bg-gray-100 text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
+                    title="Share recipe"
+                  >
+                    <Share2 className="w-4 h-4" />
+                  </button>
                   <button
                     onClick={(e) => {
                       e.preventDefault();
@@ -140,7 +160,7 @@ export default function SavedRecipes() {
                 </div>
 
                 <h3
-                  className="font-bold text-lg text-gray-800 mb-1 pr-24 group-hover:text-blue-600 transition-colors line-clamp-2"
+                  className="font-bold text-lg text-gray-800 mb-1 pr-32 group-hover:text-blue-600 transition-colors line-clamp-2"
                   title={recipe.title}
                 >
                   {recipe.title}
