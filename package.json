@@ -15,7 +15,7 @@
     "test:all": "npm run test:unit && npm run test:integration && npm run test:e2e"
   },
   "dependencies": {
-    "@openrouter/sdk": "^1.2.2",
+    "@openrouter/sdk": "^1.2.11",
     "@stripe/stripe-js": "^9.12.1",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.111.0",
