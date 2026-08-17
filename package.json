@@ -30,7 +30,7 @@
     "sonner": "^2.0.7",
     "stripe": "^22.5.0",
     "tailwind-merge": "^3.6.0",
-    "zustand": "^5.0.14"
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
