@@ -6,7 +6,13 @@ import { LogOut, User as UserIcon, CreditCard, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useSignOut } from "@/hooks/useSignOut";
 
-export default function UserStatus({ onAction }: { onAction?: () => void }) {
+export default function UserStatus({
+  onAction,
+  showLabels = false,
+}: {
+  onAction?: () => void;
+  showLabels?: boolean;
+}) {
   const { user, subscription, loading } = useAuth();
   const { mutateAsync: signOut } = useSignOut();
   const [portalLoading, setPortalLoading] = useState(false);
@@ -54,7 +60,13 @@ export default function UserStatus({ onAction }: { onAction?: () => void }) {
 
   if (user) {
     return (
-      <div className="flex items-center gap-4">
+      <div
+        className={
+          showLabels
+            ? "flex flex-col items-stretch gap-3 w-full min-w-0"
+            : "flex items-center gap-4"
+        }
+      >
         {isSubscribed && (
           <button
             onClick={handleManageSubscription}
@@ -65,25 +77,30 @@ export default function UserStatus({ onAction }: { onAction?: () => void }) {
             {portalLoading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              <CreditCard className="w-4 h-4" />
+              <CreditCard className="w-4 h-4 shrink-0" />
             )}
-            <span className="hidden sm:inline">Subscription</span>
+            <span className={showLabels ? "inline" : "hidden sm:inline"}>
+              Subscription
+            </span>
           </button>
         )}
-        <div className="flex items-center gap-2 text-sm text-gray-700">
-          <UserIcon className="w-4 h-4" />
-          <span className="hidden sm:inline max-w-[180px] truncate" title={user.email}>
+        <div className="flex items-center gap-2 min-w-0">
+          <UserIcon className="w-4 h-4 shrink-0 text-gray-700" />
+          <span
+            className={`${showLabels ? "inline min-w-0 flex-1" : "hidden sm:inline max-w-[180px]"} text-sm text-gray-700 truncate`}
+            title={user.email}
+          >
             {user.email}
           </span>
+          <button
+            onClick={handleSignOut}
+            type="button"
+            className="p-2 text-gray-400 hover:text-red-500 transition-colors relative z-50 shrink-0 ml-auto"
+            title="Sign Out"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
-        <button
-          onClick={handleSignOut}
-          type="button"
-          className="p-2 text-gray-400 hover:text-red-500 transition-colors relative z-50"
-          title="Sign Out"
-        >
-          <LogOut className="w-4 h-4" />
-        </button>
       </div>
     );
   }

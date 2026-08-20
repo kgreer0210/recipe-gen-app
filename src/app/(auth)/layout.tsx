@@ -41,17 +41,8 @@ export default function AuthLayout({
       <div className="flex-1 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-20 xl:px-24 bg-white lg:bg-gray-50">
         <div className="mx-auto w-full max-w-sm lg:w-96">
           <div className="lg:hidden mb-8 text-center">
-            <Link
-              href="/"
-              className="inline-flex items-center gap-2 text-blue-600"
-            >
-              <ChefHat className="w-8 h-8" />
-              <span className="text-2xl font-bold text-gray-900">
-                Mise <span className="text-blue-600">AI</span>
-              </span>
-            </Link>
-            <p className="mt-2 text-sm text-gray-600">
-              Cooking shouldn't feel like a chore.
+            <p className="text-sm text-gray-600">
+              Cooking shouldn&apos;t feel like a chore.
             </p>
           </div>
           {children}

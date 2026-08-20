@@ -139,9 +139,7 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50 min-h-screen flex flex-col`}
       >
         <AuthProvider initialUser={user} initialSubscription={subscription}>
-          <div className="hidden md:block">
-            <Navigation />
-          </div>
+          <Navigation />
           <main className="w-full max-w-7xl mx-auto py-0 md:py-8 px-0 md:px-4 sm:px-6 lg:px-8 flex-1 pb-16 md:pb-0">
             {children}
           </main>

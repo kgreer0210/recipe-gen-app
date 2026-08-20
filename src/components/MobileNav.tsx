@@ -2,12 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChefHat, Calendar, ShoppingBasket, BookHeart } from "lucide-react";
+import {
+  ChefHat,
+  Calendar,
+  ShoppingBasket,
+  Warehouse,
+  BookHeart,
+} from "lucide-react";
 
 const tabs = [
   { label: "Generator", icon: ChefHat, href: "/generator" },
   { label: "Weekly", icon: Calendar, href: "/weekly-plan" },
   { label: "Grocery", icon: ShoppingBasket, href: "/grocery-list" },
+  { label: "Pantry", icon: Warehouse, href: "/pantry" },
   { label: "Collection", icon: BookHeart, href: "/collection" },
 ];
 
@@ -15,7 +22,10 @@ export default function MobileNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 pb-safe md:hidden">
+    <nav
+      aria-label="Primary"
+      className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 pb-safe md:hidden"
+    >
       <div className="flex">
         {tabs.map(({ label, icon: Icon, href }) => {
           const active = pathname === href || pathname.startsWith(href + "/");
@@ -23,7 +33,8 @@ export default function MobileNav() {
             <Link
               key={href}
               href={href}
-              className={`flex-1 flex flex-col items-center justify-center py-3 min-h-[56px] transition-colors ${
+              aria-current={active ? "page" : undefined}
+              className={`flex-1 min-w-0 flex flex-col items-center justify-center py-2.5 min-h-[56px] px-0.5 transition-colors ${
                 active ? "text-blue-600" : "text-gray-400"
               }`}
             >
@@ -32,9 +43,11 @@ export default function MobileNav() {
                   active ? "bg-blue-50" : ""
                 }`}
               >
-                <Icon className="w-6 h-6" />
+                <Icon className="w-5 h-5" />
               </div>
-              <span className="text-xs font-medium mt-1">{label}</span>
+              <span className="text-[11px] font-medium mt-0.5 truncate w-full text-center">
+                {label}
+              </span>
             </Link>
           );
         })}

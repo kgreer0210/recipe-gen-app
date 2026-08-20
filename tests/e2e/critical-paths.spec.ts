@@ -132,4 +132,71 @@ test.describe("Mise AI's three critical user journeys", () => {
     await page.getByRole("button", { name: "Skip" }).click();
     await expect(page).toHaveURL(/\/weekly-plan/);
   });
+
+  test("a cook can open pantry from the phone bottom menu", async ({ page }) => {
+    await signIn(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/generator");
+
+    const menu = page.getByRole("navigation", { name: "Primary" });
+    await expect(menu.getByRole("link", { name: "Weekly" })).toBeVisible();
+    await expect(menu.getByRole("link", { name: "Pantry" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Open site menu" }).click();
+    await expect(
+      page.getByRole("navigation", { name: "Site" }).getByRole("link", { name: "About" })
+    ).toBeVisible();
+
+    await menu.getByRole("link", { name: "Pantry" }).click();
+    await expect(page).toHaveURL(/\/pantry/);
+    await expect(menu.getByRole("link", { name: "Pantry" })).toHaveAttribute(
+      "aria-current",
+      "page"
+    );
+    await expect(page.getByRole("heading", { name: "Pantry", exact: true })).toBeVisible();
+
+    await page.goBack();
+    await expect(page).toHaveURL(/\/generator/);
+    await expect(page.getByRole("button", { name: "Open site menu" })).toBeVisible();
+    await expect(
+      page.getByRole("navigation", { name: "Site" }).getByRole("link", { name: "About" })
+    ).toBeHidden();
+  });
+
+  test("a visitor can open site pages from the phone hamburger menu", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+
+    await page.getByRole("button", { name: "Open site menu" }).click();
+    const siteMenu = page.getByRole("navigation", { name: "Site" });
+    await expect(siteMenu.getByRole("link", { name: "About" })).toBeVisible();
+    await expect(siteMenu.getByRole("link", { name: "Pricing" })).toBeVisible();
+    await expect(siteMenu.getByRole("link", { name: "Contact" })).toBeVisible();
+    await expect(siteMenu.getByRole("link", { name: "Pantry" })).toHaveCount(0);
+    await expect(siteMenu.getByRole("link", { name: "Weekly Plan" })).toHaveCount(0);
+
+    await siteMenu.getByRole("link", { name: "About" }).click();
+    await expect(page).toHaveURL(/\/about/);
+    await expect(page.getByRole("heading", { name: /Cooking shouldn/i })).toBeVisible();
+
+    await page.goto("/login");
+    await expect(page.getByRole("navigation", { name: "Site" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Mise AI" })).toHaveCount(1);
+  });
+
+  test("a cook can open settings from the phone hamburger menu", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/generator");
+
+    await page.getByRole("button", { name: "Open site menu" }).click();
+    const siteMenu = page.getByRole("navigation", { name: "Site" });
+    await expect(siteMenu.getByRole("link", { name: "Settings" })).toBeVisible();
+    await siteMenu.getByRole("link", { name: "Settings" }).click();
+    await expect(page).toHaveURL(/\/settings/);
+  });
 });

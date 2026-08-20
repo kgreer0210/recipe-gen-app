@@ -693,9 +693,10 @@ export default function RecipeGenerator() {
   if (isBlocked) {
     return (
       <div className="w-full md:max-w-2xl mx-auto min-h-[100dvh] md:min-h-0 flex flex-col relative overflow-hidden bg-white/50 backdrop-blur-sm rounded-none md:rounded-3xl shadow-none md:shadow-xl border-0 md:border md:border-white/20">
-        <div className="flex items-center justify-center gap-2 py-6 bg-white/50 backdrop-blur-sm z-10 border-b border-white/20">
+        <h1 className="sr-only">Mise AI</h1>
+        <div className="hidden md:flex items-center justify-center gap-2 py-6 bg-white/50 backdrop-blur-sm z-10 border-b border-white/20" aria-hidden="true">
           <ChefHat className="w-8 h-8 text-blue-600" />
-          <h1 className="text-xl font-bold text-gray-800">Mise AI</h1>
+          <p className="text-xl font-bold text-gray-800">Mise AI</p>
         </div>
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
           <div className="w-24 h-24 bg-orange-100 rounded-full flex items-center justify-center mb-6">
@@ -737,10 +738,11 @@ export default function RecipeGenerator() {
         />
       </div>
 
-      <div className="flex flex-col sm:flex-row items-center justify-between px-4 md:px-6 py-4 md:py-6 bg-white/50 backdrop-blur-sm z-10 border-b border-white/20 gap-4">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col md:flex-row items-center justify-between px-4 md:px-6 py-4 md:py-6 bg-white/50 backdrop-blur-sm z-10 border-b border-white/20 gap-4">
+        <h1 className="sr-only">Mise AI</h1>
+        <div className="hidden md:flex items-center gap-2" aria-hidden="true">
           <ChefHat className="w-8 h-8 text-blue-600" />
-          <h1 className="text-xl font-bold text-gray-800">Mise AI</h1>
+          <p className="text-xl font-bold text-gray-800">Mise AI</p>
         </div>
 
         <div className="flex items-center gap-4">
