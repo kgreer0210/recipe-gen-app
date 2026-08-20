@@ -132,4 +132,18 @@ test.describe("Mise AI's three critical user journeys", () => {
     await page.getByRole("button", { name: "Skip" }).click();
     await expect(page).toHaveURL(/\/weekly-plan/);
   });
+
+  test("a cook can open pantry from the phone bottom menu", async ({ page }) => {
+    await signIn(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/generator");
+
+    const menu = page.getByRole("navigation", { name: "Primary" });
+    await expect(menu.getByRole("link", { name: "Weekly" })).toBeVisible();
+    await expect(menu.getByRole("link", { name: "Pantry" })).toBeVisible();
+
+    await menu.getByRole("link", { name: "Pantry" }).click();
+    await expect(page).toHaveURL(/\/pantry/);
+    await expect(page.getByRole("heading", { name: "Pantry" })).toBeVisible();
+  });
 });
