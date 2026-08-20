@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { X } from "lucide-react";
 import type { Recipe, Unit } from "@/types";
 import { formatRecipeAmount } from "@/lib/grocery/format";
+import ModalShell from "@/components/ModalShell";
 
 export type LeftoverDraft = {
   name: string;
@@ -77,11 +78,10 @@ export default function LeftoversModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+    <ModalShell labelledBy="leftovers-title" panelClassName="max-w-lg">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h3 className="text-lg font-bold text-gray-900">
+            <h3 id="leftovers-title" className="text-lg font-bold text-gray-900">
               Save leftovers to pantry?
             </h3>
             <p className="text-sm text-gray-500 mt-1">
@@ -171,7 +171,6 @@ export default function LeftoversModal({
             </button>
           )}
         </div>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

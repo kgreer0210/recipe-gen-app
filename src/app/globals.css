@@ -3,6 +3,8 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* Icon + label tab bar, plus iOS home-indicator inset */
+  --mobile-nav-clearance: calc(5.75rem + env(safe-area-inset-bottom, 0px));
 }
 
 @theme inline {
