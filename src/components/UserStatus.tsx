@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { LogOut, User as UserIcon, CreditCard, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -52,53 +52,55 @@ export default function UserStatus({ onAction }: { onAction?: () => void }) {
     subscription &&
     (subscription.status === "active" || subscription.status === "trialing");
 
+  if (user) {
+    return (
+      <div className="flex items-center gap-4">
+        {isSubscribed && (
+          <button
+            onClick={handleManageSubscription}
+            disabled={portalLoading}
+            className="flex items-center gap-2 text-sm text-gray-700 hover:text-blue-600 transition-colors"
+            title="Manage Subscription"
+          >
+            {portalLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <CreditCard className="w-4 h-4" />
+            )}
+            <span className="hidden sm:inline">Subscription</span>
+          </button>
+        )}
+        <div className="flex items-center gap-2 text-sm text-gray-700">
+          <UserIcon className="w-4 h-4" />
+          <span className="hidden sm:inline max-w-[180px] truncate" title={user.email}>
+            {user.email}
+          </span>
+        </div>
+        <button
+          onClick={handleSignOut}
+          type="button"
+          className="p-2 text-gray-400 hover:text-red-500 transition-colors relative z-50"
+          title="Sign Out"
+        >
+          <LogOut className="w-4 h-4" />
+        </button>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="h-8 w-20 bg-gray-100 animate-pulse rounded-md"></div>
     );
   }
 
-  if (!user) {
-    return (
-      <Link
-        href="/login"
-        onClick={() => onAction?.()}
-        className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-      >
-        Sign In
-      </Link>
-    );
-  }
-
   return (
-    <div className="flex items-center gap-4">
-      {isSubscribed && (
-        <button
-          onClick={handleManageSubscription}
-          disabled={portalLoading}
-          className="flex items-center gap-2 text-sm text-gray-700 hover:text-blue-600 transition-colors"
-          title="Manage Subscription"
-        >
-          {portalLoading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <CreditCard className="w-4 h-4" />
-          )}
-          <span className="hidden sm:inline">Subscription</span>
-        </button>
-      )}
-      <div className="flex items-center gap-2 text-sm text-gray-700">
-        <UserIcon className="w-4 h-4" />
-        <span className="hidden sm:inline">{user.email}</span>
-      </div>
-      <button
-        onClick={handleSignOut}
-        type="button"
-        className="p-2 text-gray-400 hover:text-red-500 transition-colors relative z-50"
-        title="Sign Out"
-      >
-        <LogOut className="w-4 h-4" />
-      </button>
-    </div>
+    <Link
+      href="/login"
+      onClick={() => onAction?.()}
+      className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+    >
+      Sign In
+    </Link>
   );
 }

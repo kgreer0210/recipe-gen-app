@@ -1,30 +1,46 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { Trash2, Clock, Calendar, Check, Share2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useRecipesRealtime } from "@/hooks/useRecipesRealtime";
 import { useRemoveRecipe } from "@/hooks/useRecipesMutations";
 import { useWeeklyPlanRealtime } from "@/hooks/useWeeklyPlanRealtime";
-import { useAddToWeeklyPlan, useRemoveFromWeeklyPlan } from "@/hooks/useWeeklyPlanMutations";
-import { useWeeklyPlanStore } from "@/lib/stores/weeklyPlanStore";
-import { Trash2, Clock, Calendar, Check, ArrowRight, Share2 } from "lucide-react";
+import {
+  useAddToWeeklyPlanSlot,
+  useRemoveFromWeeklyPlan,
+} from "@/hooks/useWeeklyPlanMutations";
 import { buildRecipeShareText, shareRecipe } from "@/lib/share/recipeShareText";
-import type { Recipe } from "@/types";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { toast } from "sonner";
+import { fetchUserTimezone } from "@/lib/timezone";
+import { getWeekStart, getZonedYmd, mealSlotLabel, nextEmptyDinner } from "@/lib/week";
+import { DAY_LABELS, type Recipe } from "@/types";
+import AddToWeekModal from "@/components/AddToWeekModal";
 
 export default function SavedRecipes() {
   const router = useRouter();
   const { user } = useAuth();
   const { recipes: savedRecipes = [] } = useRecipesRealtime();
   const { mutate: removeRecipe } = useRemoveRecipe();
-  const { weeklyPlan = [] } = useWeeklyPlanRealtime();
-  const { mutate: addToWeeklyPlan } = useAddToWeeklyPlan();
-  const { mutateAsync: removeFromWeeklyPlan } = useRemoveFromWeeklyPlan();
+  const { slots } = useWeeklyPlanRealtime();
+  const { mutateAsync: addToSlot } = useAddToWeeklyPlanSlot();
+  const { mutateAsync: removeFromWeek } = useRemoveFromWeeklyPlan();
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [timezone, setTimezone] = useState("UTC");
+  const [weekStart, setWeekStart] = useState(() =>
+    getWeekStart(new Date(), "UTC")
+  );
+  const [addingRecipe, setAddingRecipe] = useState<Recipe | null>(null);
 
-  // Auth check helper
+  useEffect(() => {
+    void fetchUserTimezone().then((tz) => {
+      setTimezone(tz);
+      setWeekStart(getWeekStart(new Date(), tz));
+    });
+  }, []);
+
   const requireAuth = (action: () => void) => {
     if (!user) {
       router.push("/login");
@@ -33,51 +49,38 @@ export default function SavedRecipes() {
     action();
   };
 
-  const handleToggleWeeklyPlan = async (recipeId: string) => {
-    const recipe = savedRecipes.find((r) => r.id === recipeId);
-    if (!recipe) return;
+  const slotsThisWeek = useMemo(
+    () => slots.filter((slot) => slot.weekStart === weekStart),
+    [slots, weekStart]
+  );
 
-    const isInPlan = weeklyPlan.some((r) => r.id === recipeId);
-    const { addRecipeId, removeRecipeId } = useWeeklyPlanStore.getState();
-
-    if (isInPlan) {
-      // Remove from weekly plan - optimistically update UI
-      removeRecipeId(recipeId);
-      try {
-        await removeFromWeeklyPlan(recipeId);
-        toast.success('Removed from weekly plan');
-      } catch {
-        // Revert optimistic update on failure
-        addRecipeId(recipeId);
-        toast.error('Failed to remove from weekly plan');
-      }
-    } else {
-      // Add to weekly plan - optimistically update UI
-      addRecipeId(recipeId);
-      try {
-        addToWeeklyPlan(recipe);
-        toast.success(
-          <div className="flex items-center justify-between gap-4 w-full">
-            <span>Added recipe to your weekly plan</span>
-            <Link
-              href="/weekly-plan"
-              className="inline-flex items-center gap-1 px-3 py-1 rounded bg-green-100 hover:bg-green-200 transition-colors font-medium text-green-700 whitespace-nowrap"
-            >
-              View Weekly Meals
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-        );
-      } catch {
-        // Revert optimistic update on failure
-        removeRecipeId(recipeId);
-        toast.error('Failed to add to weekly plan');
+  const occupiedKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const slot of slotsThisWeek) {
+      if (slot.dayOfWeek !== null && slot.mealSlot) {
+        keys.add(`${slot.dayOfWeek}:${slot.mealSlot}`);
       }
     }
-  };
+    return keys;
+  }, [slotsThisWeek]);
 
-  const handleDeleteRecipe = (recipeId: string) => {
-    setDeleteConfirmId(recipeId);
+  const suggestion = nextEmptyDinner(
+    weekStart,
+    occupiedKeys,
+    getZonedYmd(new Date(), timezone)
+  );
+
+  const scheduleLabel = (recipeId: string) => {
+    const matches = slotsThisWeek.filter((slot) => slot.recipeId === recipeId);
+    if (matches.length === 0) return null;
+    const first = matches[0];
+    if (first.dayOfWeek === null || !first.mealSlot) {
+      return matches.length > 1
+        ? `In this week · ${matches.length}`
+        : "In this week";
+    }
+    const day = DAY_LABELS[first.dayOfWeek] ?? "Day";
+    return `Scheduled · ${day.slice(0, 3)} ${mealSlotLabel(first.mealSlot)}`;
   };
 
   const handleShareRecipe = (recipe: Recipe) => {
@@ -85,11 +88,6 @@ export default function SavedRecipes() {
       recipe.title,
       buildRecipeShareText(recipe, { includeInstructions: false })
     );
-  };
-
-  const confirmDelete = (recipeId: string) => {
-    removeRecipe(recipeId);
-    setDeleteConfirmId(null);
   };
 
   if (savedRecipes.length === 0) {
@@ -105,6 +103,7 @@ export default function SavedRecipes() {
       <h2 className="text-2xl font-bold text-gray-800 mb-4">Your Collection</h2>
       <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
         {savedRecipes.map((recipe) => {
+          const scheduled = Boolean(scheduleLabel(recipe.id));
           return (
             <div
               key={recipe.id}
@@ -125,19 +124,16 @@ export default function SavedRecipes() {
                 </button>
                 <button
                   onClick={() =>
-                    requireAuth(() => handleToggleWeeklyPlan(recipe.id))
+                    requireAuth(() => setAddingRecipe(recipe))
                   }
-                  className={`p-2 rounded-full transition-all ${weeklyPlan.some((r) => r.id === recipe.id)
-                    ? "bg-green-100 text-green-600"
-                    : "bg-gray-100 text-gray-400 hover:text-blue-600 hover:bg-blue-50"
-                    }`}
-                  title={
-                    weeklyPlan.some((r) => r.id === recipe.id)
-                      ? "Remove from Weekly Plan"
-                      : "Add to Weekly Plan"
-                  }
+                  className={`p-2 rounded-full transition-all ${
+                    scheduled
+                      ? "bg-green-100 text-green-600"
+                      : "bg-gray-100 text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                  }`}
+                  title={scheduled ? "Add another slot this week" : "Add to this week"}
                 >
-                  {weeklyPlan.some((r) => r.id === recipe.id) ? (
+                  {scheduled ? (
                     <Check className="w-4 h-4" />
                   ) : (
                     <Calendar className="w-4 h-4" />
@@ -145,7 +141,7 @@ export default function SavedRecipes() {
                 </button>
                 <button
                   onClick={() =>
-                    requireAuth(() => handleDeleteRecipe(recipe.id))
+                    requireAuth(() => setDeleteConfirmId(recipe.id))
                   }
                   className="p-2 rounded-full bg-gray-100 text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all"
                   title="Remove recipe"
@@ -168,6 +164,27 @@ export default function SavedRecipes() {
                   {recipe.tags.meal}
                 </span>
               </div>
+              {scheduled && (
+                <div className="flex items-center justify-between gap-2 mb-2 relative z-10">
+                  <p className="text-xs text-green-700">
+                    {scheduleLabel(recipe.id)}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      requireAuth(() => {
+                        void removeFromWeek(recipe.id, weekStart).then(
+                          () => toast.success("Removed from this week"),
+                          () => toast.error("Could not remove from this week")
+                        );
+                      })
+                    }
+                    className="text-xs font-medium text-red-600 hover:underline"
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
 
               <div className="flex items-center gap-4 text-sm text-gray-500 mb-3">
                 <div className="flex items-center gap-1">
@@ -181,7 +198,7 @@ export default function SavedRecipes() {
                 <p className="line-clamp-1">
                   {recipe.ingredients
                     .slice(0, 3)
-                    .map((i: any) => i.name)
+                    .map((ingredient) => ingredient.name)
                     .join(", ")}
                   {recipe.ingredients.length > 3 && "..."}
                 </p>
@@ -191,7 +208,6 @@ export default function SavedRecipes() {
         })}
       </div>
 
-      {/* Delete Confirmation Dialog */}
       {deleteConfirmId && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 relative">
@@ -199,18 +215,22 @@ export default function SavedRecipes() {
               Delete Recipe?
             </h3>
             <p className="text-gray-600 mb-6">
-              Are you sure you want to delete this recipe? This action cannot be undone.
+              This cannot be undone. The recipe will also leave your weekly
+              plan.
             </p>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setDeleteConfirmId(null)}
-                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors font-medium"
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
               >
                 Cancel
               </button>
               <button
-                onClick={() => confirmDelete(deleteConfirmId)}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                onClick={() => {
+                  removeRecipe(deleteConfirmId);
+                  setDeleteConfirmId(null);
+                }}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg"
               >
                 Delete
               </button>
@@ -218,7 +238,27 @@ export default function SavedRecipes() {
           </div>
         </div>
       )}
+
+      {addingRecipe && (
+        <AddToWeekModal
+          weekStart={weekStart}
+          recipes={[addingRecipe]}
+          initialRecipeId={addingRecipe.id}
+          initialDayOfWeek={suggestion.dayOfWeek}
+          initialMealSlot={suggestion.mealSlot}
+          occupiedKeys={occupiedKeys}
+          onClose={() => setAddingRecipe(null)}
+          onConfirm={async ({ dayOfWeek, mealSlot }) => {
+            await addToSlot(addingRecipe, {
+              weekStart,
+              dayOfWeek,
+              mealSlot,
+              servingsOverride: addingRecipe.servings,
+            });
+            toast.success("Added to your weekly plan");
+          }}
+        />
+      )}
     </div>
   );
 }
-

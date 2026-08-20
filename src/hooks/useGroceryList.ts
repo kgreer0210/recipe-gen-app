@@ -8,4 +8,5 @@ export {
   useSelectAllGroceryItems,
   useClearGathered,
   useRemoveIngredientsForRecipe,
+  useBuildGroceryFromWeek,
 } from "./useGroceryListMutations";

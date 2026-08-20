@@ -8,6 +8,8 @@ import {
 } from "@/lib/usage";
 import { chatJson } from "@/lib/openrouter/chatJson";
 import { getModelForTier, isValidAdminModelOverride } from "@/lib/openrouter/models";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { uniqueStrings } from "@/lib/kitchenProfile";
 
 // Handle CORS preflight requests
 export async function OPTIONS() {
@@ -95,6 +97,43 @@ export async function POST(request: Request) {
         ? Math.min(12, Math.max(1, Math.round(servings)))
         : 2;
 
+    const admin = createAdminClient();
+    const { data: settings } = await admin
+      .from("user_settings")
+      .select("dietary_preferences, disliked_ingredients, default_servings")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const mergedDietary = uniqueStrings([
+      ...(Array.isArray(settings?.dietary_preferences)
+        ? settings.dietary_preferences
+        : []),
+      ...(dietaryPreferences ?? []),
+    ]).slice(0, 10);
+    const dislikedIngredients = uniqueStrings(
+      Array.isArray(settings?.disliked_ingredients)
+        ? settings.disliked_ingredients
+        : []
+    ).slice(0, 40);
+    const servingsFromProfile =
+      typeof settings?.default_servings === "number" &&
+      Number.isFinite(settings.default_servings)
+        ? Math.min(12, Math.max(1, Math.round(settings.default_servings)))
+        : 2;
+    const finalServings =
+      typeof servings === "number" && Number.isFinite(servings)
+        ? normalizedServings
+        : servingsFromProfile;
+
+    const dietaryBlock =
+      mergedDietary.length > 0
+        ? `Dietary Preferences/Allergies: ${mergedDietary.join(", ")}`
+        : "";
+    const avoidBlock =
+      dislikedIngredients.length > 0
+        ? `STRICTLY AVOID these ingredients: ${dislikedIngredients.join(", ")}.`
+        : "";
+
     let prompt = "";
     let systemPrompt = `You are Mise AI, an expert culinary assistant created to help home cooks discover delicious, approachable recipes. You embody the expertise of a classically trained chef combined with the warmth of a home cooking enthusiast.
 
@@ -128,13 +167,10 @@ Output Guidelines:
       const ingredientsList = ingredients.join(", ");
 
       prompt = `
-      Generate a unique, high-quality recipe that serves exactly ${normalizedServings} people based on the following available ingredients:
+      Generate a unique, high-quality recipe that serves exactly ${finalServings} people based on the following available ingredients:
       Ingredients: ${ingredientsList}
-      ${
-        dietaryPreferences && dietaryPreferences.length > 0
-          ? `Dietary Preferences/Allergies: ${dietaryPreferences.join(", ")}`
-          : ""
-      }
+      ${dietaryBlock}
+      ${avoidBlock}
 
       IMPORTANT: When creating this recipe, consider multiple possible approaches and cooking techniques that work with these ingredients. Choose an interesting, creative preparation rather than defaulting to the most obvious combination. Explore different flavor profiles, cooking methods, and cuisines if the ingredients allow for it.
 
@@ -160,14 +196,15 @@ Output Guidelines:
       - VALIDATION STEP: You must first validate the input ingredients. If the input contains non-food items, gibberish, or dangerous items, you MUST return a JSON object with a single "error" field explaining why the input is invalid. Example: { "error": "I can only cook with edible ingredients. Please remove 'rocks' from your list." }
       - Title format: Use English translations or descriptive English names for dishes. Keep titles clear and concise for English-speaking users.
       - The recipe should primarily use the provided ingredients, but you may assume basic pantry staples (oil, salt, pepper, water, basic spices).
-      - The recipe must serve exactly ${normalizedServings} people.
+      - The recipe must serve exactly ${finalServings} people.
       ${
-        dietaryPreferences && dietaryPreferences.length > 0
-          ? `- STRICTLY ADHERE to these dietary preferences: ${dietaryPreferences.join(
+        mergedDietary.length > 0
+          ? `- STRICTLY ADHERE to these dietary preferences: ${mergedDietary.join(
               ", "
             )}.`
           : ""
       }
+      ${avoidBlock ? `- ${avoidBlock}` : ""}
       - All ingredient amounts must be numeric and use one of the following units: "lb", "oz", "cup", "tbsp", "tsp", "g", "kg", "ml", "l", "count", "clove", "slice", "pinch".
       - For Meat-category ingredients: avoid fractional pounds. If the amount is under 1 lb, prefer ounces (e.g., 4 oz, 6 oz, 8 oz, 12 oz) instead of values like 0.25 lb.
       - Categorize ingredients accurately.
@@ -190,16 +227,13 @@ Output Guidelines:
         proteinCut && proteinCut.trim().length > 0 ? proteinCut.trim() : "Any";
 
       prompt = `
-      Generate a unique, high-quality recipe that serves exactly ${normalizedServings} people based on the following selections:
+      Generate a unique, high-quality recipe that serves exactly ${finalServings} people based on the following selections:
       Cuisine: ${cuisine}
       Meal: ${meal}
       Protein (base): ${protein}
       Protein cut preference: ${cutPreference}
-      ${
-        dietaryPreferences && dietaryPreferences.length > 0
-          ? `Dietary Preferences/Allergies: ${dietaryPreferences.join(", ")}`
-          : ""
-      }
+      ${dietaryBlock}
+      ${avoidBlock}
 
       IMPORTANT: Explore the full spectrum of ${cuisine} cuisine for ${protein} dishes. Consider:
       - Different cooking techniques: braising, grilling, pan-searing, stir-frying, steaming, roasting, deep-frying, smoking
@@ -228,14 +262,15 @@ Output Guidelines:
       - The recipe must clearly reflect the selected cuisine, meal type, and protein.
       - Title format: Use English translations or descriptive English names for the dish (e.g., "Roasted Red Pepper and Nduja Chicken" instead of the native language name). Keep titles clear and concise.
       - Use the protein cut preference when naming/selecting the ingredient (e.g., "chicken thighs"), but tags.protein must remain the base protein.
-      - The recipe must serve exactly ${normalizedServings} people.
+      - The recipe must serve exactly ${finalServings} people.
       ${
-        dietaryPreferences && dietaryPreferences.length > 0
-          ? `- STRICTLY ADHERE to these dietary preferences: ${dietaryPreferences.join(
+        mergedDietary.length > 0
+          ? `- STRICTLY ADHERE to these dietary preferences: ${mergedDietary.join(
               ", "
             )}.`
           : ""
       }
+      ${avoidBlock ? `- ${avoidBlock}` : ""}
       - All ingredient amounts must be numeric and use one of the following units: "lb", "oz", "cup", "tbsp", "tsp", "g", "kg", "ml", "l", "count", "clove", "slice", "pinch".
       - For Meat-category ingredients: avoid fractional pounds. If the amount is under 1 lb, prefer ounces (e.g., 4 oz, 6 oz, 8 oz, 12 oz) instead of values like 0.25 lb.
       - Categorize ingredients accurately.
@@ -291,7 +326,7 @@ Output Guidelines:
     const recipe: Recipe = {
       ...(recipeData as Omit<Recipe, "id" | "servings">),
       id: Math.random().toString(36).substr(2, 9),
-      servings: normalizedServings,
+      servings: finalServings,
       // For pantry mode, tags are inferred by AI, so we use what's returned.
       // For classic mode, we could enforce them, but trusting the AI's return (which we instructed to match) is fine.
     };

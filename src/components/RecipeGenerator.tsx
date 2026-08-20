@@ -1,21 +1,24 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { generateRecipe, refineRecipe } from "@/lib/generator";
 import { useAuth } from "@/hooks/useAuth";
 import { useSaveRecipe } from "@/hooks/useRecipesMutations";
 import { useRecipesRealtime } from "@/hooks/useRecipesRealtime";
 import { useAddToGroceryList } from "@/hooks/useGroceryListMutations";
+import { usePantryRealtime } from "@/hooks/usePantryRealtime";
 import { formatRecipeAmount } from "@/lib/grocery/format";
 import {
   CuisineType,
+  DIETARY_PREFERENCES_LIST,
   MealType,
   ProteinType,
   Recipe,
   proteinCuts,
 } from "@/types";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { fetchKitchenProfile, uniqueStrings } from "@/lib/kitchenProfile";
 import {
   Loader2,
   ChefHat,
@@ -60,19 +63,6 @@ const proteins: ProteinType[] = [
   "Beans",
   "Eggs",
   "None",
-];
-
-const dietaryPreferencesList = [
-  "Vegetarian",
-  "Vegan",
-  "Gluten-Free",
-  "Dairy-Free",
-  "Nut-Free",
-  "Low-Carb",
-  "Keto",
-  "Paleo",
-  "Bariatric",
-  "Heart Healthy",
 ];
 
 export default function RecipeGenerator() {
@@ -131,7 +121,11 @@ export default function RecipeGenerator() {
   const resultStepIndex = mode === "classic" ? (hasCuts ? 6 : 5) : 3;
 
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, subscription } = useAuth();
+  const { pantryItems } = usePantryRealtime();
+  const profileDietaryRef = useRef<string[]>([]);
+  const appliedQueryRef = useRef(false);
   const { mutateAsync: saveRecipe } = useSaveRecipe();
   const { recipes: savedRecipes = [] } = useRecipesRealtime();
   const { mutateAsync: addToGroceryList } = useAddToGroceryList();
@@ -155,6 +149,37 @@ export default function RecipeGenerator() {
     };
     checkLimit();
   }, []);
+
+  useEffect(() => {
+    void fetchKitchenProfile().then((profile) => {
+      profileDietaryRef.current = profile.dietaryPreferences;
+      setDietaryPreferences(profile.dietaryPreferences);
+      setServingsInput(String(profile.defaultServings));
+    });
+  }, []);
+
+  useEffect(() => {
+    if (appliedQueryRef.current) return;
+    const modeParam = searchParams.get("mode");
+    const ingredientsParam = searchParams.get("ingredients");
+    const mealParam = searchParams.get("meal");
+    if (!modeParam && !ingredientsParam && !mealParam) return;
+    appliedQueryRef.current = true;
+    if (modeParam === "pantry" || ingredientsParam) {
+      setMode("pantry");
+    }
+    if (ingredientsParam) {
+      setIngredientsInput(ingredientsParam);
+    }
+    if (
+      mealParam === "Breakfast" ||
+      mealParam === "Lunch" ||
+      mealParam === "Dinner" ||
+      mealParam === "Snack"
+    ) {
+      setMeal(mealParam);
+    }
+  }, [searchParams]);
 
   const refreshRateLimit = async () => {
     try {
@@ -216,7 +241,10 @@ export default function RecipeGenerator() {
           meal,
           protein,
           proteinCut: cutToSend,
-          dietaryPreferences,
+          dietaryPreferences: uniqueStrings([
+            ...profileDietaryRef.current,
+            ...dietaryPreferences,
+          ]),
           servings,
           adminModelOverride: selectedModel || undefined,
         });
@@ -232,7 +260,10 @@ export default function RecipeGenerator() {
         const recipe = await generateRecipe({
           mode: "pantry",
           ingredients: ingredientsList,
-          dietaryPreferences,
+          dietaryPreferences: uniqueStrings([
+            ...profileDietaryRef.current,
+            ...dietaryPreferences,
+          ]),
           servings,
           adminModelOverride: selectedModel || undefined,
         });
@@ -344,7 +375,7 @@ export default function RecipeGenerator() {
     setGeneratedServings(2);
     setProteinCut("Any cut"); // Reset protein cut
     setIngredientsInput(""); // Reset ingredients
-    setDietaryPreferences([]); // Reset preferences
+    setDietaryPreferences(profileDietaryRef.current);
   };
 
   const handleRegenerate = async () => {
@@ -372,7 +403,10 @@ export default function RecipeGenerator() {
           meal,
           protein,
           proteinCut: cutToSend,
-          dietaryPreferences,
+          dietaryPreferences: uniqueStrings([
+            ...profileDietaryRef.current,
+            ...dietaryPreferences,
+          ]),
           servings,
           adminModelOverride: currentRecipeModel || undefined,
         });
@@ -387,7 +421,10 @@ export default function RecipeGenerator() {
         const recipe = await generateRecipe({
           mode: "pantry",
           ingredients: ingredientsList,
-          dietaryPreferences,
+          dietaryPreferences: uniqueStrings([
+            ...profileDietaryRef.current,
+            ...dietaryPreferences,
+          ]),
           servings,
           adminModelOverride: currentRecipeModel || undefined,
         });
@@ -608,7 +645,7 @@ export default function RecipeGenerator() {
         Any dietary preferences?
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-8">
-        {dietaryPreferencesList.map((pref) => (
+        {DIETARY_PREFERENCES_LIST.map((pref) => (
           <button
             key={pref}
             onClick={() => togglePreference(pref)}
@@ -791,6 +828,20 @@ export default function RecipeGenerator() {
                 <p className="text-gray-500 text-center mb-6">
                   Enter ingredients you have on hand, separated by commas.
                 </p>
+
+                {pantryItems.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setIngredientsInput(
+                        pantryItems.map((item) => item.name).join(", ")
+                      )
+                    }
+                    className="mb-4 text-sm font-medium text-blue-600 hover:underline"
+                  >
+                    Use my pantry
+                  </button>
+                )}
 
                 <textarea
                   value={ingredientsInput}
@@ -1406,7 +1457,7 @@ export default function RecipeGenerator() {
                     setShowLimitPopup(false);
                     setProteinCut("Any cut");
                     setIngredientsInput("");
-                    setDietaryPreferences([]);
+                    setDietaryPreferences(profileDietaryRef.current);
                     setServingsInput("2");
                     setGeneratedServings(2);
                     setSelectedModel(null);

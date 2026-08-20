@@ -2,34 +2,57 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { fetchUserTimezone, saveUserTimezone, COMMON_TIMEZONES } from "@/lib/timezone";
-import { Loader2, Check } from "lucide-react";
+import { COMMON_TIMEZONES } from "@/lib/timezone";
+import {
+  fetchKitchenProfile,
+  saveKitchenProfile,
+} from "@/lib/kitchenProfile";
+import { DIETARY_PREFERENCES_LIST } from "@/types";
+import { Check, Loader2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { toast } from "sonner";
 
 export default function UserSettings() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [timezone, setTimezone] = useState<string>("UTC");
+  const [timezone, setTimezone] = useState("UTC");
+  const [defaultServings, setDefaultServings] = useState(4);
+  const [dietaryPreferences, setDietaryPreferences] = useState<string[]>([]);
+  const [dislikedIngredients, setDislikedIngredients] = useState<string[]>([]);
+  const [dislikeInput, setDislikeInput] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // Load current timezone on mount
   useEffect(() => {
     if (!user || loading) return;
-
-    const loadTimezone = async () => {
-      const tz = await fetchUserTimezone();
-      setTimezone(tz);
+    const load = async () => {
+      const profile = await fetchKitchenProfile();
+      setTimezone(profile.timezone);
+      setDefaultServings(profile.defaultServings);
+      setDietaryPreferences(profile.dietaryPreferences);
+      setDislikedIngredients(profile.dislikedIngredients);
       setIsLoading(false);
     };
-
-    loadTimezone();
+    void load();
   }, [user, loading]);
 
-  const handleTimezoneChange = async (newTimezone: string) => {
-    setTimezone(newTimezone);
+  const togglePreference = (pref: string) => {
+    setDietaryPreferences((current) =>
+      current.includes(pref)
+        ? current.filter((item) => item !== pref)
+        : [...current, pref]
+    );
+  };
+
+  const addDislike = () => {
+    const value = dislikeInput.trim();
+    if (!value) return;
+    setDislikedIngredients((current) =>
+      current.includes(value) ? current : [...current, value]
+    );
+    setDislikeInput("");
   };
 
   const handleSave = async () => {
@@ -37,20 +60,20 @@ export default function UserSettings() {
       router.push("/login");
       return;
     }
-
     setIsSaving(true);
     setSaveSuccess(false);
-
     try {
-      await saveUserTimezone(timezone);
+      await saveKitchenProfile({
+        timezone,
+        defaultServings,
+        dietaryPreferences,
+        dislikedIngredients,
+      });
       setSaveSuccess(true);
-      toast.success("Timezone updated successfully");
-
-      // Reset success indicator after 3 seconds
+      toast.success("Kitchen profile saved");
       setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (error) {
-      console.error("Failed to save timezone:", error);
-      toast.error("Failed to save timezone");
+    } catch {
+      toast.error("Failed to save settings");
     } finally {
       setIsSaving(false);
     }
@@ -75,44 +98,122 @@ export default function UserSettings() {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">User Settings</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">Kitchen profile</h2>
 
-        {/* Timezone Setting */}
         <div className="mb-6">
           <label htmlFor="timezone" className="block text-sm font-medium text-gray-700 mb-2">
             Timezone
           </label>
           <p className="text-sm text-gray-500 mb-3">
-            Your timezone is used to calculate weekly recipe generation limits. They reset every Monday at 00:00 in your timezone.
+            Used for weekly recipe limits and the meal calendar. Limits reset
+            every Monday at 00:00 in this timezone.
           </p>
+          <select
+            id="timezone"
+            value={timezone}
+            onChange={(event) => setTimezone(event.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full"
+          >
+            {COMMON_TIMEZONES.map((tz) => (
+              <option key={tz} value={tz}>
+                {tz}
+              </option>
+            ))}
+          </select>
+        </div>
 
-          <div className="grid grid-cols-1 gap-3">
-            <select
-              id="timezone"
-              value={timezone}
-              onChange={(e) => handleTimezoneChange(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              {COMMON_TIMEZONES.map((tz) => (
-                <option key={tz} value={tz}>
-                  {tz}
-                </option>
-              ))}
-            </select>
+        <div className="mb-6">
+          <label htmlFor="servings" className="block text-sm font-medium text-gray-700 mb-2">
+            Default servings
+          </label>
+          <input
+            id="servings"
+            type="number"
+            min={1}
+            max={12}
+            value={defaultServings}
+            onChange={(event) =>
+              setDefaultServings(
+                Math.min(12, Math.max(1, Number(event.target.value) || 1))
+              )
+            }
+            className="w-24 px-3 py-2 border border-gray-300 rounded-lg"
+          />
+        </div>
 
-            {/* Current timezone display */}
-            <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
-              <p>
-                <strong>Current timezone:</strong> {timezone}
-              </p>
-            </div>
+        <div className="mb-6">
+          <p className="text-sm font-medium text-gray-700 mb-2">
+            Dietary preferences
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {DIETARY_PREFERENCES_LIST.map((pref) => (
+              <button
+                key={pref}
+                type="button"
+                onClick={() => togglePreference(pref)}
+                className={`px-3 py-1.5 rounded-full text-sm border ${
+                  dietaryPreferences.includes(pref)
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-gray-700 border-gray-200"
+                }`}
+              >
+                {pref}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Save Button */}
+        <div className="mb-6">
+          <p className="text-sm font-medium text-gray-700 mb-2">
+            Ingredients to avoid
+          </p>
+          <div className="flex gap-2 mb-2">
+            <input
+              value={dislikeInput}
+              onChange={(event) => setDislikeInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  addDislike();
+                }
+              }}
+              placeholder="e.g. cilantro, mushrooms"
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
+            />
+            <button
+              type="button"
+              onClick={addDislike}
+              className="px-3 py-2 bg-gray-100 rounded-lg text-sm font-medium"
+            >
+              Add
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {dislikedIngredients.map((item) => (
+              <span
+                key={item}
+                className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded-full text-sm"
+              >
+                {item}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDislikedIngredients((current) =>
+                      current.filter((value) => value !== item)
+                    )
+                  }
+                  aria-label={`Remove ${item}`}
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
+
         <div className="flex items-center gap-3">
           <button
-            onClick={handleSave}
+            onClick={() => void handleSave()}
             disabled={isSaving}
             className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
@@ -125,7 +226,6 @@ export default function UserSettings() {
               "Save Changes"
             )}
           </button>
-
           {saveSuccess && (
             <div className="flex items-center gap-2 text-green-600">
               <Check className="w-5 h-5" />
@@ -135,7 +235,20 @@ export default function UserSettings() {
         </div>
       </div>
 
-      {/* Additional Settings */}
+      <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-bold text-gray-900 mb-2">Pantry</h3>
+        <p className="text-sm text-gray-600 mb-4">
+          Track what you already have so grocery lists skip it and pantry-mode
+          generation can start from your kitchen.
+        </p>
+        <Link
+          href="/pantry"
+          className="inline-flex px-4 py-2 bg-blue-50 text-blue-700 rounded-lg font-medium hover:bg-blue-100"
+        >
+          Open pantry
+        </Link>
+      </div>
+
       <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-bold text-gray-900 mb-4">Account Information</h3>
         <div className="space-y-3 text-sm">

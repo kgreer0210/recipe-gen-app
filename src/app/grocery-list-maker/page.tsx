@@ -10,7 +10,7 @@ const faqs: FaqItem[] = [
   {
     question: "Does the grocery list update when my plan changes?",
     answer:
-      "Yes—your grocery list is designed to reflect your current weekly plan so it stays accurate as you adjust meals.",
+      "When your plan changes, rebuild the grocery list from the weekly planner. Manual items you added yourself stay on the list.",
   },
   {
     question: "Can I use it without generating recipes?",
@@ -109,9 +109,9 @@ export default function GroceryListMakerLandingPage() {
           From weekly plan to grocery list
         </h2>
         <p className="text-gray-700 mb-4">
-          Mise AI links your weekly plan with your grocery list so shopping is a
-          natural next step. Generate recipes, plan them across the week, then
-          open your grocery list to start purchasing.
+          Mise AI links your weekly plan with your grocery list. After you place
+          meals on the calendar, build a shopping list from that week in one
+          tap. Pantry stock is subtracted so you only buy what you still need.
         </p>
         <div className="flex flex-col sm:flex-row gap-3">
           <Link
@@ -137,8 +137,8 @@ export default function GroceryListMakerLandingPage() {
               Does the grocery list update when my plan changes?
             </h3>
             <p className="text-gray-700">
-              Yes—your grocery list is designed to reflect your current weekly
-              plan so it stays accurate as you adjust meals.
+              When your plan changes, rebuild the grocery list from the weekly
+              planner. Manual items you added yourself stay on the list.
             </p>
           </div>
           <div className="bg-white rounded-2xl border border-gray-100 p-6">

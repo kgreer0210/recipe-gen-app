@@ -26,7 +26,7 @@ const faqs: FaqItem[] = [
 export const metadata: Metadata = {
   title: "Weekly Meal Planner",
   description:
-    "Plan your week in minutes. Save recipes, drag them into a weekly plan, and stay organized with Mise AI's meal planner.",
+    "Plan your week in minutes. Save recipes, place them on specific days, and stay organized with Mise AI's meal planner.",
   alternates: {
     canonical: "/meal-planner",
   },
@@ -59,8 +59,8 @@ export default function MealPlannerLandingPage() {
           Weekly Meal Planner
         </h1>
         <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-          Build a weekly plan around the recipes you actually want to cook, then
-          reuse it to make weeknights simple.
+          Build a weekly plan around the recipes you actually want to cook, drop
+          them onto days and meals, then turn the week into a grocery list.
         </p>
         <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
           <Link
