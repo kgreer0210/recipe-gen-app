@@ -168,6 +168,10 @@ test.describe("Mise AI's three critical user journeys", () => {
     await siteMenu.getByRole("link", { name: "About" }).click();
     await expect(page).toHaveURL(/\/about/);
     await expect(page.getByRole("heading", { name: /Cooking shouldn/i })).toBeVisible();
+
+    await page.goto("/login");
+    await expect(page.getByRole("navigation", { name: "Site" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Mise AI" })).toHaveCount(1);
   });
 
   test("a cook can open settings from the phone hamburger menu", async ({

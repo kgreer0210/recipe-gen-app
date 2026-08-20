@@ -257,9 +257,7 @@ export default function Navigation() {
             )}
           </div>
           <div className="pt-4 pb-4 border-t border-gray-200 px-4">
-            <div className="flex items-center">
-              <UserStatus onAction={closeMobileMenu} showLabels />
-            </div>
+            <UserStatus onAction={closeMobileMenu} showLabels />
           </div>
           </>
         )}

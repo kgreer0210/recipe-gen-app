@@ -60,7 +60,13 @@ export default function UserStatus({
 
   if (user) {
     return (
-      <div className="flex items-center gap-4">
+      <div
+        className={
+          showLabels
+            ? "flex flex-col items-stretch gap-3 w-full min-w-0"
+            : "flex items-center gap-4"
+        }
+      >
         {isSubscribed && (
           <button
             onClick={handleManageSubscription}
@@ -71,30 +77,30 @@ export default function UserStatus({
             {portalLoading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              <CreditCard className="w-4 h-4" />
+              <CreditCard className="w-4 h-4 shrink-0" />
             )}
             <span className={showLabels ? "inline" : "hidden sm:inline"}>
               Subscription
             </span>
           </button>
         )}
-        <div className="flex items-center gap-2 text-sm text-gray-700">
-          <UserIcon className="w-4 h-4" />
+        <div className="flex items-center gap-2 min-w-0">
+          <UserIcon className="w-4 h-4 shrink-0 text-gray-700" />
           <span
-            className={`${showLabels ? "inline" : "hidden sm:inline"} max-w-[180px] truncate`}
+            className={`${showLabels ? "inline min-w-0 flex-1" : "hidden sm:inline max-w-[180px]"} text-sm text-gray-700 truncate`}
             title={user.email}
           >
             {user.email}
           </span>
+          <button
+            onClick={handleSignOut}
+            type="button"
+            className="p-2 text-gray-400 hover:text-red-500 transition-colors relative z-50 shrink-0 ml-auto"
+            title="Sign Out"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
-        <button
-          onClick={handleSignOut}
-          type="button"
-          className="p-2 text-gray-400 hover:text-red-500 transition-colors relative z-50"
-          title="Sign Out"
-        >
-          <LogOut className="w-4 h-4" />
-        </button>
       </div>
     );
   }
