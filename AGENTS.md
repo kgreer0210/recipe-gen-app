@@ -55,3 +55,15 @@ This repo is a single Next.js 16 web app (Mise AI). There is no Docker Compose s
 
 Do not point Cloud Agent testing at production (`https://www.mise-ai.app`). Use `.env.local` against a non-production Supabase project.
 
+`npm run dev` appends the `nextjs-agent-rules` block at the bottom of this file. That is expected Next.js 16 behavior; leave the block in place so the working tree stays clean.
+
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
