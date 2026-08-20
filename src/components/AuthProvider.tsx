@@ -44,7 +44,6 @@ export function AuthProvider({
   const [supabase] = useState(() => createClient());
 
   const userRef = useRef<User | null>(initialUser);
-  const effectInitializedRef = useRef(false);
 
   const fetchSubscription = async (userId: string) => {
     try {
@@ -85,12 +84,6 @@ export function AuthProvider({
   };
 
   useEffect(() => {
-    // Avoid double-invocation in React Strict Mode dev render
-    if (effectInitializedRef.current) {
-      return;
-    }
-    effectInitializedRef.current = true;
-
     let isMounted = true;
 
     const bootstrap = async () => {
@@ -116,8 +109,8 @@ export function AuthProvider({
           if (isMounted) {
             setSubscription(sub);
           }
-          // Ensure user has timezone set (will auto-detect and save if missing)
-          await ensureUserTimezone(sessionUser.id);
+          // Timezone save is non-blocking so the chrome can render the signed-in user.
+          void ensureUserTimezone(sessionUser.id);
         } else {
           setSubscription(null);
         }
@@ -148,8 +141,7 @@ export function AuthProvider({
           if (isMounted) {
             setSubscription(sub);
           }
-          // Ensure user has timezone set (will auto-detect and save if missing)
-          await ensureUserTimezone(nextUser.id);
+          void ensureUserTimezone(nextUser.id);
         } else {
           setSubscription(null);
           // If the user becomes unauthenticated (e.g., explicit sign-out), send them to sign-in.
@@ -203,8 +195,7 @@ export function AuthProvider({
           const sub = await fetchSubscription(sessionUser.id);
           if (!isMounted) return;
           setSubscription(sub);
-          // Ensure user has timezone set
-          await ensureUserTimezone(sessionUser.id);
+          void ensureUserTimezone(sessionUser.id);
         } else {
           setSubscription(null);
         }

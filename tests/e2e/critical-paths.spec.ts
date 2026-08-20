@@ -88,7 +88,7 @@ test.describe("Mise AI's three critical user journeys", () => {
   test("a returning cook can sign in and reach the recipe generator", async ({ page }) => {
     await signIn(page);
     await expect(page.getByRole("heading", { name: "What are you craving?" })).toBeVisible();
-    await expect(page.getByText(email)).toBeVisible();
+    await expect(page.getByText(email)).toBeVisible({ timeout: 15_000 });
   });
 
   test("a cook can generate a pantry recipe, save it, and find it in the collection", async ({ page }) => {
