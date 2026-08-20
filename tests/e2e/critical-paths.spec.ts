@@ -144,6 +144,6 @@ test.describe("Mise AI's three critical user journeys", () => {
 
     await menu.getByRole("link", { name: "Pantry" }).click();
     await expect(page).toHaveURL(/\/pantry/);
-    await expect(page.getByRole("heading", { name: "Pantry" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Pantry", exact: true })).toBeVisible();
   });
 });
