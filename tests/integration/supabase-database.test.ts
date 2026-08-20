@@ -77,6 +77,8 @@ describe("Supabase recipe storage", () => {
 
   afterEach(async () => {
     await admin.from("weekly_plan").delete().in("user_id", [userAId, userBId]);
+    await admin.from("pantry_items").delete().in("user_id", [userAId, userBId]);
+    await admin.from("grocery_list").delete().in("user_id", [userAId, userBId]);
     await admin.from("recipes").delete().in("user_id", [userAId, userBId]);
   });
 
@@ -129,6 +131,7 @@ describe("Supabase recipe storage", () => {
     const planned = await userA.from("weekly_plan").insert({
       user_id: userAId,
       recipe_id: recipe.data!.id,
+      week_start: "2026-08-17",
     });
     expect(planned.error).toBeNull();
 
@@ -136,5 +139,102 @@ describe("Supabase recipe storage", () => {
     expect(removed.error).toBeNull();
     const orphan = await admin.from("weekly_plan").select("id").eq("recipe_id", recipe.data!.id);
     expect(orphan.data).toEqual([]);
+  });
+
+  it("stores one recipe per filled day and meal slot", async () => {
+    const dinner = await userA
+      .from("recipes")
+      .insert(recipeRow(userAId, "slot-a"))
+      .select("id")
+      .single();
+    const lunch = await userA
+      .from("recipes")
+      .insert(recipeRow(userAId, "slot-b"))
+      .select("id")
+      .single();
+    expect(dinner.error).toBeNull();
+    expect(lunch.error).toBeNull();
+
+    const first = await userA.from("weekly_plan").insert({
+      user_id: userAId,
+      recipe_id: dinner.data!.id,
+      week_start: "2026-08-17",
+      day_of_week: 0,
+      meal_slot: "dinner",
+    });
+    expect(first.error).toBeNull();
+
+    const duplicate = await userA.from("weekly_plan").insert({
+      user_id: userAId,
+      recipe_id: lunch.data!.id,
+      week_start: "2026-08-17",
+      day_of_week: 0,
+      meal_slot: "dinner",
+    });
+    expect(duplicate.error).not.toBeNull();
+
+    const moved = await userA.from("weekly_plan").insert({
+      user_id: userAId,
+      recipe_id: lunch.data!.id,
+      week_start: "2026-08-17",
+      day_of_week: 1,
+      meal_slot: "dinner",
+    });
+    expect(moved.error).toBeNull();
+
+    const cooked = await userA
+      .from("weekly_plan")
+      .update({ cooked_at: new Date().toISOString() })
+      .eq("recipe_id", dinner.data!.id)
+      .select("cooked_at")
+      .single();
+    expect(cooked.error).toBeNull();
+    expect(cooked.data?.cooked_at).toBeTruthy();
+  });
+
+  it("keeps pantry items private and merges leftover amounts", async () => {
+    const inserted = await userA
+      .from("pantry_items")
+      .insert({
+        user_id: userAId,
+        name: "Carrot",
+        name_normalized: "carrot",
+        amount: 1,
+        unit: "count",
+        category: "Produce",
+        source: "manual",
+      })
+      .select("id")
+      .single();
+    expect(inserted.error).toBeNull();
+
+    const other = await admin.from("pantry_items").insert({
+      user_id: userBId,
+      name: "Secret spice",
+      name_normalized: "secret spice",
+      amount: 1,
+      unit: "tsp",
+      source: "manual",
+    });
+    expect(other.error).toBeNull();
+
+    const visible = await userA.from("pantry_items").select("name");
+    expect(visible.error).toBeNull();
+    expect(visible.data?.map((row) => row.name)).toEqual(["Carrot"]);
+
+    const settings = await userA
+      .from("user_settings")
+      .upsert({
+        user_id: userAId,
+        timezone: "America/New_York",
+        default_servings: 3,
+        dietary_preferences: ["Vegetarian"],
+        disliked_ingredients: ["cilantro"],
+      })
+      .select("default_servings, dietary_preferences")
+      .single();
+    expect(settings.error).toBeNull();
+    expect(settings.data?.default_servings).toBe(3);
+    expect(settings.data?.dietary_preferences).toEqual(["Vegetarian"]);
   });
 });

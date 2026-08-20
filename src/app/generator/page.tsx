@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import RecipeGenerator from "@/components/RecipeGenerator";
 
 export const metadata: Metadata = {
@@ -21,7 +22,15 @@ export default function GeneratorPage() {
           Generate delicious recipes with the power of AI.
         </p>
       </div>
-      <RecipeGenerator />
+      <Suspense
+        fallback={
+          <div className="flex items-center justify-center py-16">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+          </div>
+        }
+      >
+        <RecipeGenerator />
+      </Suspense>
     </div>
   );
 }

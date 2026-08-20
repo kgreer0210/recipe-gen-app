@@ -1,35 +1,54 @@
 import { create } from "zustand";
-import { Recipe } from "@/types";
+import type { WeeklyPlanSlot } from "@/types";
 
 interface WeeklyPlanState {
-  recipeIds: Set<string>;
+  slots: WeeklyPlanSlot[];
   loading: boolean;
   error: Error | null;
-  setRecipeIds: (ids: string[]) => void;
-  addRecipeId: (recipeId: string) => void;
-  removeRecipeId: (recipeId: string) => void;
+  setSlots: (slots: WeeklyPlanSlot[]) => void;
+  upsertSlot: (slot: WeeklyPlanSlot) => void;
+  removeSlot: (slotId: string) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: Error | null) => void;
 }
 
 export const useWeeklyPlanStore = create<WeeklyPlanState>((set) => ({
-  recipeIds: new Set<string>(),
+  slots: [],
   loading: false,
   error: null,
-  setRecipeIds: (ids) => set({ recipeIds: new Set(ids) }),
-  addRecipeId: (recipeId) =>
+  setSlots: (slots) => set({ slots }),
+  upsertSlot: (slot) =>
     set((state) => {
-      const newIds = new Set(state.recipeIds);
-      newIds.add(recipeId);
-      return { recipeIds: newIds };
+      const index = state.slots.findIndex((item) => item.id === slot.id);
+      if (index === -1) {
+        return { slots: [slot, ...state.slots] };
+      }
+      const next = [...state.slots];
+      next[index] = slot;
+      return { slots: next };
     }),
-  removeRecipeId: (recipeId) =>
-    set((state) => {
-      const newIds = new Set(state.recipeIds);
-      newIds.delete(recipeId);
-      return { recipeIds: newIds };
-    }),
+  removeSlot: (slotId) =>
+    set((state) => ({
+      slots: state.slots.filter((slot) => slot.id !== slotId),
+    })),
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error }),
 }));
 
+export function weeklyPlanGrocerySignature(slots: WeeklyPlanSlot[]): string {
+  return slots
+    .filter((slot) => !slot.cookedAt)
+    .map(
+      (slot) =>
+        `${slot.id}:${slot.recipeId}:${slot.servingsOverride ?? ""}:${slot.dayOfWeek ?? ""}:${slot.mealSlot ?? ""}`
+    )
+    .sort()
+    .join("|");
+}
+
+export function planGrocerySignatureKey(
+  userId: string,
+  weekStart: string
+): string {
+  return `mise-plan-grocery-sig:${userId}:${weekStart}`;
+}

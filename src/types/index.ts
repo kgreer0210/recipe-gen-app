@@ -29,6 +29,40 @@ export interface Subscription {
   plan_key?: "free" | "plus" | "pro";
 }
 
+export type MealSlot = "breakfast" | "lunch" | "dinner" | "snack";
+export type GrocerySource = "manual" | "plan";
+export type PantrySource = "manual" | "leftover";
+
+export const MEAL_SLOTS: MealSlot[] = [
+  "breakfast",
+  "lunch",
+  "dinner",
+  "snack",
+];
+
+export const DAY_LABELS = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+] as const;
+
+export const DIETARY_PREFERENCES_LIST = [
+  "Vegetarian",
+  "Vegan",
+  "Gluten-Free",
+  "Dairy-Free",
+  "Nut-Free",
+  "Low-Carb",
+  "Keto",
+  "Paleo",
+  "Bariatric",
+  "Heart Healthy",
+] as const;
+
 export interface Ingredient {
   id?: string;
   name: string;
@@ -37,6 +71,36 @@ export interface Ingredient {
   unit: Unit;
   category?: string;
   isChecked?: boolean;
+  source?: GrocerySource;
+  planWeekStart?: string | null;
+}
+
+export interface WeeklyPlanSlot {
+  id: string;
+  recipeId: string;
+  weekStart: string;
+  dayOfWeek: number | null;
+  mealSlot: MealSlot | null;
+  servingsOverride: number | null;
+  cookedAt: string | null;
+  createdAt: string;
+}
+
+export interface PantryItem {
+  id: string;
+  name: string;
+  nameNormalized: string;
+  amount: number;
+  unit: Unit;
+  category?: string;
+  source: PantrySource;
+}
+
+export interface UserKitchenProfile {
+  timezone: string;
+  defaultServings: number;
+  dietaryPreferences: string[];
+  dislikedIngredients: string[];
 }
 
 export interface Recipe {

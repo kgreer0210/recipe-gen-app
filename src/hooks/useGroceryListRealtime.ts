@@ -4,7 +4,17 @@ import { useGroceryListStore } from "@/lib/stores/groceryListStore";
 import { Ingredient } from "@/types";
 import { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
-function transformGroceryRow(row: any): Ingredient {
+function transformGroceryRow(row: {
+  id: string;
+  name: string;
+  name_normalized?: string;
+  amount: number;
+  unit: Ingredient["unit"];
+  category?: string;
+  is_checked?: boolean;
+  source?: Ingredient["source"];
+  plan_week_start?: string | null;
+}): Ingredient {
   return {
     id: row.id,
     name: row.name,
@@ -13,6 +23,8 @@ function transformGroceryRow(row: any): Ingredient {
     unit: row.unit,
     category: row.category,
     isChecked: row.is_checked,
+    source: row.source ?? "manual",
+    planWeekStart: row.plan_week_start ?? null,
   };
 }
 

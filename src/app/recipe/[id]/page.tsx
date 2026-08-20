@@ -1,16 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { toast } from "sonner";
 import { useRecipesRealtime } from "@/hooks/useRecipesRealtime";
 import { useAddToGroceryList } from "@/hooks/useGroceryListMutations";
-import {
-  useAddToWeeklyPlan,
-  useRemoveFromWeeklyPlan,
-} from "@/hooks/useWeeklyPlanMutations";
+import { useAddToWeeklyPlanSlot } from "@/hooks/useWeeklyPlanMutations";
 import { useWeeklyPlanRealtime } from "@/hooks/useWeeklyPlanRealtime";
-import { useWeeklyPlanStore } from "@/lib/stores/weeklyPlanStore";
 import {
   ArrowLeft,
   Clock,
@@ -25,22 +21,35 @@ import Link from "next/link";
 import { Recipe } from "@/types";
 import { formatRecipeAmount } from "@/lib/grocery/format";
 import { buildRecipeShareText, shareRecipe } from "@/lib/share/recipeShareText";
+import AddToWeekModal from "@/components/AddToWeekModal";
+import { fetchUserTimezone } from "@/lib/timezone";
+import { getWeekStart, getZonedYmd, mealSlotLabel, nextEmptyDinner } from "@/lib/week";
+import { DAY_LABELS } from "@/types";
 
 export default function RecipeDetailsPage() {
   const params = useParams();
-  const router = useRouter();
   const { recipes: savedRecipes = [], loading: isLoading } =
     useRecipesRealtime();
   const { mutateAsync: addToGroceryList } = useAddToGroceryList();
-  const { mutate: addToWeeklyPlan } = useAddToWeeklyPlan();
-  const { mutateAsync: removeFromWeeklyPlan } = useRemoveFromWeeklyPlan();
-  const { weeklyPlan } = useWeeklyPlanRealtime();
-  const [isTogglingPlan, setIsTogglingPlan] = useState(false);
-  const [recipe, setRecipe] = useState<Recipe | null>(null);
+  const { mutateAsync: addToSlot } = useAddToWeeklyPlanSlot();
+  const { slots } = useWeeklyPlanRealtime();
   const [isAdding, setIsAdding] = useState(false);
   const [servings, setServings] = useState(1);
+  const [timezone, setTimezone] = useState("UTC");
+  const [weekStart, setWeekStart] = useState(() =>
+    getWeekStart(new Date(), "UTC")
+  );
+  const [showAddToWeek, setShowAddToWeek] = useState(false);
+  const [recipe, setRecipe] = useState<Recipe | null>(null);
 
   const id = params.id as string;
+
+  useEffect(() => {
+    void fetchUserTimezone().then((tz) => {
+      setTimezone(tz);
+      setWeekStart(getWeekStart(new Date(), tz));
+    });
+  }, []);
 
   useEffect(() => {
     if (savedRecipes.length > 0) {
@@ -83,49 +92,38 @@ export default function RecipeDetailsPage() {
     }
   };
 
-  const handleToggleWeeklyPlan = async () => {
-    if (!recipe) return;
-
-    setIsTogglingPlan(true);
-    const isInPlan = weeklyPlan.some((r) => r.id === recipe.id);
-    const { addRecipeId, removeRecipeId } = useWeeklyPlanStore.getState();
-
-    if (isInPlan) {
-      // Remove from weekly plan - optimistically update UI
-      removeRecipeId(recipe.id);
-      try {
-        await removeFromWeeklyPlan(recipe.id);
-        toast.success("Removed from weekly plan");
-      } catch {
-        // Revert optimistic update on failure
-        addRecipeId(recipe.id);
-        toast.error("Failed to remove recipe from weekly plan");
-      }
-    } else {
-      // Add to weekly plan - optimistically update UI
-      addRecipeId(recipe.id);
-      try {
-        addToWeeklyPlan(recipe);
-        toast.success(
-          <div className="flex items-center justify-between gap-4 w-full">
-            <span>Added recipe to your weekly plan</span>
-            <Link
-              href="/weekly-plan"
-              className="inline-flex items-center gap-1 px-3 py-1 rounded bg-green-100 hover:bg-green-200 transition-colors font-medium text-green-700 whitespace-nowrap"
-            >
-              View Weekly Meals
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-        );
-      } catch {
-        // Revert optimistic update on failure
-        removeRecipeId(recipe.id);
-        toast.error("Failed to add recipe to weekly plan");
-      }
-    }
-    setIsTogglingPlan(false);
-  };
+  const scheduledSlots = slots.filter(
+    (slot) => slot.recipeId === recipe?.id && slot.weekStart === weekStart
+  );
+  const occupiedKeys = new Set(
+    slots
+      .filter(
+        (slot) =>
+          slot.weekStart === weekStart &&
+          slot.dayOfWeek !== null &&
+          slot.mealSlot
+      )
+      .map((slot) => `${slot.dayOfWeek}:${slot.mealSlot}`)
+  );
+  const suggestion = nextEmptyDinner(
+    weekStart,
+    occupiedKeys,
+    getZonedYmd(new Date(), timezone)
+  );
+  const firstScheduled = scheduledSlots[0];
+  const scheduledDay =
+    firstScheduled && firstScheduled.dayOfWeek !== null
+      ? DAY_LABELS[firstScheduled.dayOfWeek]
+      : undefined;
+  const scheduleSummary =
+    scheduledSlots.length === 0
+      ? null
+      : firstScheduled &&
+          firstScheduled.dayOfWeek !== null &&
+          firstScheduled.mealSlot &&
+          scheduledDay
+        ? `Scheduled · ${scheduledDay.slice(0, 3)} ${mealSlotLabel(firstScheduled.mealSlot)}`
+        : "In this week's plan";
 
   const handleShare = () => {
     if (!recipe) return;
@@ -185,23 +183,23 @@ export default function RecipeDetailsPage() {
                 {recipe.title}
               </h1>
               <div className="flex flex-wrap gap-2">
+                <Link
+                  href={`/recipe/${recipe.id}/cook`}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all bg-orange-500 text-white hover:bg-orange-600 shadow-sm hover:shadow"
+                >
+                  <ChefHat className="w-4 h-4" />
+                  Cook this
+                </Link>
                 <button
-                  onClick={handleToggleWeeklyPlan}
-                  disabled={isTogglingPlan}
+                  onClick={() => setShowAddToWeek(true)}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
-                    isTogglingPlan
-                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                      : weeklyPlan.some((r) => r.id === recipe?.id)
-                      ? "bg-red-600 text-white hover:bg-red-700 shadow-sm hover:shadow"
+                    scheduleSummary
+                      ? "bg-green-600 text-white hover:bg-green-700 shadow-sm hover:shadow"
                       : "bg-green-600 text-white hover:bg-green-700 shadow-sm hover:shadow"
                   }`}
                 >
                   <CalendarPlus className="w-4 h-4" />
-                  {isTogglingPlan
-                    ? "Updating..."
-                    : weeklyPlan.some((r) => r.id === recipe?.id)
-                    ? "Remove from Weekly Plan"
-                    : "Add to Weekly Plan"}
+                  {scheduleSummary ?? "Add to this week"}
                 </button>
                 <button
                   onClick={handleAddToGrocery}
@@ -337,6 +335,37 @@ export default function RecipeDetailsPage() {
           </div>
         </div>
       </div>
+      {showAddToWeek && recipe && (
+        <AddToWeekModal
+          weekStart={weekStart}
+          recipes={[recipe]}
+          initialRecipeId={recipe.id}
+          initialDayOfWeek={suggestion.dayOfWeek}
+          initialMealSlot={suggestion.mealSlot}
+          occupiedKeys={occupiedKeys}
+          onClose={() => setShowAddToWeek(false)}
+          onConfirm={async ({ dayOfWeek, mealSlot }) => {
+            await addToSlot(recipe, {
+              weekStart,
+              dayOfWeek,
+              mealSlot,
+              servingsOverride: servings,
+            });
+            toast.success(
+              <div className="flex items-center justify-between gap-4 w-full">
+                <span>Added recipe to your weekly plan</span>
+                <Link
+                  href="/weekly-plan"
+                  className="inline-flex items-center gap-1 px-3 py-1 rounded bg-green-100 hover:bg-green-200 font-medium text-green-700"
+                >
+                  View Weekly Meals
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+            );
+          }}
+        />
+      )}
     </div>
   );
 }

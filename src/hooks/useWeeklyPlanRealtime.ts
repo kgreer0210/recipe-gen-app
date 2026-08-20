@@ -1,26 +1,50 @@
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useWeeklyPlanStore } from "@/lib/stores/weeklyPlanStore";
 import { useRecipesStore } from "@/lib/stores/recipesStore";
-import { Recipe } from "@/types";
-import { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
+import type { MealSlot, Recipe, WeeklyPlanSlot } from "@/types";
+import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
+
+type WeeklyPlanRow = {
+  id: string;
+  recipe_id: string;
+  week_start: string;
+  day_of_week: number | null;
+  meal_slot: MealSlot | null;
+  servings_override: number | null;
+  cooked_at: string | null;
+  created_at: string;
+};
+
+export function transformWeeklyPlanRow(row: WeeklyPlanRow): WeeklyPlanSlot {
+  return {
+    id: row.id,
+    recipeId: row.recipe_id,
+    weekStart: row.week_start,
+    dayOfWeek: row.day_of_week,
+    mealSlot: row.meal_slot,
+    servingsOverride: row.servings_override,
+    cookedAt: row.cooked_at,
+    createdAt: row.created_at,
+  };
+}
 
 export function useWeeklyPlanRealtime() {
   const { supabase, user, loading: authLoading } = useAuth();
   const {
-    recipeIds,
+    slots,
     loading,
     error,
-    setRecipeIds,
-    addRecipeId,
-    removeRecipeId,
+    setSlots,
+    upsertSlot,
+    removeSlot,
     setLoading,
     setError,
   } = useWeeklyPlanStore();
   const { recipes } = useRecipesStore();
-  const subscriptionRef = useRef<ReturnType<
-    typeof supabase.channel
-  > | null>(null);
+  const subscriptionRef = useRef<ReturnType<typeof supabase.channel> | null>(
+    null
+  );
 
   useEffect(() => {
     if (authLoading) {
@@ -29,7 +53,7 @@ export function useWeeklyPlanRealtime() {
 
     if (!user) {
       setLoading(false);
-      setRecipeIds([]);
+      setSlots([]);
       setError(null);
       if (subscriptionRef.current) {
         supabase.removeChannel(subscriptionRef.current);
@@ -47,7 +71,9 @@ export function useWeeklyPlanRealtime() {
 
         const { data, error: fetchError } = await supabase
           .from("weekly_plan")
-          .select("recipe_id")
+          .select(
+            "id, recipe_id, week_start, day_of_week, meal_slot, servings_override, cooked_at, created_at"
+          )
           .order("created_at", { ascending: false });
 
         if (fetchError) {
@@ -56,13 +82,16 @@ export function useWeeklyPlanRealtime() {
         }
 
         if (isMounted) {
-          const ids = (data || []).map((wp: any) => wp.recipe_id);
-          setRecipeIds(ids);
+          setSlots((data || []).map(transformWeeklyPlanRow));
           setLoading(false);
         }
       } catch (err) {
         if (isMounted) {
-          setError(err instanceof Error ? err : new Error("Failed to fetch weekly plan"));
+          setError(
+            err instanceof Error
+              ? err
+              : new Error("Failed to fetch weekly plan")
+          );
           setLoading(false);
         }
       }
@@ -80,23 +109,21 @@ export function useWeeklyPlanRealtime() {
           table: "weekly_plan",
           filter: `user_id=eq.${user.id}`,
         },
-        (payload: RealtimePostgresChangesPayload<any>) => {
+        (payload: RealtimePostgresChangesPayload<WeeklyPlanRow>) => {
           if (!isMounted) return;
 
           switch (payload.eventType) {
             case "INSERT":
-              if (payload.new?.recipe_id) {
-                addRecipeId(payload.new.recipe_id);
+            case "UPDATE":
+              if (payload.new?.id && payload.new.recipe_id) {
+                upsertSlot(transformWeeklyPlanRow(payload.new as WeeklyPlanRow));
               }
               break;
             case "DELETE":
-              // Supabase DELETE events may not include the old record data by default
-              // If available, remove the recipe ID; otherwise re-fetch the entire plan
-              if (payload.old?.recipe_id) {
-                removeRecipeId(payload.old.recipe_id);
+              if (payload.old?.id) {
+                removeSlot(payload.old.id);
               } else {
-                // Re-fetch to ensure consistency if old data is not available
-                fetchInitialWeeklyPlan();
+                void fetchInitialWeeklyPlan();
               }
               break;
           }
@@ -113,12 +140,38 @@ export function useWeeklyPlanRealtime() {
         subscriptionRef.current = null;
       }
     };
-  }, [supabase, user, authLoading, setRecipeIds, addRecipeId, removeRecipeId, setLoading, setError]);
+  }, [
+    supabase,
+    user,
+    authLoading,
+    setSlots,
+    upsertSlot,
+    removeSlot,
+    setLoading,
+    setError,
+  ]);
+
+  const recipesById = useMemo(() => {
+    const map = new Map<string, Recipe>();
+    for (const recipe of recipes) {
+      map.set(recipe.id, recipe);
+    }
+    return map;
+  }, [recipes]);
 
   const weeklyPlan = useMemo(() => {
-    return recipes.filter((r: Recipe) => recipeIds.has(r.id));
-  }, [recipes, recipeIds]);
+    const seen = new Set<string>();
+    const result: Recipe[] = [];
+    for (const slot of slots) {
+      if (seen.has(slot.recipeId)) continue;
+      const recipe = recipesById.get(slot.recipeId);
+      if (recipe) {
+        seen.add(slot.recipeId);
+        result.push(recipe);
+      }
+    }
+    return result;
+  }, [slots, recipesById]);
 
-  return { weeklyPlan, loading, error };
+  return { slots, recipesById, weeklyPlan, loading, error };
 }
-

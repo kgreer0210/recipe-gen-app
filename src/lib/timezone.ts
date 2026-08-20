@@ -16,7 +16,7 @@ export function detectUserTimezone(): string {
  */
 export async function saveUserTimezone(timezone: string): Promise<void> {
   try {
-    const response = await fetch("/api/user/settings/timezone", {
+    const response = await fetch("/api/user/settings", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -38,7 +38,7 @@ export async function saveUserTimezone(timezone: string): Promise<void> {
  */
 export async function fetchUserTimezone(): Promise<string> {
   try {
-    const response = await fetch("/api/user/settings/timezone", {
+    const response = await fetch("/api/user/settings", {
       method: "GET",
       headers: {
         "Content-Type": "application/json",

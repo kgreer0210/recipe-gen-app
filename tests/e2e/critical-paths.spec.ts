@@ -72,6 +72,8 @@ test.describe("Mise AI's three critical user journeys", () => {
   test.afterAll(async () => {
     if (!userId) return;
     await admin.from("weekly_plan").delete().eq("user_id", userId);
+    await admin.from("pantry_items").delete().eq("user_id", userId);
+    await admin.from("grocery_list").delete().eq("user_id", userId);
     await admin.from("recipes").delete().eq("user_id", userId);
     await admin.auth.admin.deleteUser(userId);
   });
@@ -103,5 +105,31 @@ test.describe("Mise AI's three critical user journeys", () => {
     await page.getByRole("button", { name: "No, Thanks" }).click();
     await page.goto("/collection");
     await expect(page.getByRole("heading", { name: recipeTitle })).toBeVisible();
+  });
+
+  test("a cook can schedule a meal, build a grocery list, and open cook mode", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await page.goto("/collection");
+    await expect(page.getByRole("heading", { name: recipeTitle })).toBeVisible();
+    await page.getByTitle("Add to this week").click();
+    await page.getByRole("button", { name: "Add to plan" }).click();
+    await expect(page.getByText("Added to your weekly plan")).toBeVisible();
+
+    await page.goto("/weekly-plan");
+    await expect(page.getByText(recipeTitle)).toBeVisible();
+    await page.getByRole("button", { name: /Build grocery list from this week/i }).click();
+    await expect(page.getByText(/grocery item/i)).toBeVisible();
+
+    await page.goto("/grocery-list");
+    await expect(page.getByText("Tomato")).toBeVisible();
+
+    await page.goto("/weekly-plan");
+    await page.getByRole("link", { name: "Cook" }).first().click();
+    await expect(page.getByRole("heading", { name: recipeTitle })).toBeVisible();
+    await page.getByRole("button", { name: "I'm done cooking" }).click();
+    await page.getByRole("button", { name: "Skip" }).click();
+    await expect(page).toHaveURL(/\/weekly-plan/);
   });
 });

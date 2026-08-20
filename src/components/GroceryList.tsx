@@ -7,6 +7,7 @@ import {
   useClearGathered,
   useSelectAllGroceryItems,
   useAddCustomGroceryItem,
+  useBuildGroceryFromWeek,
 } from "@/hooks/useGroceryListMutations";
 import { useAuth } from "@/hooks/useAuth";
 import { Unit } from "@/types";
@@ -20,9 +21,19 @@ import {
   Trash2,
   Plus,
   X,
+  Calendar,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { useWeeklyPlanRealtime } from "@/hooks/useWeeklyPlanRealtime";
+import { usePantryRealtime } from "@/hooks/usePantryRealtime";
+import { fetchUserTimezone } from "@/lib/timezone";
+import { getWeekStart } from "@/lib/week";
+import {
+  planGrocerySignatureKey,
+  weeklyPlanGrocerySignature,
+} from "@/lib/stores/weeklyPlanStore";
 
 const UNITS: Unit[] = [
   "count",
@@ -59,7 +70,14 @@ export default function GroceryList() {
   const { mutate: clearGathered } = useClearGathered();
   const { mutate: selectAllGroceryItems } = useSelectAllGroceryItems();
   const { mutateAsync: addCustomGroceryItem } = useAddCustomGroceryItem();
+  const { mutateAsync: buildFromWeek, isLoading: isBuilding } =
+    useBuildGroceryFromWeek();
+  usePantryRealtime();
+  const { slots } = useWeeklyPlanRealtime();
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
+  const [weekStart, setWeekStart] = useState(() =>
+    getWeekStart(new Date(), "UTC")
+  );
   const [unitProfilesByName, setUnitProfilesByName] = useState<
     Map<string, IngredientUnitProfile>
   >(new Map());
@@ -78,6 +96,38 @@ export default function GroceryList() {
   const [newItemAmount, setNewItemAmount] = useState("1");
   const [newItemUnit, setNewItemUnit] = useState<Unit>("count");
   const [newItemCategory, setNewItemCategory] = useState("Other");
+
+  useEffect(() => {
+    void fetchUserTimezone().then((tz) =>
+      setWeekStart(getWeekStart(new Date(), tz))
+    );
+  }, []);
+
+  const handleFillFromPlan = async () => {
+    requireAuth(() => {
+      void (async () => {
+        try {
+          const count = await buildFromWeek(weekStart);
+          if (user) {
+            const weekSlots = slots.filter((slot) => slot.weekStart === weekStart);
+            window.localStorage.setItem(
+              planGrocerySignatureKey(user.id, weekStart),
+              weeklyPlanGrocerySignature(weekSlots)
+            );
+          }
+          toast.success(
+            `Added ${count} item${count === 1 ? "" : "s"} from this week's plan`
+          );
+        } catch (err) {
+          toast.error(
+            err instanceof Error
+              ? err.message
+              : "Could not fill the list from this week's plan"
+          );
+        }
+      })();
+    });
+  };
 
   // Best-effort fetch of unit profiles so we can show package-friendly “Buy” amounts
   // and keep Need/Buy consistent with canonicalized grocery units.
@@ -281,13 +331,23 @@ export default function GroceryList() {
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 h-full flex flex-col items-center justify-center text-center min-h-[200px]">
           <ShoppingBasket className="w-12 h-12 text-gray-300 mb-3" />
           <p className="text-gray-500 mb-4">Your grocery list is empty.</p>
-          <button
-            onClick={() => setIsAddItemOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-          >
-            <Plus className="w-4 h-4" />
-            Add Item
-          </button>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <button
+              onClick={() => setIsAddItemOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            >
+              <Plus className="w-4 h-4" />
+              Add Item
+            </button>
+            <button
+              onClick={() => void handleFillFromPlan()}
+              disabled={isBuilding}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-800 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+            >
+              <Calendar className="w-4 h-4" />
+              {isBuilding ? "Filling..." : "Fill from this week's plan"}
+            </button>
+          </div>
         </div>
         {isAddItemOpen && renderAddItemModal()}
       </>
@@ -322,13 +382,23 @@ export default function GroceryList() {
         </div>
 
         {/* Add Item button */}
-        <button
-          onClick={() => setIsAddItemOpen(true)}
-          className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add Item</span>
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => void handleFillFromPlan()}
+            disabled={isBuilding}
+            className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 text-gray-800 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+          >
+            <Calendar className="w-4 h-4" />
+            <span>{isBuilding ? "Filling..." : "Fill from this week's plan"}</span>
+          </button>
+          <button
+            onClick={() => setIsAddItemOpen(true)}
+            className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Item</span>
+          </button>
+        </div>
       </div>
 
       {/* Add Item Modal */}
