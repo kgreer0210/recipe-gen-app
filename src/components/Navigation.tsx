@@ -19,18 +19,16 @@ import { useAuth } from "@/hooks/useAuth";
 
 export default function Navigation() {
   const pathname = usePathname();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [mobileMenuPath, setMobileMenuPath] = useState<string | null>(null);
   const [isToolsOpen, setIsToolsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
 
   const isActive = (path: string) => pathname === path;
-
-  const closeMobileMenu = () => setIsMobileMenuOpen(false);
-
-  useEffect(() => {
-    closeMobileMenu();
-  }, [pathname]);
+  const isMobileMenuOpen = mobileMenuPath === pathname;
+  const closeMobileMenu = () => setMobileMenuPath(null);
+  const toggleMobileMenu = () =>
+    setMobileMenuPath((current) => (current === pathname ? null : pathname));
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -184,7 +182,7 @@ export default function Navigation() {
             {/* Mobile Menu Button */}
             <button
               type="button"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              onClick={toggleMobileMenu}
               aria-expanded={isMobileMenuOpen}
               aria-controls="site-mobile-menu"
               className="md:hidden p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
