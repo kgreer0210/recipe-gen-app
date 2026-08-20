@@ -142,6 +142,11 @@ test.describe("Mise AI's three critical user journeys", () => {
     await expect(menu.getByRole("link", { name: "Weekly" })).toBeVisible();
     await expect(menu.getByRole("link", { name: "Pantry" })).toBeVisible();
 
+    await page.getByRole("button", { name: "Open site menu" }).click();
+    await expect(
+      page.getByRole("navigation", { name: "Site" }).getByRole("link", { name: "About" })
+    ).toBeVisible();
+
     await menu.getByRole("link", { name: "Pantry" }).click();
     await expect(page).toHaveURL(/\/pantry/);
     await expect(menu.getByRole("link", { name: "Pantry" })).toHaveAttribute(
@@ -149,6 +154,13 @@ test.describe("Mise AI's three critical user journeys", () => {
       "page"
     );
     await expect(page.getByRole("heading", { name: "Pantry", exact: true })).toBeVisible();
+
+    await page.goBack();
+    await expect(page).toHaveURL(/\/generator/);
+    await expect(page.getByRole("button", { name: "Open site menu" })).toBeVisible();
+    await expect(
+      page.getByRole("navigation", { name: "Site" }).getByRole("link", { name: "About" })
+    ).toBeHidden();
   });
 
   test("a visitor can open site pages from the phone hamburger menu", async ({

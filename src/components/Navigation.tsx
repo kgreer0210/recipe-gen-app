@@ -25,6 +25,9 @@ export default function Navigation() {
   const { user } = useAuth();
 
   const isActive = (path: string) => pathname === path;
+  if (mobileMenuPath !== null && mobileMenuPath !== pathname) {
+    setMobileMenuPath(null);
+  }
   const isMobileMenuOpen = mobileMenuPath === pathname;
   const closeMobileMenu = () => setMobileMenuPath(null);
   const toggleMobileMenu = () =>
