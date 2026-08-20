@@ -78,7 +78,11 @@ export default function LeftoversModal({
   };
 
   return (
-    <ModalShell labelledBy="leftovers-title" panelClassName="max-w-lg">
+    <ModalShell
+      labelledBy="leftovers-title"
+      panelClassName="max-w-lg"
+      onClose={onClose}
+    >
         <div className="flex items-start justify-between mb-4">
           <div>
             <h3 id="leftovers-title" className="text-lg font-bold text-gray-900">

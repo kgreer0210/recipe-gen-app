@@ -81,7 +81,7 @@ export default function AddToWeekModal({
   };
 
   return (
-    <ModalShell labelledBy="add-to-week-title">
+    <ModalShell labelledBy="add-to-week-title" onClose={onClose}>
         <div className="flex items-start justify-between mb-4">
           <div>
             <h3 id="add-to-week-title" className="text-lg font-bold text-gray-900">

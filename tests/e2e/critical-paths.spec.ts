@@ -58,6 +58,22 @@ async function signIn(page: Page) {
   await expect(page).toHaveURL(/\/generator$/);
 }
 
+async function expectButtonIsTopmost(page: Page, name: string) {
+  const button = page.getByRole("button", { name });
+  await expect(button).toBeVisible();
+  await expect(button).toBeInViewport();
+  const box = await button.boundingBox();
+  expect(box).toBeTruthy();
+  const hit = await page.evaluate(
+    ({ x, y }) => {
+      const el = document.elementFromPoint(x, y);
+      return el?.closest("button")?.textContent?.trim() ?? null;
+    },
+    { x: box!.x + box!.width / 2, y: box!.y + box!.height / 2 }
+  );
+  expect(hit).toMatch(new RegExp(name));
+}
+
 test.describe("Mise AI's three critical user journeys", () => {
   test.describe.configure({ mode: "serial" });
 
@@ -212,21 +228,7 @@ test.describe("Mise AI's three critical user journeys", () => {
     await page.goto("/collection");
     await expect(page.getByRole("heading", { name: recipeTitle })).toBeVisible();
     await page.getByTitle(/Add (to this week|another slot this week)/).click();
-
-    const addButton = page.getByRole("button", { name: "Add to plan" });
-    await expect(addButton).toBeVisible();
-    await expect(addButton).toBeInViewport();
-
-    const box = await addButton.boundingBox();
-    expect(box).toBeTruthy();
-    const hit = await page.evaluate(
-      ({ x, y }) => {
-        const el = document.elementFromPoint(x, y);
-        return el?.closest("button")?.textContent?.trim() ?? null;
-      },
-      { x: box!.x + box!.width / 2, y: box!.y + box!.height / 2 }
-    );
-    expect(hit).toMatch(/Add to plan/);
+    await expectButtonIsTopmost(page, "Add to plan");
 
     const artifactDir = process.env.PLAYWRIGHT_ARTIFACTS;
     if (artifactDir) {
@@ -238,8 +240,7 @@ test.describe("Mise AI's three critical user journeys", () => {
     await page.getByRole("button", { name: "Cancel" }).click();
     await page.goto("/weekly-plan");
     await page.getByRole("button", { name: "Add", exact: true }).first().click();
-    await expect(page.getByRole("button", { name: "Add to plan" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Add to plan" })).toBeInViewport();
+    await expectButtonIsTopmost(page, "Add to plan");
     if (artifactDir) {
       await page.screenshot({
         path: `${artifactDir}/add_to_week_modal_weekly_plan_mobile.png`,
