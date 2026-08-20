@@ -204,9 +204,11 @@ export default function Navigation() {
 
       <div
         id="site-mobile-menu"
-        hidden={!isMobileMenuOpen}
         className="md:hidden pb-20"
+        hidden={!isMobileMenuOpen}
       >
+        {isMobileMenuOpen && (
+          <>
           <div className="pt-2 pb-3 space-y-1 px-2 sm:px-3">
             <Link
               href="/about"
@@ -259,6 +261,8 @@ export default function Navigation() {
               <UserStatus onAction={closeMobileMenu} showLabels />
             </div>
           </div>
+          </>
+        )}
       </div>
     </nav>
   );
