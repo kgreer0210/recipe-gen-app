@@ -738,7 +738,7 @@ export default function RecipeGenerator() {
       </div>
 
       <div className="flex flex-col sm:flex-row items-center justify-between px-4 md:px-6 py-4 md:py-6 bg-white/50 backdrop-blur-sm z-10 border-b border-white/20 gap-4">
-        <div className="flex items-center gap-2">
+        <div className="hidden sm:flex items-center gap-2">
           <ChefHat className="w-8 h-8 text-blue-600" />
           <h1 className="text-xl font-bold text-gray-800">Mise AI</h1>
         </div>

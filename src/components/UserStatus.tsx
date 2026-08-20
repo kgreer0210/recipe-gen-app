@@ -6,7 +6,13 @@ import { LogOut, User as UserIcon, CreditCard, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useSignOut } from "@/hooks/useSignOut";
 
-export default function UserStatus({ onAction }: { onAction?: () => void }) {
+export default function UserStatus({
+  onAction,
+  showLabels = false,
+}: {
+  onAction?: () => void;
+  showLabels?: boolean;
+}) {
   const { user, subscription, loading } = useAuth();
   const { mutateAsync: signOut } = useSignOut();
   const [portalLoading, setPortalLoading] = useState(false);
@@ -67,12 +73,17 @@ export default function UserStatus({ onAction }: { onAction?: () => void }) {
             ) : (
               <CreditCard className="w-4 h-4" />
             )}
-            <span className="hidden sm:inline">Subscription</span>
+            <span className={showLabels ? "inline" : "hidden sm:inline"}>
+              Subscription
+            </span>
           </button>
         )}
         <div className="flex items-center gap-2 text-sm text-gray-700">
           <UserIcon className="w-4 h-4" />
-          <span className="hidden sm:inline max-w-[180px] truncate" title={user.email}>
+          <span
+            className={`${showLabels ? "inline" : "hidden sm:inline"} max-w-[180px] truncate`}
+            title={user.email}
+          >
             {user.email}
           </span>
         </div>
