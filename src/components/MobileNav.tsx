@@ -24,7 +24,7 @@ export default function MobileNav() {
   return (
     <nav
       aria-label="Primary"
-      className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 pb-safe md:hidden"
+      className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 pb-safe md:hidden"
     >
       <div className="flex">
         {tabs.map(({ label, icon: Icon, href }) => {

@@ -9,6 +9,7 @@ import {
   type Recipe,
 } from "@/types";
 import { addDaysToYmd, mealSlotLabel } from "@/lib/week";
+import ModalShell from "@/components/ModalShell";
 
 interface AddToWeekModalProps {
   title?: string;
@@ -80,11 +81,12 @@ export default function AddToWeekModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl p-6 shadow-xl">
+    <ModalShell labelledBy="add-to-week-title" onClose={onClose}>
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+            <h3 id="add-to-week-title" className="text-lg font-bold text-gray-900">
+              {title}
+            </h3>
             <p className="text-sm text-gray-500 mt-1">
               {DAY_LABELS[dayOfWeek] ?? "Day"} {mealSlotLabel(mealSlot)} ·{" "}
               {addDaysToYmd(weekStart, dayOfWeek)}
@@ -169,7 +171,6 @@ export default function AddToWeekModal({
             {isSaving ? "Adding..." : "Add to plan"}
           </button>
         </div>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

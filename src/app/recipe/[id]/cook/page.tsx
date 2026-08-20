@@ -232,7 +232,7 @@ function CookRecipeClient() {
         </section>
       </div>
 
-      <div className="fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 p-4 pb-safe">
+      <div className="fixed inset-x-0 bottom-[var(--mobile-nav-clearance)] md:bottom-0 z-30 bg-white border-t border-gray-200 p-4">
         <button
           type="button"
           onClick={() => void finishCooking()}

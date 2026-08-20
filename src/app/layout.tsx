@@ -140,7 +140,7 @@ export default async function RootLayout({
       >
         <AuthProvider initialUser={user} initialSubscription={subscription}>
           <Navigation />
-          <main className="w-full max-w-7xl mx-auto py-0 md:py-8 px-0 md:px-4 sm:px-6 lg:px-8 flex-1 pb-16 md:pb-0">
+          <main className="w-full max-w-7xl mx-auto py-0 md:py-8 px-0 md:px-4 sm:px-6 lg:px-8 flex-1 pb-[var(--mobile-nav-clearance)] md:pb-0">
             {children}
           </main>
           <div className="hidden md:block">

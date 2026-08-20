@@ -58,6 +58,22 @@ async function signIn(page: Page) {
   await expect(page).toHaveURL(/\/generator$/);
 }
 
+async function expectButtonIsTopmost(page: Page, name: string) {
+  const button = page.getByRole("button", { name });
+  await expect(button).toBeVisible();
+  await expect(button).toBeInViewport();
+  const box = await button.boundingBox();
+  expect(box).toBeTruthy();
+  const hit = await page.evaluate(
+    ({ x, y }) => {
+      const el = document.elementFromPoint(x, y);
+      return el?.closest("button")?.textContent?.trim() ?? null;
+    },
+    { x: box!.x + box!.width / 2, y: box!.y + box!.height / 2 }
+  );
+  expect(hit).toMatch(new RegExp(name));
+}
+
 test.describe("Mise AI's three critical user journeys", () => {
   test.describe.configure({ mode: "serial" });
 
@@ -198,5 +214,37 @@ test.describe("Mise AI's three critical user journeys", () => {
     await expect(siteMenu.getByRole("link", { name: "Settings" })).toBeVisible();
     await siteMenu.getByRole("link", { name: "Settings" }).click();
     await expect(page).toHaveURL(/\/settings/);
+  });
+
+  test("add-to-week actions stay tappable above the mobile nav", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 667 });
+    await page.addInitScript(() => {
+      const style = document.createElement("style");
+      style.textContent =
+        "nextjs-portal, [data-next-badge-root] { display: none !important; }";
+      document.documentElement.appendChild(style);
+    });
+    await signIn(page);
+    await page.goto("/collection");
+    await expect(page.getByRole("heading", { name: recipeTitle })).toBeVisible();
+    await page.getByTitle(/Add (to this week|another slot this week)/).click();
+    await expectButtonIsTopmost(page, "Add to plan");
+
+    const artifactDir = process.env.PLAYWRIGHT_ARTIFACTS;
+    if (artifactDir) {
+      await page.screenshot({
+        path: `${artifactDir}/add_to_week_modal_collection_mobile.png`,
+      });
+    }
+
+    await page.getByRole("button", { name: "Cancel" }).click();
+    await page.goto("/weekly-plan");
+    await page.getByRole("button", { name: "Add", exact: true }).first().click();
+    await expectButtonIsTopmost(page, "Add to plan");
+    if (artifactDir) {
+      await page.screenshot({
+        path: `${artifactDir}/add_to_week_modal_weekly_plan_mobile.png`,
+      });
+    }
   });
 });
