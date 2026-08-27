@@ -48,28 +48,28 @@ export default function Navigation() {
   return (
     <nav
       aria-label="Site"
-      className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-[60]"
+      className="market-nav bg-white shadow-sm border-b border-gray-200 sticky top-0 z-[60]"
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
+      <div className="market-nav__container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="market-nav__row flex justify-between h-16">
           <div className="flex items-center">
             <Link
               href="/"
-              className="flex items-center gap-2"
+              className="market-brand flex items-center gap-2"
               onClick={closeMobileMenu}
             >
               <ChefHat className="w-8 h-8 text-blue-600" />
-              <span className="text-xl font-bold text-gray-900">
+              <span className="market-brand__wordmark text-xl font-bold text-gray-900">
                 Mise <span className="text-blue-600">AI</span>
               </span>
             </Link>
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex space-x-8 items-center">
+          <div className="market-nav__links hidden md:flex space-x-8 items-center">
             <Link
               href="/about"
-              className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors ${isActive("/about")
+              className={`market-nav__link inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors ${isActive("/about")
                   ? "border-blue-600 text-gray-900"
                   : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
                 }`}
@@ -78,7 +78,7 @@ export default function Navigation() {
             </Link>
             <Link
               href="/pricing"
-              className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors ${isActive("/pricing")
+              className={`market-nav__link inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors ${isActive("/pricing")
                   ? "border-blue-600 text-gray-900"
                   : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
                 }`}
@@ -87,7 +87,7 @@ export default function Navigation() {
             </Link>
             <Link
               href="/contact"
-              className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors ${isActive("/contact")
+              className={`market-nav__link inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors ${isActive("/contact")
                   ? "border-blue-600 text-gray-900"
                   : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
                 }`}
@@ -99,7 +99,7 @@ export default function Navigation() {
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setIsToolsOpen(!isToolsOpen)}
-                  className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors focus:outline-none ${isToolsOpen || ["/generator", "/collection", "/weekly-plan", "/grocery-list", "/pantry"].includes(pathname)
+                  className={`market-nav__link inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors focus:outline-none ${isToolsOpen || ["/generator", "/collection", "/weekly-plan", "/grocery-list", "/pantry"].includes(pathname)
                       ? "border-blue-600 text-gray-900"
                       : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
                     }`}
@@ -109,10 +109,10 @@ export default function Navigation() {
                 </button>
 
                 {isToolsOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 ring-1 ring-black ring-opacity-5 z-50">
+                  <div className="market-nav__dropdown absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 ring-1 ring-black ring-opacity-5 z-50">
                     <Link
                       href="/generator"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      className="market-nav__dropdown-link block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setIsToolsOpen(false)}
                     >
                       <div className="flex items-center">
@@ -122,7 +122,7 @@ export default function Navigation() {
                     </Link>
                     <Link
                       href="/collection"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      className="market-nav__dropdown-link block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setIsToolsOpen(false)}
                     >
                       <div className="flex items-center">
@@ -132,7 +132,7 @@ export default function Navigation() {
                     </Link>
                     <Link
                       href="/weekly-plan"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      className="market-nav__dropdown-link block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setIsToolsOpen(false)}
                     >
                       <div className="flex items-center">
@@ -142,7 +142,7 @@ export default function Navigation() {
                     </Link>
                     <Link
                       href="/grocery-list"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      className="market-nav__dropdown-link block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setIsToolsOpen(false)}
                     >
                       <div className="flex items-center">
@@ -152,7 +152,7 @@ export default function Navigation() {
                     </Link>
                     <Link
                       href="/pantry"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      className="market-nav__dropdown-link block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setIsToolsOpen(false)}
                     >
                       <div className="flex items-center">
@@ -160,10 +160,10 @@ export default function Navigation() {
                         Pantry
                       </div>
                     </Link>
-                    <div className="border-t border-gray-100"></div>
+                    <div className="market-nav__divider border-t border-gray-100"></div>
                     <Link
                       href="/settings"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      className="market-nav__dropdown-link block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setIsToolsOpen(false)}
                     >
                       <div className="flex items-center">
@@ -178,7 +178,7 @@ export default function Navigation() {
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="hidden md:block">
+            <div className="market-nav__account hidden md:block">
               <UserStatus />
             </div>
 
@@ -188,7 +188,7 @@ export default function Navigation() {
               onClick={toggleMobileMenu}
               aria-expanded={isMobileMenuOpen}
               aria-controls="site-mobile-menu"
-              className="md:hidden p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+              className="market-nav__menu-toggle md:hidden p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
             >
               <span className="sr-only">
                 {isMobileMenuOpen ? "Close site menu" : "Open site menu"}
@@ -205,16 +205,16 @@ export default function Navigation() {
 
       <div
         id="site-mobile-menu"
-        className="md:hidden pb-20"
+        className="market-nav__mobile-menu md:hidden pb-20"
         hidden={!isMobileMenuOpen}
       >
         {isMobileMenuOpen && (
           <>
-          <div className="pt-2 pb-3 space-y-1 px-2 sm:px-3">
+          <div className="market-nav__mobile-links pt-2 pb-3 space-y-1 px-2 sm:px-3">
             <Link
               href="/about"
               onClick={closeMobileMenu}
-              className={`block px-3 py-2 rounded-md text-base font-medium ${isActive("/about")
+              className={`market-nav__mobile-link block px-3 py-2 rounded-md text-base font-medium ${isActive("/about")
                   ? "bg-blue-50 text-blue-700"
                   : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
                 }`}
@@ -224,7 +224,7 @@ export default function Navigation() {
             <Link
               href="/pricing"
               onClick={closeMobileMenu}
-              className={`block px-3 py-2 rounded-md text-base font-medium ${isActive("/pricing")
+              className={`market-nav__mobile-link block px-3 py-2 rounded-md text-base font-medium ${isActive("/pricing")
                   ? "bg-blue-50 text-blue-700"
                   : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
                 }`}
@@ -234,7 +234,7 @@ export default function Navigation() {
             <Link
               href="/contact"
               onClick={closeMobileMenu}
-              className={`block px-3 py-2 rounded-md text-base font-medium ${isActive("/contact")
+              className={`market-nav__mobile-link block px-3 py-2 rounded-md text-base font-medium ${isActive("/contact")
                   ? "bg-blue-50 text-blue-700"
                   : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
                 }`}
@@ -245,7 +245,7 @@ export default function Navigation() {
               <Link
                 href="/settings"
                 onClick={closeMobileMenu}
-                className={`block px-3 py-2 rounded-md text-base font-medium ${isActive("/settings")
+                className={`market-nav__mobile-link block px-3 py-2 rounded-md text-base font-medium ${isActive("/settings")
                     ? "bg-blue-50 text-blue-700"
                     : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
                   }`}
@@ -257,7 +257,7 @@ export default function Navigation() {
               </Link>
             )}
           </div>
-          <div className="pt-4 pb-4 border-t border-gray-200 px-4">
+          <div className="market-nav__mobile-account pt-4 pb-4 border-t border-gray-200 px-4">
             <UserStatus onAction={closeMobileMenu} showLabels />
           </div>
           </>

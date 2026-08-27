@@ -126,7 +126,6 @@ export default async function RootLayout({
       <head>
         <script
           type="application/ld+json"
-          // eslint-disable-next-line react/no-danger
           dangerouslySetInnerHTML={{
             __html: JSON.stringify([
               organizationJsonLd({ siteUrl }),
@@ -136,7 +135,7 @@ export default async function RootLayout({
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50 min-h-screen flex flex-col`}
+        className={`${geistSans.variable} ${geistMono.variable} fresh-market-app antialiased bg-gray-50 min-h-screen flex flex-col`}
       >
         <AuthProvider initialUser={user} initialSubscription={subscription}>
           <Navigation />

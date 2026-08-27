@@ -71,7 +71,7 @@ export default function UserStatus({
           <button
             onClick={handleManageSubscription}
             disabled={portalLoading}
-            className="flex items-center gap-2 text-sm text-gray-700 hover:text-blue-600 transition-colors"
+            className="market-account__subscription flex items-center gap-2 text-sm text-gray-700 hover:text-blue-600 transition-colors"
             title="Manage Subscription"
           >
             {portalLoading ? (
@@ -84,7 +84,7 @@ export default function UserStatus({
             </span>
           </button>
         )}
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="market-account__identity flex items-center gap-2 min-w-0">
           <UserIcon className="w-4 h-4 shrink-0 text-gray-700" />
           <span
             className={`${showLabels ? "inline min-w-0 flex-1" : "hidden sm:inline max-w-[180px]"} text-sm text-gray-700 truncate`}
@@ -95,7 +95,7 @@ export default function UserStatus({
           <button
             onClick={handleSignOut}
             type="button"
-            className="p-2 text-gray-400 hover:text-red-500 transition-colors relative z-50 shrink-0 ml-auto"
+            className="market-account__signout p-2 text-gray-400 hover:text-red-500 transition-colors relative z-50 shrink-0 ml-auto"
             title="Sign Out"
           >
             <LogOut className="w-4 h-4" />
@@ -115,7 +115,7 @@ export default function UserStatus({
     <Link
       href="/login"
       onClick={() => onAction?.()}
-      className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+      className="market-account__signin px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
     >
       Sign In
     </Link>

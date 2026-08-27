@@ -24,7 +24,7 @@ export default function MobileNav() {
   return (
     <nav
       aria-label="Primary"
-      className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 pb-safe md:hidden"
+      className="market-mobile-nav fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 pb-safe md:hidden"
     >
       <div className="flex">
         {tabs.map(({ label, icon: Icon, href }) => {
@@ -34,12 +34,12 @@ export default function MobileNav() {
               key={href}
               href={href}
               aria-current={active ? "page" : undefined}
-              className={`flex-1 min-w-0 flex flex-col items-center justify-center py-2.5 min-h-[56px] px-0.5 transition-colors ${
+              className={`market-mobile-nav__item flex-1 min-w-0 flex flex-col items-center justify-center py-2.5 min-h-[56px] px-0.5 transition-colors ${
                 active ? "text-blue-600" : "text-gray-400"
               }`}
             >
               <div
-                className={`p-1 rounded-full transition-colors ${
+                className={`market-mobile-nav__icon p-1 rounded-full transition-colors ${
                   active ? "bg-blue-50" : ""
                 }`}
               >
