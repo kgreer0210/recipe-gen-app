@@ -25,6 +25,7 @@ body {
   --ink: #f8f4ec;
   --muted-ink: rgba(248, 244, 236, 0.72);
   --line: rgba(248, 244, 236, 0.18);
+
   width: 100%;
   margin: 0 auto;
   overflow: hidden;
@@ -142,15 +143,7 @@ body {
   text-transform: none;
 }
 
-.concept-stage {
-  animation: concept-reveal 420ms ease both;
-  outline: none;
-}
-
-@keyframes concept-reveal {
-  from { opacity: 0; transform: translateY(0.75rem); }
-  to { opacity: 1; transform: translateY(0); }
-}
+.concept-stage { outline: none; }
 
 .hero-actions {
   display: flex;
@@ -334,7 +327,7 @@ body {
 .os-heading span { display: grid; gap: 0.25rem; }
 .os-heading small, .os-days small { color: #899287; font-size: 0.55rem; font-weight: 800; letter-spacing: 0.09em; }
 .os-heading b { font-family: Georgia, serif; font-size: clamp(1.3rem, 3vw, 2rem); font-weight: 400; }
-.os-heading button { border: 0; border-radius: 999px; background: #d7eba0; color: #25302d; cursor: pointer; font-size: 0.6rem; font-weight: 800; padding: 0.58rem 0.75rem; }
+.os-heading__action { display: inline-flex; align-items: center; border-radius: 999px; background: #d7eba0; color: #25302d; font-size: 0.6rem; font-weight: 800; padding: 0.58rem 0.75rem; white-space: nowrap; }
 .os-days { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.65rem; margin: 1.45rem 0; }
 .os-days article { display: grid; gap: 0.4rem; min-width: 0; padding: 0.75rem; border: 1px solid #dce0d4; border-radius: 0.75rem; background: #fafaf3; }
 .os-days article.featured { border-color: #d7eba0; background: #edf3d9; }
@@ -366,7 +359,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .concept-stage, .button, .text-link span { animation: none; transition: none; }
+  .button, .text-link span { animation: none; transition: none; }
 }
 
 /* Fresh Market product theme */
@@ -383,6 +376,7 @@ body {
   --market-sage: #d7eba0;
   --market-olive: #7d9349;
   --market-plum: #6d705b;
+
   background: var(--market-paper);
   color: var(--market-ink);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;

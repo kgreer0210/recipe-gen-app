@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   ArrowRight,
   CalendarDays,
@@ -22,7 +23,8 @@ const concepts = [
 ];
 
 export default function HomeDesignShowcase() {
-  const [active, setActive] = useState(1);
+  const [active, setActive] = useState<number>(1);
+  const shouldReduceMotion = useReducedMotion();
 
   return (
     <div className="home-showcase home-showcase--market">
@@ -55,12 +57,29 @@ export default function HomeDesignShowcase() {
         role="tabpanel"
         aria-labelledby={`concept-tab-${active}`}
         tabIndex={0}
-        key={active}
         className="concept-stage"
       >
-        {active === 0 && <RestaurantConcept />}
-        {active === 1 && <MarketConcept />}
-        {active === 2 && <OsConcept />}
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={active}
+            initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={
+              shouldReduceMotion
+                ? { opacity: 1, y: 0 }
+                : { opacity: 0, y: -12 }
+            }
+            transition={
+              shouldReduceMotion
+                ? { duration: 0 }
+                : { duration: 0.32, ease: "easeOut" }
+            }
+          >
+            {active === 0 && <RestaurantConcept />}
+            {active === 1 && <MarketConcept />}
+            {active === 2 && <OsConcept />}
+          </motion.div>
+        </AnimatePresence>
       </div>
     </div>
   );
@@ -157,7 +176,7 @@ function OsConcept() {
             <i className="active" /><i /><i /><i />
           </aside>
           <div className="os-content">
-            <div className="os-heading"><span><small>THIS WEEK</small><b>Dinner, handled.</b></span><button>+ Add meal</button></div>
+            <div className="os-heading"><span><small>THIS WEEK</small><b>Dinner, handled.</b></span><span className="os-heading__action">+ Add meal</span></div>
             <div className="os-days">
               <article><small>MON · 24</small><span>🥗</span><b>Crispy tahini bowl</b><em>20 min</em></article>
               <article className="featured"><small>TUE · 25</small><span>🍝</span><b>Silky tomato pasta</b><em>30 min</em></article>
