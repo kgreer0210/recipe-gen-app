@@ -96,7 +96,7 @@ test.describe("Mise AI's three critical user journeys", () => {
 
   test("a visitor is guided from the home page to sign in", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("link", { name: /Start Generating/i }).click();
+    await page.getByRole("link", { name: /Let's make dinner/i }).click();
     await expect(page).toHaveURL(/\/login$/);
     await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
   });
