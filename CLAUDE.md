@@ -14,7 +14,7 @@ npm run test:integration # Vitest, tests/integration/** against the hosted Supab
 npm run test:e2e         # Playwright, tests/e2e/** (Chromium, binds 127.0.0.1:3000). Needs the Supabase env vars.
 ```
 
-`npm test` is an alias for `test:unit`. The integration and e2e suites create temporary Auth users, so point them at a non-production Supabase project. CI runs all three plus the type check on every PR; Dependabot PRs get only the type check and unit tests because they cannot read repository secrets.
+`npm test` is an alias for `test:unit`. The integration and e2e suites create temporary Auth users, so point them at a non-production Supabase project. CI runs all three plus the type check on same-repo PRs; Dependabot and fork PRs get only the type check and unit tests because GitHub withholds repository secrets from them.
 
 ## Architecture Overview
 
