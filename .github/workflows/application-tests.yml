@@ -9,6 +9,26 @@ permissions:
   contents: read
 
 jobs:
+  typecheck:
+    name: Type check
+    # No secrets needed, so this also runs on Dependabot PRs and catches
+    # dependency bumps that break `next build` (which type-checks).
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the application
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install the locked dependencies
+        run: npm ci
+      - name: Type check the application
+        run: npx tsc --noEmit
+
   business-rules:
     name: Business rules
     runs-on: ubuntu-latest
