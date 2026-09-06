@@ -46,8 +46,6 @@ This repo is a single Next.js 16 web app (Mise AI). There is no Docker Compose s
 
 **Env file:** put secrets in `.env.local` (gitignored). Canonical names and optional model overrides are in `README.md` and `CLAUDE.md`. Cloud Agent secrets are injected as process env; a login-shell tmux may not inherit them, so if `.env.local` is missing, copy `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and `OPEN_ROUTER_API_KEY` into `.env.local` before `next dev`. Without `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`, root layout and `src/proxy.ts` still construct a Supabase client, so the app will not serve usable pages. `SUPABASE_SERVICE_ROLE_KEY` is required for usage RPCs, Stripe webhook writes, and the integration/e2e suites (they provision temporary Auth users). `OPEN_ROUTER_API_KEY` (or `OPENROUTER_API_KEY`) is required for live generate/refine only; Playwright stubs `/api/generate-recipe` and `/api/rate-limit`.
 
-After a server-action login, `/generator` can render while `AuthProvider`'s client `getSession()` still returns null (it overwrites `initialUser`). That makes the header email assertion fail and `Save to Collection` redirect to `/login`. For a Cloud Agent hello-world, generate and save through `POST /api/generate-recipe` with a Bearer token from `signInWithPassword` instead of relying on that client session.
-
 **Quality commands** (see `package.json` / `CLAUDE.md`):
 
 - `npm run lint` — ESLint. The current tree already fails this with pre-existing errors; do not treat a dirty lint run as proof that your change broke lint unless the files you touched are new offenders.
