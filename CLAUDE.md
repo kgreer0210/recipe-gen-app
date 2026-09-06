@@ -5,13 +5,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm run dev      # Start development server (port 3000)
-npm run build    # Production build
-npm run lint     # ESLint validation
-npm start        # Run production server
+npm run dev              # Start development server (port 3000)
+npm run build            # Production build (also type-checks; CI runs `npx tsc --noEmit` separately)
+npm run lint             # ESLint validation (currently fails on pre-existing errors; see AGENTS.md)
+npm start                # Run production server
+npm run test:unit        # Vitest, tests/unit/** (grocery/ingredient rules). No network or secrets.
+npm run test:integration # Vitest, tests/integration/** against the hosted Supabase project. Needs the Supabase env vars.
+npm run test:e2e         # Playwright, tests/e2e/** (Chromium, binds 127.0.0.1:3000). Needs the Supabase env vars.
 ```
 
-No test runner is configured.
+`npm test` is an alias for `test:unit`. The integration and e2e suites create temporary Auth users, so point them at a non-production Supabase project. CI runs all three plus the type check on every PR; Dependabot PRs get only the type check and unit tests because they cannot read repository secrets.
 
 ## Architecture Overview
 
