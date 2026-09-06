@@ -21,7 +21,7 @@ No test runner is configured.
 - Next.js 16 (App Router) + React 19 + TypeScript
 - Tailwind CSS 4 + Motion (animations) + Lucide React (icons)
 - Supabase (PostgreSQL + Auth with RLS)
-- OpenRouter SDK (primary AI) with OpenAI SDK fallback
+- OpenRouter SDK for all AI calls (automatic fallback to a secondary OpenRouter model)
 - Zustand (client state) + Stripe (payments)
 
 ### Directory Structure
