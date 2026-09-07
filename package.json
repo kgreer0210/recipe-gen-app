@@ -20,7 +20,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@openrouter/sdk": "^1.2.80",
     "@stripe/stripe-js": "^9.14.0",
-    "@supabase/ssr": "^0.12.4",
+    "@supabase/ssr": "^0.12.6",
     "@supabase/supabase-js": "^2.115.0",
     "@vercel/analytics": "^2.0.1",
     "clsx": "^2.1.1",
