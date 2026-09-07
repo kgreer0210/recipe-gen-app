@@ -21,7 +21,7 @@
     "@openrouter/sdk": "^1.2.80",
     "@stripe/stripe-js": "^9.14.0",
     "@supabase/ssr": "^0.12.4",
-    "@supabase/supabase-js": "^2.112.3",
+    "@supabase/supabase-js": "^2.115.0",
     "@vercel/analytics": "^2.0.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.35.0",
