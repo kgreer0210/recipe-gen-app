@@ -1,3 +1,5 @@
+# Dependabot only reads this file from the default branch (main), so it takes
+# effect once this lands on main. PRs target main.
 version: 2
 updates:
   - package-ecosystem: 'npm'
@@ -11,3 +13,32 @@ updates:
     labels:
       - 'dependencies'
       - 'automated'
+    # Collapse routine bumps into one PR per week instead of up to ten.
+    # Majors stay ungrouped so auto-merge-deps.yml can label them for review
+    # individually.
+    groups:
+      routine-updates:
+        applies-to: 'version-updates'
+        patterns:
+          - '*'
+        update-types:
+          - 'minor'
+          - 'patch'
+      security-updates:
+        applies-to: 'security-updates'
+        patterns:
+          - '*'
+
+  # Keeps the action versions in .github/workflows current.
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'monthly'
+      timezone: 'America/New_York'
+    labels:
+      - 'dependencies'
+      - 'automated'
+    groups:
+      github-actions:
+        patterns:
+          - '*'
