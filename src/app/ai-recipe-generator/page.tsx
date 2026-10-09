@@ -45,7 +45,6 @@ export default function AiRecipeGeneratorPage() {
     <div className="max-w-4xl mx-auto">
       <script
         type="application/ld+json"
-        // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{
           __html: JSON.stringify(
             faqPageJsonLd({

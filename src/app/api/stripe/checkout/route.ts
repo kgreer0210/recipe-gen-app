@@ -56,7 +56,7 @@ export async function POST(request: Request) {
         .eq('user_id', user.id)
         .single();
 
-    let customerId = subscription?.stripe_customer_id;
+    const customerId = subscription?.stripe_customer_id;
 
     // If we don't have a customer ID, create one in Stripe or let checkout create one?
     // Letting checkout create one is easier, but we need to know it later.

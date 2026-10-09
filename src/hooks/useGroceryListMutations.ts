@@ -367,7 +367,7 @@ export function useRemoveIngredientsForRecipe() {
 
       if (!currentList) return;
 
-      const updates: PromiseLike<any>[] = [];
+      const updates: PromiseLike<{ error: unknown }>[] = [];
       const idsToRemove: string[] = [];
       const amountUpdatesById = new Map<string, number>();
       const scale =

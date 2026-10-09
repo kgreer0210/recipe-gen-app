@@ -28,10 +28,12 @@ import {
   ChevronRight,
   Lock,
   Sparkles,
-  RefreshCw,
-  Save,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+
+function messageFromUnknown(error: unknown): string {
+  return error instanceof Error ? error.message : "";
+}
 
 const cuisines: CuisineType[] = [
   "Indian",
@@ -270,12 +272,13 @@ export default function RecipeGenerator() {
         setGeneratedRecipe(recipe);
         setCurrentRecipeModel(selectedModel);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = messageFromUnknown(error);
       console.error("Failed to generate recipe", error);
-      setError(error.message || "Failed to generate recipe. Please try again.");
+      setError(message || "Failed to generate recipe. Please try again.");
       if (
-        error.message?.includes("weekly recipe limit") ||
-        error.message?.includes("recipe limit")
+        message.includes("weekly recipe limit") ||
+        message.includes("recipe limit")
       ) {
         setIsBlocked(true);
       }
@@ -309,9 +312,10 @@ export default function RecipeGenerator() {
       setRefinementHistory((prev) => [...prev, refinementInput]);
       setRefinementCount((prev) => prev + 1);
       setRefinementInput("");
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = messageFromUnknown(error);
       console.error("Failed to refine recipe", error);
-      setError(error.message || "Failed to refine recipe. Please try again.");
+      setError(message || "Failed to refine recipe. Please try again.");
     } finally {
       setIsRefining(false);
     }
@@ -328,9 +332,6 @@ export default function RecipeGenerator() {
 
     // Save limit is now enforced at DB level, but we can still show a helpful message
     // The DB trigger will catch it if they somehow bypass this check
-    const isSubscriber =
-      subscription?.status === "active" || subscription?.status === "trialing";
-
     // Check save limits based on plan
     const planKey = subscription?.plan_key || "free";
     const saveLimit = planKey === "pro" ? 2000 : planKey === "plus" ? 200 : 20;
@@ -430,12 +431,13 @@ export default function RecipeGenerator() {
         });
         setGeneratedRecipe(recipe);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = messageFromUnknown(error);
       console.error("Failed to regenerate recipe", error);
-      setError(error.message || "Failed to generate recipe. Please try again.");
+      setError(message || "Failed to generate recipe. Please try again.");
       if (
-        error.message?.includes("weekly recipe limit") ||
-        error.message?.includes("recipe limit")
+        message.includes("weekly recipe limit") ||
+        message.includes("recipe limit")
       ) {
         setIsBlocked(true);
       }
@@ -519,7 +521,6 @@ export default function RecipeGenerator() {
   const RateLimitIndicator = ({
     remaining,
     limit,
-    resetAt,
   }: {
     remaining: number | null;
     limit: number | null;
@@ -576,7 +577,7 @@ export default function RecipeGenerator() {
     }),
   };
 
-  const StepCard = ({
+  const StepCard = <T extends string>({
     title,
     options,
     selected,
@@ -585,9 +586,9 @@ export default function RecipeGenerator() {
     onBack,
   }: {
     title: string;
-    options: string[];
-    selected: string;
-    onSelect: (val: any) => void;
+    options: readonly T[];
+    selected: T;
+    onSelect: (val: T) => void;
     onNext: () => void;
     onBack?: () => void;
   }) => (
@@ -703,10 +704,10 @@ export default function RecipeGenerator() {
             <span className="text-4xl">👨‍🍳</span>
           </div>
           <h2 className="text-2xl font-bold text-gray-800 mb-4">
-            Chef's Nap Time
+            Chef&apos;s Nap Time
           </h2>
           <p className="text-gray-600 max-w-md mb-8">
-            You've reached your weekly recipe limit! Our chefs are taking a
+            You&apos;ve reached your weekly recipe limit! Our chefs are taking a
             well-deserved break. Please come back next week for more delicious
             ideas.
           </p>
@@ -825,7 +826,7 @@ export default function RecipeGenerator() {
             >
               <div className="w-full max-w-lg mx-auto flex-1 flex flex-col">
                 <h2 className="text-2xl font-bold text-gray-800 mb-2 text-center">
-                  What's in your pantry?
+                  What&apos;s in your pantry?
                 </h2>
                 <p className="text-gray-500 text-center mb-6">
                   Enter ingredients you have on hand, separated by commas.
@@ -1135,7 +1136,7 @@ export default function RecipeGenerator() {
                     <>
                       <span className="text-2xl">👨‍🍳</span>
                       <div>
-                        <p className="font-semibold">Chef's Nap Time</p>
+                        <p className="font-semibold">Chef&apos;s Nap Time</p>
                         <p className="text-sm opacity-90">{error}</p>
                       </div>
                     </>
@@ -1316,7 +1317,7 @@ export default function RecipeGenerator() {
                       <>
                         <span className="text-2xl">👨‍🍳</span>
                         <div>
-                          <p className="font-semibold">Chef's Nap Time</p>
+                          <p className="font-semibold">Chef&apos;s Nap Time</p>
                           <p className="text-sm opacity-90">{error}</p>
                         </div>
                       </>

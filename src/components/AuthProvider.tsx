@@ -71,7 +71,7 @@ export function AuthProvider({
     setSubscription(sub);
   };
 
-  const ensureUserTimezone = async (userId: string) => {
+  const ensureUserTimezone = async () => {
     try {
       // Detect user's timezone from browser
       const detectedTimezone = detectUserTimezone();
@@ -110,7 +110,7 @@ export function AuthProvider({
             setSubscription(sub);
           }
           // Timezone save is non-blocking so the chrome can render the signed-in user.
-          void ensureUserTimezone(sessionUser.id);
+          void ensureUserTimezone();
         } else {
           setSubscription(null);
         }
@@ -141,7 +141,7 @@ export function AuthProvider({
           if (isMounted) {
             setSubscription(sub);
           }
-          void ensureUserTimezone(nextUser.id);
+          void ensureUserTimezone();
         } else {
           setSubscription(null);
           // If the user becomes unauthenticated (e.g., explicit sign-out), send them to sign-in.
@@ -195,7 +195,7 @@ export function AuthProvider({
           const sub = await fetchSubscription(sessionUser.id);
           if (!isMounted) return;
           setSubscription(sub);
-          void ensureUserTimezone(sessionUser.id);
+          void ensureUserTimezone();
         } else {
           setSubscription(null);
         }

@@ -21,8 +21,6 @@ export default function RecipeSelector({
   const { groceryList = [] } = useGroceryListRealtime();
   const [searchTerm, setSearchTerm] = useState("");
 
-  if (!isOpen) return null;
-
   // Calculate max servings for each recipe based on grocery list.
   // Important: `recipe.ingredients` represent `recipe.servings` (base), not 1.
   const recipesWithStatus = useMemo(() => {
@@ -31,7 +29,7 @@ export default function RecipeSelector({
       let hasIngredients = false;
 
       // Check if any ingredients are in the list
-      const ingredientsInList = recipe.ingredients.filter((ing: any) =>
+      const ingredientsInList = recipe.ingredients.filter((ing) =>
         groceryList.some(
           (item) =>
             item.name.toLowerCase() === ing.name.toLowerCase() &&
@@ -42,7 +40,7 @@ export default function RecipeSelector({
       if (ingredientsInList.length > 0) {
         hasIngredients = true;
         // Calculate theoretical max servings
-        const possibleServings = recipe.ingredients.map((ing: any) => {
+        const possibleServings = recipe.ingredients.map((ing) => {
           const item = groceryList.find(
             (i) =>
               i.name.toLowerCase() === ing.name.toLowerCase() &&
@@ -61,6 +59,8 @@ export default function RecipeSelector({
       return { ...recipe, maxServings, hasIngredients };
     });
   }, [savedRecipes, groceryList]);
+
+  if (!isOpen) return null;
 
   const filteredRecipes = recipesWithStatus
     .filter((recipe) =>

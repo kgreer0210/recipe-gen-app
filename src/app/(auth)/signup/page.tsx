@@ -33,7 +33,7 @@ export default function SignupPage() {
                         Check your email
                     </h2>
                     <p className="text-green-700">
-                        We've sent you a confirmation link. Please check your email to verify your account.
+                        We&apos;ve sent you a confirmation link. Please check your email to verify your account.
                     </p>
                     <div className="mt-6">
                         <Link href="/login" className="text-blue-600 hover:text-blue-500 font-medium">

@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 npm run dev              # Start development server (port 3000)
 npm run build            # Production build (also type-checks; CI runs `npx tsc --noEmit` separately)
-npm run lint             # ESLint validation (currently fails on pre-existing errors; see AGENTS.md)
+npm run lint             # ESLint. Lint toolchain uses the typescript-6 alias; app stays on TypeScript 7. See AGENTS.md. Remove that workaround once typescript-eslint supports TypeScript 7.
 npm start                # Run production server
 npm run test:unit        # Vitest, tests/unit/** (grocery/ingredient rules). No network or secrets.
 npm run test:integration # Vitest, tests/integration/** against the hosted Supabase project. Needs the Supabase env vars.

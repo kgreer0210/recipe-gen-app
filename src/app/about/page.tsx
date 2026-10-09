@@ -23,7 +23,7 @@ export default function AboutPage() {
       <div className="mx-auto max-w-7xl px-6 py-16 sm:py-24 lg:px-8">
         <div className="mx-auto max-w-3xl">
           <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl mb-8">
-            The "One Carrot" Problem
+            The &quot;One Carrot&quot; Problem
           </h2>
           <div className="prose prose-lg prose-blue text-gray-600 space-y-6">
             <p>
@@ -45,8 +45,8 @@ export default function AboutPage() {
               little inconveniences add up fast.
             </p>
             <p className="text-xl font-medium text-blue-600 italic border-l-4 border-blue-600 pl-4">
-              "We just wanted to cook good food without the administrative
-              headache."
+              &quot;We just wanted to cook good food without the administrative
+              headache.&quot;
             </p>
             <p>
               So I built a solution. Not just another recipe app, but a tool
