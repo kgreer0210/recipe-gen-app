@@ -22,7 +22,7 @@ export default function AuthLayout({
 
         <div className="relative z-10 max-w-lg">
           <h1 className="text-5xl font-bold mb-8 leading-tight">
-            Cooking shouldn't feel like a chore.
+            Cooking shouldn&apos;t feel like a chore.
           </h1>
           <div className="flex items-center gap-4 text-blue-100">
             <Heart className="w-6 h-6" />

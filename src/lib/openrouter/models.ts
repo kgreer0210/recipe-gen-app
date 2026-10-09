@@ -65,5 +65,5 @@ export const ADMIN_ALLOWED_MODELS = [
  * @returns true if model is in the whitelist
  */
 export function isValidAdminModelOverride(model: string): boolean {
-  return ADMIN_ALLOWED_MODELS.includes(model as any);
+  return (ADMIN_ALLOWED_MODELS as readonly string[]).includes(model);
 }

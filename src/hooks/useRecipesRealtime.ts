@@ -4,7 +4,21 @@ import { useRecipesStore } from "@/lib/stores/recipesStore";
 import { Recipe } from "@/types";
 import { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
-function transformRecipeRow(row: any): Recipe {
+type RecipeRow = {
+  id: string;
+  title: string;
+  description?: string | null;
+  prep_time: string;
+  cook_time: string;
+  ingredients?: Recipe["ingredients"] | null;
+  instructions?: string[] | null;
+  cuisine: string;
+  meal_type: string;
+  protein?: string | null;
+  servings?: number | null;
+};
+
+function transformRecipeRow(row: RecipeRow): Recipe {
   return {
     id: row.id,
     title: row.title,
@@ -100,7 +114,7 @@ export function useRecipesRealtime() {
           table: "recipes",
           filter: `user_id=eq.${user.id}`,
         },
-        (payload: RealtimePostgresChangesPayload<any>) => {
+        (payload: RealtimePostgresChangesPayload<RecipeRow>) => {
           if (!isMounted) return;
 
           switch (payload.eventType) {
@@ -110,9 +124,11 @@ export function useRecipesRealtime() {
             case "UPDATE":
               updateRecipe(transformRecipeRow(payload.new));
               break;
-            case "DELETE":
-              removeRecipe(payload.old.id);
+            case "DELETE": {
+              const recipeId = payload.old.id;
+              if (typeof recipeId === "string") removeRecipe(recipeId);
               break;
+            }
           }
         }
       )

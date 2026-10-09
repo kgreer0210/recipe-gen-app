@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "node --require ./scripts/eslint-typescript-6.cjs ./node_modules/eslint/bin/eslint.js",
+    "prepare": "npm rebuild typescript",
     "test": "npm run test:unit",
     "test:unit": "vitest run --config vitest.config.ts",
     "test:coverage": "vitest run --config vitest.config.ts --coverage",
@@ -48,6 +49,7 @@
     "eslint-config-next": "^16.3.8",
     "tailwindcss": "^4.3.2",
     "typescript": "^7.0.2",
+    "typescript-6": "npm:@typescript/typescript6@^6.0.2",
     "vitest": "^4.1.11"
   }
 }

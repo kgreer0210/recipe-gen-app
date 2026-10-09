@@ -4,7 +4,7 @@ import { useGroceryListStore } from "@/lib/stores/groceryListStore";
 import { Ingredient } from "@/types";
 import { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
-function transformGroceryRow(row: {
+type GroceryListRow = {
   id: string;
   name: string;
   name_normalized?: string;
@@ -14,7 +14,9 @@ function transformGroceryRow(row: {
   is_checked?: boolean;
   source?: Ingredient["source"];
   plan_week_start?: string | null;
-}): Ingredient {
+};
+
+function transformGroceryRow(row: GroceryListRow): Ingredient {
   return {
     id: row.id,
     name: row.name,
@@ -103,7 +105,7 @@ export function useGroceryListRealtime() {
           table: "grocery_list",
           filter: `user_id=eq.${user.id}`,
         },
-        (payload: RealtimePostgresChangesPayload<any>) => {
+        (payload: RealtimePostgresChangesPayload<GroceryListRow>) => {
           if (!isMounted) return;
 
           switch (payload.eventType) {
@@ -113,9 +115,11 @@ export function useGroceryListRealtime() {
             case "UPDATE":
               updateItem(transformGroceryRow(payload.new));
               break;
-            case "DELETE":
-              removeItem(payload.old.id);
+            case "DELETE": {
+              const itemId = payload.old.id;
+              if (typeof itemId === "string") removeItem(itemId);
               break;
+            }
           }
         }
       )

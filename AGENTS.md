@@ -48,7 +48,7 @@ This repo is a single Next.js 16 web app (Mise AI). There is no Docker Compose s
 
 **Quality commands** (see `package.json` / `CLAUDE.md`):
 
-- `npm run lint` — ESLint. The current tree already fails this with pre-existing errors; do not treat a dirty lint run as proof that your change broke lint unless the files you touched are new offenders.
+- `npm run lint` — ESLint. typescript-eslint loads `typescript` at startup and rejects TypeScript 7 (no JavaScript API yet). The lint script preloads `scripts/eslint-typescript-6.cjs`, which resolves that import to the `typescript-6` alias (`@typescript/typescript6`, the TypeScript 6 API) for the lint toolchain only. The root `typescript` package stays on 7 for `tsc` and `next build`. That alias depends on `@typescript/old`, whose `tsc` binary collides with TypeScript 7, so `prepare` runs `npm rebuild typescript` to point `tsc` back at 7. Remove the alias, the preload, and the prepare relink once typescript-eslint supports TypeScript 7: https://github.com/typescript-eslint/typescript-eslint/issues/10940
 - `npm run test:unit` — Vitest grocery/ingredient rules. No network or secrets.
 - `npm run test:integration` — real Supabase RLS/CRUD. Needs the three Supabase env vars.
 - `npm run test:e2e` — Chromium journeys (home → login → generate/save). Needs the three Supabase env vars and `npx playwright install --with-deps chromium` once per machine. Do not call live OpenRouter during this suite.

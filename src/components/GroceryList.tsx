@@ -35,6 +35,25 @@ import {
   weeklyPlanGrocerySignature,
 } from "@/lib/stores/weeklyPlanStore";
 
+const EMPTY_UNIT_PROFILES = new Map<string, IngredientUnitProfile>();
+
+function groceryProfileNames(
+  items: { name: string; nameNormalized?: string }[]
+): string[] {
+  return Array.from(
+    new Set(
+      items
+        .map((item) =>
+          typeof item.nameNormalized === "string" &&
+          item.nameNormalized.length > 0
+            ? item.nameNormalized
+            : normalizeIngredientName(item.name)
+        )
+        .filter((name) => name.length > 0)
+    )
+  );
+}
+
 const UNITS: Unit[] = [
   "count",
   "lb",
@@ -78,9 +97,15 @@ export default function GroceryList() {
   const [weekStart, setWeekStart] = useState(() =>
     getWeekStart(new Date(), "UTC")
   );
-  const [unitProfilesByName, setUnitProfilesByName] = useState<
-    Map<string, IngredientUnitProfile>
-  >(new Map());
+  const [unitProfileCache, setUnitProfileCache] = useState<{
+    userId: string;
+    profiles: Map<string, IngredientUnitProfile>;
+  } | null>(null);
+  const hasProfileNames = groceryProfileNames(groceryList).length > 0;
+  const unitProfilesByName =
+    user && unitProfileCache?.userId === user.id && hasProfileNames
+      ? unitProfileCache.profiles
+      : EMPTY_UNIT_PROFILES;
 
   // Auth check helper
   const requireAuth = (action: () => void) => {
@@ -131,29 +156,15 @@ export default function GroceryList() {
 
   // Best-effort fetch of unit profiles so we can show package-friendly “Buy” amounts
   // and keep Need/Buy consistent with canonicalized grocery units.
+  // Logged-out users and empty lists read an empty map directly, so this effect
+  // only writes state after the Supabase response arrives.
   useEffect(() => {
-    if (!user) {
-      setUnitProfilesByName(new Map());
-      return;
-    }
+    if (!user) return;
 
-    const names = Array.from(
-      new Set(
-        groceryList
-          .map((i) =>
-            typeof i.nameNormalized === "string" && i.nameNormalized.length > 0
-              ? i.nameNormalized
-              : normalizeIngredientName(i.name)
-          )
-          .filter((n) => n.length > 0)
-      )
-    );
+    const names = groceryProfileNames(groceryList);
+    if (names.length === 0) return;
 
-    if (names.length === 0) {
-      setUnitProfilesByName(new Map());
-      return;
-    }
-
+    const userId = user.id;
     let cancelled = false;
     (async () => {
       const { data, error } = await supabase
@@ -166,7 +177,7 @@ export default function GroceryList() {
       if (cancelled) return;
       if (error) {
         console.warn("Failed to fetch ingredient unit profiles:", error);
-        setUnitProfilesByName(new Map());
+        setUnitProfileCache({ userId, profiles: EMPTY_UNIT_PROFILES });
         return;
       }
 
@@ -174,7 +185,7 @@ export default function GroceryList() {
       for (const row of data || []) {
         map.set(row.name_normalized, row as IngredientUnitProfile);
       }
-      setUnitProfilesByName(map);
+      setUnitProfileCache({ userId, profiles: map });
     })();
 
     return () => {
