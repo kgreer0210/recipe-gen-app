@@ -18,6 +18,7 @@ import {
   Share2,
 } from "lucide-react";
 import Link from "next/link";
+import { matchSavedRecipe } from "@/lib/recipe/matchSavedRecipe";
 import { Recipe } from "@/types";
 import { formatRecipeAmount } from "@/lib/grocery/format";
 import { buildRecipeShareText, shareRecipe } from "@/lib/share/recipeShareText";
@@ -33,16 +34,30 @@ export default function RecipeDetailsPage() {
   const { mutateAsync: addToGroceryList } = useAddToGroceryList();
   const { mutateAsync: addToSlot } = useAddToWeeklyPlanSlot();
   const { slots } = useWeeklyPlanRealtime();
+  const id = params.id as string;
+  const initialMatch = matchSavedRecipe(savedRecipes, id);
   const [isAdding, setIsAdding] = useState(false);
-  const [servings, setServings] = useState(1);
+  const [servings, setServings] = useState(initialMatch?.servings ?? 1);
   const [timezone, setTimezone] = useState("UTC");
   const [weekStart, setWeekStart] = useState(() =>
     getWeekStart(new Date(), "UTC")
   );
   const [showAddToWeek, setShowAddToWeek] = useState(false);
-  const [recipe, setRecipe] = useState<Recipe | null>(null);
+  const [recipe, setRecipe] = useState<Recipe | null>(
+    initialMatch?.recipe ?? null
+  );
+  const [seenRecipes, setSeenRecipes] = useState(savedRecipes);
+  const [seenId, setSeenId] = useState(id);
 
-  const id = params.id as string;
+  if (savedRecipes !== seenRecipes || id !== seenId) {
+    setSeenRecipes(savedRecipes);
+    setSeenId(id);
+    const matched = matchSavedRecipe(savedRecipes, id);
+    if (matched) {
+      setRecipe(matched.recipe);
+      setServings(matched.servings);
+    }
+  }
 
   useEffect(() => {
     void fetchUserTimezone().then((tz) => {
@@ -50,16 +65,6 @@ export default function RecipeDetailsPage() {
       setWeekStart(getWeekStart(new Date(), tz));
     });
   }, []);
-
-  useEffect(() => {
-    if (savedRecipes.length > 0) {
-      const found = savedRecipes.find((r) => r.id === id);
-      if (found) {
-        setRecipe(found);
-        setServings(found.servings || 1);
-      }
-    }
-  }, [savedRecipes, id]);
 
   const handleAddToGrocery = async () => {
     if (!recipe) return;

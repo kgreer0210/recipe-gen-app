@@ -18,6 +18,7 @@ import {
 } from "@/types";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { generatorQueryPatch } from "@/lib/generator/queryParams";
 import { fetchKitchenProfile, uniqueStrings } from "@/lib/kitchenProfile";
 import {
   Loader2,
@@ -67,12 +68,180 @@ const proteins: ProteinType[] = [
   "None",
 ];
 
+function RateLimitIndicator({
+  remaining,
+  limit,
+}: {
+  remaining: number | null;
+  limit: number | null;
+  resetAt?: string;
+}) {
+  // Don't show for unlimited users (null remaining/limit)
+  if (remaining === null || limit === null) return null;
+
+  const percentage = limit > 0 ? (remaining / limit) * 100 : 0;
+  const isLow = remaining <= 2;
+
+  return (
+    <div className="flex flex-col gap-1 min-w-[160px]">
+      <div className="flex items-center justify-between gap-2">
+        <span
+          className={`text-xs font-medium ${
+            isLow ? "text-orange-600" : "text-gray-600"
+          }`}
+        >
+          {remaining} recipe{remaining !== 1 ? "s" : ""} left
+        </span>
+        <span className="text-xs text-gray-400">this week</span>
+      </div>
+      <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+        <motion.div
+          className={`h-full ${
+            isLow
+              ? "bg-linear-to-r from-orange-400 to-orange-500"
+              : "bg-linear-to-r from-blue-400 to-blue-600"
+          }`}
+          initial={{ width: `${percentage}%` }}
+          animate={{ width: `${percentage}%` }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function StepCard<T extends string>({
+  title,
+  options,
+  selected,
+  onSelect,
+  onNext,
+  onBack,
+}: {
+  title: string;
+  options: readonly T[];
+  selected: T;
+  onSelect: (val: T) => void;
+  onNext: () => void;
+  onBack?: () => void;
+}) {
+  return (
+    <div className="w-full">
+      <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
+        {title}
+      </h2>
+      <div className="grid grid-cols-2 gap-3 md:gap-4 mb-8">
+        {options.map((option) => (
+          <button
+            key={option}
+            onClick={() => onSelect(option)}
+            className={`p-4 min-h-[3.5rem] rounded-xl border-2 transition-all duration-200 flex flex-col items-center justify-center gap-2
+                            ${
+                              selected === option
+                                ? "border-blue-600 bg-blue-50 text-blue-700 shadow-md scale-105"
+                                : "border-gray-100 bg-white text-gray-600 hover:border-blue-200 hover:bg-gray-50"
+                            }`}
+          >
+            <span className="font-medium text-center w-full leading-tight break-words">{option}</span>
+            {selected === option && <Check className="w-4 h-4 shrink-0" />}
+          </button>
+        ))}
+      </div>
+      <div
+        className={`flex w-full ${onBack ? "justify-between" : "justify-end"} gap-4`}
+      >
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-full font-semibold hover:bg-gray-200 transition-all hover:scale-105 active:scale-95"
+          >
+            <ArrowLeft className="w-5 h-5" /> Back
+          </button>
+        )}
+        <button
+          onClick={onNext}
+          className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-full font-semibold shadow-lg hover:bg-blue-700 transition-all hover:scale-105 active:scale-95"
+        >
+          Next <ArrowRight className="w-5 h-5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PreferencesStep({
+  dietaryPreferences,
+  onToggle,
+  onNext,
+  onBack,
+}: {
+  dietaryPreferences: readonly string[];
+  onToggle: (pref: string) => void;
+  onNext: () => void;
+  onBack?: () => void;
+}) {
+  return (
+    <div className="w-full">
+      <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
+        Any dietary preferences?
+      </h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-8">
+        {DIETARY_PREFERENCES_LIST.map((pref) => (
+          <button
+            key={pref}
+            onClick={() => onToggle(pref)}
+            className={`p-3 rounded-xl border-2 transition-all duration-200 flex items-center justify-center gap-2 text-sm
+                            ${
+                              dietaryPreferences.includes(pref)
+                                ? "border-blue-600 bg-blue-50 text-blue-700 shadow-md"
+                                : "border-gray-100 bg-white text-gray-600 hover:border-blue-200 hover:bg-gray-50"
+                            }`}
+          >
+            {dietaryPreferences.includes(pref) && <Check className="w-3 h-3" />}
+            <span className="font-medium">{pref}</span>
+          </button>
+        ))}
+      </div>
+      <div
+        className={`flex w-full ${onBack ? "justify-between" : "justify-end"} gap-4`}
+      >
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-full font-semibold hover:bg-gray-200 transition-all hover:scale-105 active:scale-95"
+          >
+            <ArrowLeft className="w-5 h-5" /> Back
+          </button>
+        )}
+        <button
+          onClick={onNext}
+          className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-full font-semibold shadow-lg hover:bg-blue-700 transition-all hover:scale-105 active:scale-95"
+        >
+          Next <ArrowRight className="w-5 h-5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function RecipeGenerator() {
-  const [mode, setMode] = useState<"classic" | "pantry">("classic");
-  const [ingredientsInput, setIngredientsInput] = useState("");
+  const searchParams = useSearchParams();
+  const initialQueryPatch = generatorQueryPatch({
+    mode: searchParams.get("mode"),
+    ingredients: searchParams.get("ingredients"),
+    meal: searchParams.get("meal"),
+  });
+  const [mode, setMode] = useState<"classic" | "pantry">(
+    initialQueryPatch?.mode ?? "classic"
+  );
+  const [ingredientsInput, setIngredientsInput] = useState(
+    initialQueryPatch?.ingredientsInput ?? ""
+  );
   const [step, setStep] = useState(0);
   const [cuisine, setCuisine] = useState<CuisineType>("Indian");
-  const [meal, setMeal] = useState<MealType>("Breakfast");
+  const [meal, setMeal] = useState<MealType>(
+    initialQueryPatch?.meal ?? "Breakfast"
+  );
   const [protein, setProtein] = useState<ProteinType>("Chicken");
   const [proteinCut, setProteinCut] = useState<string>("Any cut");
   const [dietaryPreferences, setDietaryPreferences] = useState<string[]>([]);
@@ -112,6 +281,7 @@ export default function RecipeGenerator() {
     resetAt?: string;
     softLimited?: boolean;
   } | null>(null);
+  const [queryApplied, setQueryApplied] = useState(initialQueryPatch !== null);
 
   // Check if current protein has cuts available
   const hasCuts = protein in proteinCuts;
@@ -123,11 +293,9 @@ export default function RecipeGenerator() {
   const resultStepIndex = mode === "classic" ? (hasCuts ? 6 : 5) : 3;
 
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { user, subscription } = useAuth();
   const { pantryItems } = usePantryRealtime();
   const profileDietaryRef = useRef<string[]>([]);
-  const appliedQueryRef = useRef(false);
   const { mutateAsync: saveRecipe } = useSaveRecipe();
   const { recipes: savedRecipes = [] } = useRecipesRealtime();
   const { mutateAsync: addToGroceryList } = useAddToGroceryList();
@@ -160,28 +328,23 @@ export default function RecipeGenerator() {
     });
   }, []);
 
-  useEffect(() => {
-    if (appliedQueryRef.current) return;
-    const modeParam = searchParams.get("mode");
-    const ingredientsParam = searchParams.get("ingredients");
-    const mealParam = searchParams.get("meal");
-    if (!modeParam && !ingredientsParam && !mealParam) return;
-    appliedQueryRef.current = true;
-    if (modeParam === "pantry" || ingredientsParam) {
-      setMode("pantry");
+  // Search params can show up after the first render (Suspense). Apply them
+  // once, during render, the same way the previous effect did.
+  if (!queryApplied) {
+    const patch = generatorQueryPatch({
+      mode: searchParams.get("mode"),
+      ingredients: searchParams.get("ingredients"),
+      meal: searchParams.get("meal"),
+    });
+    if (patch) {
+      setQueryApplied(true);
+      if (patch.mode) setMode(patch.mode);
+      if (patch.ingredientsInput !== undefined) {
+        setIngredientsInput(patch.ingredientsInput);
+      }
+      if (patch.meal) setMeal(patch.meal);
     }
-    if (ingredientsParam) {
-      setIngredientsInput(ingredientsParam);
-    }
-    if (
-      mealParam === "Breakfast" ||
-      mealParam === "Lunch" ||
-      mealParam === "Dinner" ||
-      mealParam === "Snack"
-    ) {
-      setMeal(mealParam);
-    }
-  }, [searchParams]);
+  }
 
   const refreshRateLimit = async () => {
     try {
@@ -518,48 +681,6 @@ export default function RecipeGenerator() {
     );
   };
 
-  const RateLimitIndicator = ({
-    remaining,
-    limit,
-  }: {
-    remaining: number | null;
-    limit: number | null;
-    resetAt?: string;
-  }) => {
-    // Don't show for unlimited users (null remaining/limit)
-    if (remaining === null || limit === null) return null;
-
-    const percentage = limit > 0 ? (remaining / limit) * 100 : 0;
-    const isLow = remaining <= 2;
-
-    return (
-      <div className="flex flex-col gap-1 min-w-[160px]">
-        <div className="flex items-center justify-between gap-2">
-          <span
-            className={`text-xs font-medium ${
-              isLow ? "text-orange-600" : "text-gray-600"
-            }`}
-          >
-            {remaining} recipe{remaining !== 1 ? "s" : ""} left
-          </span>
-          <span className="text-xs text-gray-400">this week</span>
-        </div>
-        <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-          <motion.div
-            className={`h-full ${
-              isLow
-                ? "bg-linear-to-r from-orange-400 to-orange-500"
-                : "bg-linear-to-r from-blue-400 to-blue-600"
-            }`}
-            initial={{ width: `${percentage}%` }}
-            animate={{ width: `${percentage}%` }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-          />
-        </div>
-      </div>
-    );
-  };
-
   const variants = {
     enter: (direction: number) => ({
       x: direction > 0 ? 1000 : -1000,
@@ -576,112 +697,6 @@ export default function RecipeGenerator() {
       opacity: 0,
     }),
   };
-
-  const StepCard = <T extends string>({
-    title,
-    options,
-    selected,
-    onSelect,
-    onNext,
-    onBack,
-  }: {
-    title: string;
-    options: readonly T[];
-    selected: T;
-    onSelect: (val: T) => void;
-    onNext: () => void;
-    onBack?: () => void;
-  }) => (
-    <div className="w-full">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
-        {title}
-      </h2>
-      <div className="grid grid-cols-2 gap-3 md:gap-4 mb-8">
-        {options.map((option) => (
-          <button
-            key={option}
-            onClick={() => onSelect(option)}
-            className={`p-4 min-h-[3.5rem] rounded-xl border-2 transition-all duration-200 flex flex-col items-center justify-center gap-2
-                            ${
-                              selected === option
-                                ? "border-blue-600 bg-blue-50 text-blue-700 shadow-md scale-105"
-                                : "border-gray-100 bg-white text-gray-600 hover:border-blue-200 hover:bg-gray-50"
-                            }`}
-          >
-            <span className="font-medium text-center w-full leading-tight break-words">{option}</span>
-            {selected === option && <Check className="w-4 h-4 shrink-0" />}
-          </button>
-        ))}
-      </div>
-      <div
-        className={`flex w-full ${onBack ? "justify-between" : "justify-end"} gap-4`}
-      >
-        {onBack && (
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-full font-semibold hover:bg-gray-200 transition-all hover:scale-105 active:scale-95"
-          >
-            <ArrowLeft className="w-5 h-5" /> Back
-          </button>
-        )}
-        <button
-          onClick={onNext}
-          className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-full font-semibold shadow-lg hover:bg-blue-700 transition-all hover:scale-105 active:scale-95"
-        >
-          Next <ArrowRight className="w-5 h-5" />
-        </button>
-      </div>
-    </div>
-  );
-
-  const PreferencesStep = ({
-    onNext,
-    onBack,
-  }: {
-    onNext: () => void;
-    onBack?: () => void;
-  }) => (
-    <div className="w-full">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
-        Any dietary preferences?
-      </h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-8">
-        {DIETARY_PREFERENCES_LIST.map((pref) => (
-          <button
-            key={pref}
-            onClick={() => togglePreference(pref)}
-            className={`p-3 rounded-xl border-2 transition-all duration-200 flex items-center justify-center gap-2 text-sm
-                            ${
-                              dietaryPreferences.includes(pref)
-                                ? "border-blue-600 bg-blue-50 text-blue-700 shadow-md"
-                                : "border-gray-100 bg-white text-gray-600 hover:border-blue-200 hover:bg-gray-50"
-                            }`}
-          >
-            {dietaryPreferences.includes(pref) && <Check className="w-3 h-3" />}
-            <span className="font-medium">{pref}</span>
-          </button>
-        ))}
-      </div>
-      <div
-        className={`flex w-full ${onBack ? "justify-between" : "justify-end"} gap-4`}
-      >
-        {onBack && (
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-full font-semibold hover:bg-gray-200 transition-all hover:scale-105 active:scale-95"
-          >
-            <ArrowLeft className="w-5 h-5" /> Back
-          </button>
-        )}
-        <button
-          onClick={onNext}
-          className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-full font-semibold shadow-lg hover:bg-blue-700 transition-all hover:scale-105 active:scale-95"
-        >
-          Next <ArrowRight className="w-5 h-5" />
-        </button>
-      </div>
-    </div>
-  );
 
   if (checkingLimit) {
     return (
@@ -881,7 +896,12 @@ export default function RecipeGenerator() {
               }}
               className="px-4 md:px-8 py-4"
             >
-              <PreferencesStep onNext={nextStep} onBack={goToPreviousStep} />
+              <PreferencesStep
+                dietaryPreferences={dietaryPreferences}
+                onToggle={togglePreference}
+                onNext={nextStep}
+                onBack={goToPreviousStep}
+              />
             </motion.div>
           )}
 
@@ -975,7 +995,12 @@ export default function RecipeGenerator() {
               }}
               className="px-4 md:px-8 py-4"
             >
-              <PreferencesStep onNext={nextStep} onBack={goToPreviousStep} />
+              <PreferencesStep
+                dietaryPreferences={dietaryPreferences}
+                onToggle={togglePreference}
+                onNext={nextStep}
+                onBack={goToPreviousStep}
+              />
             </motion.div>
           )}
 
