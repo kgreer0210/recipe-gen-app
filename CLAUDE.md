@@ -99,3 +99,17 @@ OPENROUTER_FALLBACK_MODEL (default: free tier model)
 - React Compiler enabled (Babel plugin)
 - CORS headers configured in `next.config.ts` for mobile app support
 - Ingredient processing: normalize → fetch profiles → canonicalize → format
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in the Notion Tasks database, filtered to the Mise AI project, via the Notion MCP. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five roles, stored as a `Triage:` line in each task's Notes (Notion has no labels). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context. See `docs/agents/domain.md`.
