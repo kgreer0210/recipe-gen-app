@@ -1,3 +1,7 @@
+# Version updates are paused (open-pull-requests-limit: 0 on every entry).
+# Routine bumps are handled by a weekly combined dependency PR instead, so
+# Dependabot no longer competes with it. Security updates are unaffected by
+# this limit and still open PRs when Dependabot security updates are enabled.
 # Dependabot only reads this file from the default branch (main), so it takes
 # effect once this lands on main. PRs target main.
 version: 2
@@ -9,7 +13,7 @@ updates:
       day: 'monday'
       time: '08:00'
       timezone: 'America/New_York'
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 0
     labels:
       - 'dependencies'
       - 'automated'
@@ -32,6 +36,7 @@ updates:
   # Keeps the action versions in .github/workflows current.
   - package-ecosystem: 'github-actions'
     directory: '/'
+    open-pull-requests-limit: 0
     schedule:
       interval: 'monthly'
       timezone: 'America/New_York'
