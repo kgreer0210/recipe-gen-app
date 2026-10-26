@@ -48,8 +48,9 @@ async function callModelOnce<T>(
     },
   });
 
-  // stream is false above, so an EventStream response is unexpected; this
-  // check also narrows the SDK's ChatResult | EventStream union.
+  // @openrouter/sdk 1.5.x types stream:false as ChatResult (choices, usage
+  // token counts). The runtime matcher still accepts an SSE body, which has
+  // no choices array, so reject that shape instead of reading it as JSON.
   if (!("choices" in result)) {
     throw new Error("Unexpected streaming response from model");
   }
