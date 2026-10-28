@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   dayDate,
   dayIsPast,
+  defaultPickDay,
   findDinnerConflicts,
   hasBusyWeekAccess,
   suggestDay,
   validateBusyWeekRequest,
+  weekHasOpenDay,
 } from "@/lib/busyWeek";
 import { getWeekStart, getZonedYmd } from "@/lib/week";
 import type { WeeklyPlanSlot } from "@/types";
@@ -160,6 +162,36 @@ describe("suggestDay", () => {
 
   it("returns null when every day is already used", () => {
     expect(suggestDay("2026-10-26", "2026-10-28", new Set([0, 1, 2, 3, 4, 5, 6]))).toBeNull();
+  });
+});
+
+describe("defaultPickDay", () => {
+  it("starts a current week at today, never at a past Monday or Tuesday", () => {
+    // Wednesday 10-28 in the week of 10-26: Monday and Tuesday are past.
+    expect(defaultPickDay("2026-10-26", "2026-10-28", new Set())).toBe(2);
+  });
+
+  it("moves past today when today's dinner is already taken", () => {
+    expect(defaultPickDay("2026-10-26", "2026-10-28", new Set([2]))).toBe(3);
+  });
+
+  it("starts a future week on Monday, which is still open", () => {
+    // The shown week starts 11-02 and today is 10-28, so every day is ahead of us.
+    expect(defaultPickDay("2026-11-02", "2026-10-28", new Set())).toBe(0);
+  });
+
+  it("never defaults to a past day in a week that has already passed", () => {
+    expect(defaultPickDay("2026-10-19", "2026-10-28", new Set())).toBeNull();
+  });
+});
+
+describe("weekHasOpenDay", () => {
+  it("is true for the current week, even late in it", () => {
+    expect(weekHasOpenDay("2026-10-26", "2026-11-01")).toBe(true);
+  });
+
+  it("is false once every day of the week is behind us", () => {
+    expect(weekHasOpenDay("2026-10-19", "2026-10-28")).toBe(false);
   });
 });
 

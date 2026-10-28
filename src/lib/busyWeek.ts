@@ -176,6 +176,32 @@ export function dayDate(weekStart: string, dayOfWeek: number): string {
   return addDaysToYmd(weekStart, dayOfWeek);
 }
 
+/** Every day of the shown week that is behind today. */
+function pastDays(weekStart: string, todayYmd: string): Set<number> {
+  const past = new Set<number>();
+  for (let day = 0; day < 7; day += 1) {
+    if (dayIsPast(weekStart, day, todayYmd)) past.add(day);
+  }
+  return past;
+}
+
+/** True when at least one day of the shown week can still take a dinner. */
+export function weekHasOpenDay(weekStart: string, todayYmd: string): boolean {
+  return pastDays(weekStart, todayYmd).size < 7;
+}
+
+/**
+ * Default day for a new pick: the first open day from today, never a past day.
+ * Null when nothing is open (a week that has passed, or every day is taken).
+ */
+export function defaultPickDay(
+  weekStart: string,
+  todayYmd: string,
+  unavailable: Set<number>
+): number | null {
+  return suggestDay(weekStart, todayYmd, new Set([...unavailable, ...pastDays(weekStart, todayYmd)]));
+}
+
 /**
  * Default day for a new pick: the first free day from today's weekday onward,
  * then the first free day from Monday. Null when every day is taken.

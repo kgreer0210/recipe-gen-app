@@ -269,9 +269,10 @@ export default function WeeklyMeals() {
     useBuildGroceryFromWeek();
   const { mutateAsync: upsertPantry } = useUpsertPantryItem();
   const [timezone, setTimezone] = useState("UTC");
-  const [weekStart, setWeekStart] = useState(() =>
-    getWeekStart(new Date(), "UTC")
-  );
+  // Only the week the user navigated to is stored. The default week is derived from
+  // the timezone, so loading the timezone never overwrites a week the user picked.
+  const [weekOverride, setWeekOverride] = useState<string | null>(null);
+  const weekStart = weekOverride ?? getWeekStart(new Date(), timezone);
   const [picker, setPicker] = useState<PickerState | null>(null);
   const [leftoversSlot, setLeftoversSlot] = useState<WeeklyPlanSlot | null>(
     null
@@ -279,10 +280,7 @@ export default function WeeklyMeals() {
   const [groceryBuildVersion, setGroceryBuildVersion] = useState(0);
 
   useEffect(() => {
-    void fetchUserTimezone().then((tz) => {
-      setTimezone(tz);
-      setWeekStart(getWeekStart(new Date(), tz));
-    });
+    void fetchUserTimezone().then(setTimezone);
   }, []);
 
   const weekSlots = useMemo(
@@ -467,9 +465,7 @@ export default function WeeklyMeals() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() =>
-                setWeekStart((current) => shiftWeekStart(current, -1))
-              }
+              onClick={() => setWeekOverride(shiftWeekStart(weekStart, -1))}
               className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50"
               aria-label="Previous week"
             >
@@ -481,9 +477,7 @@ export default function WeeklyMeals() {
               </p>
               <button
                 type="button"
-                onClick={() =>
-                  setWeekStart(getWeekStart(new Date(), timezone))
-                }
+                onClick={() => setWeekOverride(null)}
                 className="text-xs text-blue-600 hover:underline"
               >
                 This week
@@ -491,9 +485,7 @@ export default function WeeklyMeals() {
             </div>
             <button
               type="button"
-              onClick={() =>
-                setWeekStart((current) => shiftWeekStart(current, 1))
-              }
+              onClick={() => setWeekOverride(shiftWeekStart(weekStart, 1))}
               className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50"
               aria-label="Next week"
             >
@@ -533,7 +525,9 @@ export default function WeeklyMeals() {
           </Link>
         )}
         {busyWeekOpen && busyWeekAllowed && (
+          // Keyed by week: the sheet's day defaults belong to the week it opened on.
           <BusyWeekSheet
+            key={weekStart}
             weekStart={weekStart}
             timezone={timezone}
             onClose={() => setBusyWeekOpen(false)}

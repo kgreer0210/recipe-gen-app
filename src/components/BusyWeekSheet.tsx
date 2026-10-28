@@ -9,8 +9,9 @@ import { useWeeklyPlanStore } from "@/lib/stores/weeklyPlanStore";
 import {
   BUSY_WEEK_MAX_PICKS,
   dayIsPast,
+  defaultPickDay,
   findDinnerConflicts,
-  suggestDay,
+  weekHasOpenDay,
 } from "@/lib/busyWeek";
 import { formatWeekRange, getZonedYmd } from "@/lib/week";
 import {
@@ -53,6 +54,8 @@ export default function BusyWeekSheet({
     () => slots.filter((slot) => slot.weekStart === weekStart),
     [slots, weekStart]
   );
+  // A week that has fully passed has nothing to plan. Its days are never offered.
+  const weekOpen = weekHasOpenDay(weekStart, today);
 
   // Confirmed replacements by day, so a retry keeps the same replacement.
   const replaceByDay = useRef(new Map<number, string>());
@@ -61,7 +64,7 @@ export default function BusyWeekSheet({
       id: 1,
       cuisine: CUISINE_TYPES[0],
       mealStyle: "Any",
-      dayOfWeek: firstOpenDay(weekStart, today, new Set()) ?? 0,
+      dayOfWeek: defaultPickDay(weekStart, today, new Set()) ?? 0,
       replaceConfirmed: false,
     },
   ]);
@@ -112,11 +115,7 @@ export default function BusyWeekSheet({
 
   const addDraft = () => {
     if (drafts.length >= BUSY_WEEK_MAX_PICKS) return;
-    const unavailable = usedDays();
-    for (let day = 0; day < 7; day += 1) {
-      if (dayIsPast(weekStart, day, today)) unavailable.add(day);
-    }
-    const day = suggestDay(weekStart, today, unavailable);
+    const day = defaultPickDay(weekStart, today, usedDays());
     if (day === null) return;
     const id = Math.max(0, ...drafts.map((draft) => draft.id)) + 1;
     setDrafts((current) => [
@@ -137,6 +136,7 @@ export default function BusyWeekSheet({
   const replaceCount = conflicts.filter(Boolean).length;
   const enoughLeft = remaining.value === null || count <= remaining.value;
   const canGenerate =
+    weekOpen &&
     phase === "idle" &&
     count > 0 &&
     allDaysOpen &&
@@ -208,7 +208,13 @@ export default function BusyWeekSheet({
         </button>
       </div>
 
-      {!showSummary && (
+      {!weekOpen && (
+        <p className="mt-5 rounded-xl border border-[var(--market-line)] bg-[var(--market-surface-muted)] p-3 text-sm text-[var(--market-copy)]">
+          This week has already passed. Pick the current week or a later one to plan busy week dinners.
+        </p>
+      )}
+
+      {!showSummary && weekOpen && (
         <div className="mt-5 flex max-h-[min(60dvh,28rem)] flex-col gap-4 overflow-y-auto overscroll-contain pr-1">
           {drafts.map((draft, index) => {
             const conflict = conflicts[index];
@@ -409,7 +415,7 @@ export default function BusyWeekSheet({
       )}
 
       <div className="mt-5 flex flex-col gap-3">
-        {!showSummary && (
+        {!showSummary && weekOpen && (
           <>
             <div className="rounded-xl border border-[#c6d69e] bg-[#edf3dc] p-2.5 text-xs text-[var(--market-copy)]">
               {!remaining.loaded
@@ -487,12 +493,4 @@ function StatusBadge({ result }: { result: BusyWeekResult }) {
     default:
       return <span className={`${base} bg-[#f7ded3] text-[#bb4e37]`}>Making…</span>;
   }
-}
-
-function firstOpenDay(weekStart: string, today: string, unavailable: Set<number>): number | null {
-  const open = new Set(unavailable);
-  for (let day = 0; day < 7; day += 1) {
-    if (dayIsPast(weekStart, day, today)) open.add(day);
-  }
-  return suggestDay(weekStart, today, open);
 }

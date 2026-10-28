@@ -1,5 +1,6 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page, type Route } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
+import { formatWeekRange, getWeekStart, shiftWeekStart } from "../../src/lib/week";
 
 // Chromium only (no WebKit project). The Safari check is manual, on the Vercel preview.
 // The AI and the busy-week API are stubbed in the browser (spec Q7 option a). The
@@ -16,6 +17,17 @@ const freeEmail = `mise-busy-free-${runId}@example.com`;
 const generatorEmail = `mise-busy-gen-${runId}@example.com`;
 const existingTitle = `Busy Week Existing ${runId}`;
 
+/**
+ * "Now" for every busy-week journey. A fixed Wednesday, so the current week always
+ * has two past days and the next week is always entirely ahead. The real calendar
+ * never changes what these tests see.
+ */
+const FIXED_NOW = new Date("2026-10-28T15:00:00.000Z");
+const CURRENT_WEEK = getWeekStart(FIXED_NOW, "UTC");
+const NEXT_WEEK = shiftWeekStart(CURRENT_WEEK, 1);
+const NEXT_WEEK_LABEL = formatWeekRange(NEXT_WEEK);
+const CURRENT_WEEK_LABEL = formatWeekRange(CURRENT_WEEK);
+
 const admin = hasEnv
   ? createClient(supabaseUrl!, serviceRoleKey!, {
       auth: { autoRefreshToken: false, persistSession: false },
@@ -24,17 +36,20 @@ const admin = hasEnv
 const userIds: string[] = [];
 let paidId = "";
 
-/** The UTC weekday index (Monday = 0) of today. */
-function todayIndex(): number {
-  return (new Date().getUTCDay() + 6) % 7;
-}
-
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 /** The day that already has a dinner next week (the replace case), and two other free days. */
 const CONFLICT_DAY = 0;
 const SECOND_DAY = 4;
 const THIRD_DAY = 6;
+/** A free day next week for the single-dinner journeys, so no replacement is needed. */
+const FREE_DAY = 2;
+
+type BusyWeekPostBody = {
+  batchId: string;
+  weekStart: string;
+  picks: Array<{ cuisine: string; mealStyle?: string; dayOfWeek: number; replaceSlotId?: string }>;
+};
 
 async function signIn(page: Page, email: string) {
   await page.goto("/login");
@@ -42,6 +57,13 @@ async function signIn(page: Page, email: string) {
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/generator$/);
+}
+
+/** Opens the Weekly Plan at the fixed "now". The clock is set before the page loads. */
+async function openWeeklyPlan(page: Page, email: string) {
+  await page.clock.setFixedTime(FIXED_NOW);
+  await signIn(page, email);
+  await page.goto("/weekly-plan");
 }
 
 async function stubRateLimit(page: Page, remaining: number) {
@@ -59,62 +81,76 @@ async function stubRateLimit(page: Page, remaining: number) {
   );
 }
 
+/** The busy-week response the server would give for these picks, with one placed dinner per pick. */
+function busyWeekResponse(body: BusyWeekPostBody, title: string, idPrefix: string) {
+  const results = body.picks.map((pick, index) => {
+    const recipe = {
+      id: `${idPrefix}-${runId}-${index}`,
+      title: `${title} ${index + 1} ${runId}`,
+      description: "Stubbed for the browser journey.",
+      ingredients: [],
+      instructions: ["Cook."],
+      tags: { cuisine: pick.cuisine, meal: "Dinner", protein: "Chicken" },
+      prepTime: "10 minutes",
+      cookTime: "20 minutes",
+      servings: 2,
+    };
+    return {
+      index,
+      cuisine: pick.cuisine,
+      mealStyle: pick.mealStyle ?? "Any",
+      dayOfWeek: pick.dayOfWeek,
+      status: pick.replaceSlotId ? "replaced" : "placed",
+      recipe,
+      planSlot: {
+        id: `${idPrefix}-slot-${runId}-${index}`,
+        recipeId: recipe.id,
+        weekStart: body.weekStart,
+        dayOfWeek: pick.dayOfWeek,
+        mealSlot: "dinner",
+        servingsOverride: 2,
+        cookedAt: null,
+        createdAt: new Date().toISOString(),
+      },
+    };
+  });
+  return {
+    batchId: body.batchId,
+    status: "completed",
+    usage: { reserved: results.length, refunded: 0, remaining: 34 },
+    results,
+  };
+}
+
+async function fulfillJson(route: Route, body: unknown) {
+  await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+}
+
 /** Stub the busy-week POST: one result per pick, placed (or replaced when a replacement was confirmed). */
 async function stubBusyWeek(page: Page) {
   const posted: Array<Record<string, unknown>> = [];
   await page.route("**/api/busy-week", async (route) => {
-    const body = route.request().postDataJSON() as {
-      batchId: string;
-      weekStart: string;
-      picks: Array<{ cuisine: string; mealStyle?: string; dayOfWeek: number; replaceSlotId?: string }>;
-    };
+    const body = route.request().postDataJSON() as BusyWeekPostBody;
     posted.push(body as unknown as Record<string, unknown>);
-    const results = body.picks.map((pick, index) => {
-      const recipe = {
-        id: `busy-${runId}-${index}`,
-        title: `Busy Dinner ${index + 1} ${runId}`,
-        description: "Stubbed for the browser journey.",
-        ingredients: [],
-        instructions: ["Cook."],
-        tags: { cuisine: pick.cuisine, meal: "Dinner", protein: "Chicken" },
-        prepTime: "10 minutes",
-        cookTime: "20 minutes",
-        servings: 2,
-      };
-      return {
-        index,
-        cuisine: pick.cuisine,
-        mealStyle: pick.mealStyle ?? "Any",
-        dayOfWeek: pick.dayOfWeek,
-        status: pick.replaceSlotId ? "replaced" : "placed",
-        recipe,
-        planSlot: {
-          id: `busy-slot-${runId}-${index}`,
-          recipeId: recipe.id,
-          weekStart: body.weekStart,
-          dayOfWeek: pick.dayOfWeek,
-          mealSlot: "dinner",
-          servingsOverride: 2,
-          cookedAt: null,
-          createdAt: new Date().toISOString(),
-        },
-      };
-    });
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        batchId: body.batchId,
-        status: "completed",
-        usage: { reserved: results.length, refunded: 0, remaining: 34 },
-        results,
-      }),
-    });
+    await fulfillJson(route, busyWeekResponse(body, "Busy Dinner", "busy"));
   });
   await page.route("**/api/busy-week/**", (route) =>
     route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: "Batch not found" }) })
   );
   return posted;
+}
+
+/** Pick a day for dinner N, by its chip. Chips for past days are disabled, so this also checks they are reachable. */
+async function pickDay(page: Page, dinner: number, dayIndex: number) {
+  await page
+    .getByRole("radiogroup", { name: `Day for dinner ${dinner}` })
+    .getByRole("radio", { name: new RegExp(`^${DAY_NAMES[dayIndex]}`) })
+    .click();
+}
+
+/** Lets React apply a response that just arrived, so a stale write would be visible. */
+async function flushReact(page: Page) {
+  await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 300)));
 }
 
 async function expectButtonIsTopmost(page: Page, name: RegExp) {
@@ -157,7 +193,7 @@ test.describe("Busy week and meal style", () => {
     );
     if (subscription.error) throw subscription.error;
 
-    // A dinner that is already on the plan for today, so the journey hits the replace warning.
+    // A dinner that is already on the plan next week, so the journey hits the replace warning.
     const recipe = await admin
       .from("recipes")
       .insert({
@@ -176,14 +212,10 @@ test.describe("Busy week and meal style", () => {
       .single();
     if (recipe.error) throw recipe.error;
 
-    // Next week has no past days, so the journey never depends on the weekday it runs on.
-    const weekStartDate = new Date();
-    weekStartDate.setUTCDate(weekStartDate.getUTCDate() - todayIndex() + 7);
-    const weekStart = weekStartDate.toISOString().slice(0, 10);
     const slot = await admin.from("weekly_plan").insert({
       user_id: paidId,
       recipe_id: recipe.data!.id,
-      week_start: weekStart,
+      week_start: NEXT_WEEK,
       day_of_week: CONFLICT_DAY,
       meal_slot: "dinner",
       servings_override: 2,
@@ -204,32 +236,31 @@ test.describe("Busy week and meal style", () => {
   test("a paid cook plans three dinners, confirms a replacement, and sees them in the plan", async ({ page }) => {
     await stubRateLimit(page, 37);
     const posted = await stubBusyWeek(page);
-    await signIn(page, paidEmail);
-    await page.goto("/weekly-plan");
+    await openWeeklyPlan(page, paidEmail);
 
     // Plan next week, the one with the seeded dinner.
     await page.getByRole("button", { name: "Next week" }).click();
+    await expect(page.getByText(NEXT_WEEK_LABEL)).toBeVisible();
     await page.getByRole("button", { name: /^Busy week/ }).click();
     await expect(page.getByRole("heading", { name: "Busy week" })).toBeVisible();
 
     // Pick 1: the day that already has a dinner, Thai, Taco.
-    const conflictName = DAY_NAMES[CONFLICT_DAY];
-    await page.getByRole("radiogroup", { name: "Day for dinner 1" }).getByRole("radio", { name: new RegExp(`^${conflictName}`) }).click();
+    await pickDay(page, 1, CONFLICT_DAY);
     await page.getByLabel("Cuisine").first().selectOption("Thai");
     await page.getByRole("radiogroup", { name: "Meal style for dinner 1" }).getByRole("radio", { name: "Taco" }).click();
 
     await expect(page.getByText(existingTitle).first()).toBeVisible();
-    await page.getByLabel(new RegExp(`Replace ${conflictName}`)).check();
+    await page.getByLabel(new RegExp(`Replace ${DAY_NAMES[CONFLICT_DAY]}`)).check();
 
     // Pick 2: a repeat cuisine on another day.
     await page.getByRole("button", { name: /Add another/ }).click();
     await page.getByLabel("Cuisine").nth(1).selectOption("Thai");
-    await page.getByRole("radiogroup", { name: "Day for dinner 2" }).getByRole("radio", { name: new RegExp(`^${DAY_NAMES[SECOND_DAY]}`) }).click();
+    await pickDay(page, 2, SECOND_DAY);
 
     // Pick 3, with no conflict.
     await page.getByRole("button", { name: /Add another/ }).click();
     await page.getByLabel("Cuisine").nth(2).selectOption("Mexican");
-    await page.getByRole("radiogroup", { name: "Day for dinner 3" }).getByRole("radio", { name: new RegExp(`^${DAY_NAMES[THIRD_DAY]}`) }).click();
+    await pickDay(page, 3, THIRD_DAY);
 
     await expect(page.getByText("This will use 3 of your 37 remaining recipes this week.")).toBeVisible();
     await page.getByRole("button", { name: /Generate 3 dinners/ }).click();
@@ -244,6 +275,45 @@ test.describe("Busy week and meal style", () => {
     await page.getByRole("button", { name: "Done" }).click();
     await expect(page.getByText(`Busy Dinner 1 ${runId}`)).toBeVisible();
     await expect(page.getByText(existingTitle)).toHaveCount(0);
+  });
+
+  test("the week you navigated to stays on screen while the timezone is still loading", async ({ page }) => {
+    await stubRateLimit(page, 37);
+    // Hold the settings GET (it supplies the user's timezone) until the test has clicked "Next week".
+    let releaseSettings!: () => void;
+    const settingsHeld = new Promise<void>((resolve) => {
+      releaseSettings = resolve;
+    });
+    await page.route("**/api/user/settings", async (route) => {
+      if (route.request().method() === "GET") await settingsHeld;
+      await route.continue();
+    });
+
+    await page.clock.setFixedTime(FIXED_NOW);
+    await signIn(page, paidEmail);
+    await page.goto("/weekly-plan");
+    await page.getByRole("button", { name: "Next week" }).click();
+    await expect(page.getByText(NEXT_WEEK_LABEL)).toBeVisible();
+
+    const settled = page.waitForResponse((response) => response.url().includes("/api/user/settings"));
+    releaseSettings();
+    await settled;
+    await flushReact(page);
+
+    await expect(page.getByText(NEXT_WEEK_LABEL)).toBeVisible();
+    await expect(page.getByText(CURRENT_WEEK_LABEL)).toHaveCount(0);
+  });
+
+  test("days behind today in the current week are disabled and never preselected", async ({ page }) => {
+    await stubRateLimit(page, 37);
+    await openWeeklyPlan(page, paidEmail);
+
+    await page.getByRole("button", { name: /^Busy week/ }).click();
+    const days = page.getByRole("radiogroup", { name: "Day for dinner 1" });
+    await expect(days.getByRole("radio", { name: /^Monday/ })).toBeDisabled();
+    await expect(days.getByRole("radio", { name: /^Tuesday/ })).toBeDisabled();
+    await expect(days.getByRole("radio", { name: /^Wednesday/ })).toHaveAttribute("aria-checked", "true");
+    await expect(days.getByRole("radio", { name: /^Wednesday/ })).toBeEnabled();
   });
 
   test("a free cook sees Busy week locked, with a link to plans", async ({ page }) => {
@@ -261,12 +331,83 @@ test.describe("Busy week and meal style", () => {
     await page.setViewportSize({ width: 390, height: 667 });
     await stubRateLimit(page, 37);
     await stubBusyWeek(page);
-    await signIn(page, paidEmail);
-    await page.goto("/weekly-plan");
+    await openWeeklyPlan(page, paidEmail);
 
     await page.getByRole("button", { name: "Next week" }).click();
     await page.getByRole("button", { name: /^Busy week/ }).click();
+    await pickDay(page, 1, FREE_DAY);
     await expectButtonIsTopmost(page, /Generate 1 dinner/);
+  });
+
+  test("a batch whose request never reached the server gives up with a retry that uses a new batch id", async ({ page }) => {
+    test.setTimeout(90_000);
+    await stubRateLimit(page, 37);
+    const posted: string[] = [];
+    await page.route("**/api/busy-week", async (route) => {
+      const body = route.request().postDataJSON() as BusyWeekPostBody;
+      posted.push(body.batchId);
+      // The first request never arrives. The retry gets through.
+      if (posted.length === 1) return route.abort("failed");
+      await fulfillJson(route, busyWeekResponse(body, "Retry Dinner", "retry"));
+    });
+    await page.route("**/api/busy-week/**", (route) =>
+      route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: "Batch not found" }) })
+    );
+    await openWeeklyPlan(page, paidEmail);
+
+    await page.getByRole("button", { name: "Next week" }).click();
+    await page.getByRole("button", { name: /^Busy week/ }).click();
+    await pickDay(page, 1, FREE_DAY);
+    await page.getByRole("button", { name: /Generate 1 dinner/ }).click();
+
+    // The server has never heard of the batch, so the sheet stops waiting and says so.
+    await expect(page.getByRole("alert")).toContainText("didn't start", { timeout: 60_000 });
+    await expect(page.getByRole("button", { name: /Generate 1 dinner/ })).toBeEnabled();
+
+    await page.getByRole("button", { name: /Generate 1 dinner/ }).click();
+    await expect(page.getByText("All 1 dinners are in your plan.")).toBeVisible();
+    expect(posted).toHaveLength(2);
+    expect(posted[1]).not.toBe(posted[0]);
+  });
+
+  test("a delayed response from an earlier attempt does not replace the one the user retried", async ({ page }) => {
+    test.setTimeout(90_000);
+    await stubRateLimit(page, 37);
+    const posted: string[] = [];
+    let releaseFirst!: () => void;
+    const firstHeld = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    await page.route("**/api/busy-week", async (route) => {
+      const body = route.request().postDataJSON() as BusyWeekPostBody;
+      posted.push(body.batchId);
+      if (posted.length === 1) {
+        // The first attempt stays open until the user has already retried.
+        await firstHeld;
+        return fulfillJson(route, busyWeekResponse(body, "Stale Dinner", "stale"));
+      }
+      await fulfillJson(route, busyWeekResponse(body, "Busy Dinner", "fresh"));
+    });
+    await page.route("**/api/busy-week/**", (route) =>
+      route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: "Batch not found" }) })
+    );
+    await openWeeklyPlan(page, paidEmail);
+
+    await page.getByRole("button", { name: "Next week" }).click();
+    await page.getByRole("button", { name: /^Busy week/ }).click();
+    await pickDay(page, 1, FREE_DAY);
+    await page.getByRole("button", { name: /Generate 1 dinner/ }).click();
+
+    await expect(page.getByRole("alert")).toContainText("didn't start", { timeout: 60_000 });
+    await page.getByRole("button", { name: /Generate 1 dinner/ }).click();
+    await expect(page.getByText(`Busy Dinner 1 ${runId}`)).toBeVisible();
+
+    releaseFirst();
+    await flushReact(page);
+
+    await expect(page.getByText(`Stale Dinner 1 ${runId}`)).toHaveCount(0);
+    await expect(page.getByText(`Busy Dinner 1 ${runId}`)).toBeVisible();
+    expect(posted).toHaveLength(2);
   });
 
   test("the generator offers Meal style, shows it on review, and sends it", async ({ page }) => {
