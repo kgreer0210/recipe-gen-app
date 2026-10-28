@@ -33,6 +33,16 @@ type Reserve = {
   window_start?: string | null;
 };
 
+/** Plus allows 2 generations a minute; these tests check the weekly limit, so they clear the burst buckets. */
+async function clearBurstCounters(userId: string) {
+  const { error } = await admin
+    .from("user_usage_counters")
+    .delete()
+    .eq("user_id", userId)
+    .in("scope", ["minute_generate", "hour_generate"]);
+  if (error) throw error;
+}
+
 async function reserve(userId: string, count: number): Promise<Reserve> {
   const { data, error } = await admin.rpc("reserve_usage", {
     p_user_id: userId,
@@ -120,8 +130,15 @@ describe.skipIf(!hasEnv)("Busy week usage RPCs and generation_batches", () => {
   });
 
   it("does not partially reserve when the batch does not fit", async () => {
-    // Plus allows 100 a week. Reserve 98, then ask for 3 more: rejected, still 98.
-    expect(await reserve(plusId, 98)).toMatchObject({ allowed: true });
+    // Plus allows 100 a week. Seed 98 used (a batch is at most 7), then ask for 3 more: rejected, still 98.
+    expect(await reserve(plusId, 1)).toMatchObject({ allowed: true });
+    const { error: seedError } = await admin
+      .from("user_usage_counters")
+      .update({ count: 98 })
+      .eq("user_id", plusId)
+      .eq("scope", "week_generate");
+    if (seedError) throw seedError;
+    await clearBurstCounters(plusId);
     expect(await reserve(plusId, 3)).toMatchObject({
       allowed: false,
       reason: "insufficient_remaining",
@@ -131,11 +148,13 @@ describe.skipIf(!hasEnv)("Busy week usage RPCs and generation_batches", () => {
   });
 
   it("reserves exactly what is left", async () => {
+    await clearBurstCounters(plusId);
     expect(await reserve(plusId, 2)).toMatchObject({ allowed: true, remaining: 0 });
     expect(await weekCount(plusId)).toBe(100);
   });
 
   it("releases back down and never below zero", async () => {
+    await clearBurstCounters(plusId);
     // The week is full, so one more dinner is refused.
     expect(await reserve(plusId, 1)).toMatchObject({ allowed: false, reason: "insufficient_remaining" });
 

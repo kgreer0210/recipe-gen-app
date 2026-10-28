@@ -68,6 +68,15 @@ async function makeRecipe(userId: string, title: string): Promise<string> {
   return data!.id as string;
 }
 
+async function clearBurstCounters(userId: string) {
+  const { error } = await admin
+    .from("user_usage_counters")
+    .delete()
+    .eq("user_id", userId)
+    .in("scope", ["minute_generate", "hour_generate"]);
+  if (error) throw error;
+}
+
 type Pick = Record<string, unknown>;
 
 function pendingPick(index: number, dayOfWeek: number): Pick {
@@ -75,6 +84,9 @@ function pendingPick(index: number, dayOfWeek: number): Pick {
 }
 
 async function begin(batchId: string, userId: string, count: number, results: Pick[], charge = true) {
+  // These tests are about batches and refunds, not the per-minute burst limit
+  // (Plus allows 2 a minute), so start each batch with empty burst buckets.
+  await clearBurstCounters(userId);
   const { data, error } = await admin.rpc("begin_busy_week_batch", {
     p_batch_id: batchId,
     p_user_id: userId,

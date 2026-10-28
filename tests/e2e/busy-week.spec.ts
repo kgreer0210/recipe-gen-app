@@ -272,7 +272,7 @@ test.describe("Busy week and meal style", () => {
     });
     expect((posted[0] as { picks: Array<{ replaceSlotId?: string }> }).picks[0].replaceSlotId).toBeTruthy();
 
-    await page.getByRole("button", { name: "Done" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Done" }).click();
     await expect(page.getByText(`Busy Dinner 1 ${runId}`)).toBeVisible();
     await expect(page.getByText(existingTitle)).toHaveCount(0);
   });
@@ -359,9 +359,11 @@ test.describe("Busy week and meal style", () => {
     await page.getByRole("button", { name: /^Busy week/ }).click();
     await pickDay(page, 1, FREE_DAY);
     await page.getByRole("button", { name: /Generate 1 dinner/ }).click();
+    // setFixedTime freezes Date.now, which the give-up timer reads, so move "now" past it.
+    await page.clock.setFixedTime(new Date(FIXED_NOW.getTime() + 20_000));
 
     // The server has never heard of the batch, so the sheet stops waiting and says so.
-    await expect(page.getByRole("alert")).toContainText("didn't start", { timeout: 60_000 });
+    await expect(page.getByRole("dialog").getByRole("alert")).toContainText("didn't start", { timeout: 60_000 });
     await expect(page.getByRole("button", { name: /Generate 1 dinner/ })).toBeEnabled();
 
     await page.getByRole("button", { name: /Generate 1 dinner/ }).click();
@@ -397,16 +399,18 @@ test.describe("Busy week and meal style", () => {
     await page.getByRole("button", { name: /^Busy week/ }).click();
     await pickDay(page, 1, FREE_DAY);
     await page.getByRole("button", { name: /Generate 1 dinner/ }).click();
+    // setFixedTime freezes Date.now, which the give-up timer reads, so move "now" past it.
+    await page.clock.setFixedTime(new Date(FIXED_NOW.getTime() + 20_000));
 
-    await expect(page.getByRole("alert")).toContainText("didn't start", { timeout: 60_000 });
+    await expect(page.getByRole("dialog").getByRole("alert")).toContainText("didn't start", { timeout: 60_000 });
     await page.getByRole("button", { name: /Generate 1 dinner/ }).click();
-    await expect(page.getByText(`Busy Dinner 1 ${runId}`)).toBeVisible();
+    await expect(page.getByRole("dialog").getByText(`Busy Dinner 1 ${runId}`)).toBeVisible();
 
     releaseFirst();
     await flushReact(page);
 
     await expect(page.getByText(`Stale Dinner 1 ${runId}`)).toHaveCount(0);
-    await expect(page.getByText(`Busy Dinner 1 ${runId}`)).toBeVisible();
+    await expect(page.getByRole("dialog").getByText(`Busy Dinner 1 ${runId}`)).toBeVisible();
     expect(posted).toHaveLength(2);
   });
 
