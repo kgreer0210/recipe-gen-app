@@ -9,15 +9,21 @@ vi.mock("@/lib/supabase/admin", () => ({
 }));
 
 import {
+  beginBusyWeekBatch,
   getUsageErrorMessage,
-  releaseUsage,
-  reserveUsage,
+  settleBusyWeekBatch,
 } from "@/lib/usage";
 
-const plusUser = { id: "user-plus" } as Parameters<typeof reserveUsage>[1];
-const adminUser = { id: "admin-1" } as Parameters<typeof reserveUsage>[1];
+const plusUser = { id: "user-plus" } as Parameters<typeof beginBusyWeekBatch>[0]["user"];
+const adminUser = { id: "admin-1" } as Parameters<typeof beginBusyWeekBatch>[0]["user"];
+const BATCH = "3f0c9c2e-6a1e-4c7e-9a55-1f2b3c4d5e6f";
+const RESULTS = [{ index: 0, status: "pending" }];
 
-describe("reserveUsage", () => {
+function begin(user: typeof plusUser, count = 3) {
+  return beginBusyWeekBatch({ batchId: BATCH, user, weekStart: "2026-10-26", count, results: RESULTS });
+}
+
+describe("beginBusyWeekBatch", () => {
   beforeEach(() => {
     rpc.mockReset();
     process.env.ADMIN_USER_ID = "admin-1";
@@ -27,92 +33,102 @@ describe("reserveUsage", () => {
     delete process.env.ADMIN_USER_ID;
   });
 
-  it("reserves the whole batch through reserve_usage and maps the result", async () => {
+  it("records the batch and reserves the whole batch in one database call", async () => {
     rpc.mockResolvedValueOnce({
-      data: {
-        allowed: true,
-        plan_key: "plus",
-        reserved: 3,
-        week_count: 6,
-        week_limit_hard: 100,
-        week_limit_soft: null,
-        remaining: 94,
-        window_start: "2026-10-26T04:00:00+00:00",
-        reset_at: "2026-11-02T05:00:00+00:00",
-        soft_limited: false,
-      },
+      data: { outcome: "started", plan_key: "plus", window_start: "2026-10-26T04:00:00+00:00", remaining: 94 },
       error: null,
     });
 
-    const result = await reserveUsage("generate", plusUser, 3);
+    const result = await begin(plusUser);
 
-    expect(rpc).toHaveBeenCalledWith("reserve_usage", {
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith("begin_busy_week_batch", {
+      p_batch_id: BATCH,
       p_user_id: "user-plus",
-      p_action: "generate",
+      p_week_start: "2026-10-26",
       p_count: 3,
+      p_results: RESULTS,
+      p_charge: true,
     });
-    expect(result).toMatchObject({
-      allowed: true,
+    expect(result).toEqual({
+      outcome: "started",
       planKey: "plus",
-      remaining: 94,
       windowStart: "2026-10-26T04:00:00+00:00",
+      remaining: 94,
     });
   });
 
-  it("returns the reason and what is left when the batch does not fit", async () => {
+  it("reports a batch id that already exists, so the caller can answer 409", async () => {
+    rpc.mockResolvedValueOnce({ data: { outcome: "duplicate" }, error: null });
+
+    expect(await begin(plusUser)).toEqual({ outcome: "duplicate" });
+  });
+
+  it("reports a block with its reason and what is left", async () => {
     rpc.mockResolvedValueOnce({
-      data: { allowed: false, reason: "insufficient_remaining", plan_key: "plus", remaining: 2 },
+      data: { outcome: "blocked", reason: "insufficient_remaining", plan_key: "plus", remaining: 2 },
       error: null,
     });
 
-    const result = await reserveUsage("generate", plusUser, 3);
-
-    expect(result).toMatchObject({ allowed: false, reason: "insufficient_remaining", remaining: 2 });
+    expect(await begin(plusUser)).toEqual({
+      outcome: "blocked",
+      reason: "insufficient_remaining",
+      planKey: "plus",
+      remaining: 2,
+    });
   });
 
   it("fails closed when the RPC errors", async () => {
     rpc.mockResolvedValueOnce({ data: null, error: { message: "boom" } });
 
-    const result = await reserveUsage("generate", plusUser, 3);
-
-    expect(result).toMatchObject({ allowed: false, reason: "rpc_error" });
+    expect(await begin(plusUser)).toMatchObject({ outcome: "error" });
   });
 
-  it("lets the admin through without calling the database", async () => {
-    const result = await reserveUsage("generate", adminUser, 7);
+  it("records the admin's batch without charging the weekly count", async () => {
+    rpc.mockResolvedValueOnce({ data: { outcome: "started", plan_key: "admin", window_start: null, remaining: null }, error: null });
 
-    expect(rpc).not.toHaveBeenCalled();
-    expect(result).toMatchObject({ allowed: true, planKey: "admin", remaining: null, windowStart: null });
+    const result = await begin(adminUser, 7);
+
+    expect(rpc).toHaveBeenCalledWith("begin_busy_week_batch", expect.objectContaining({ p_charge: false, p_count: 7 }));
+    expect(result).toMatchObject({ outcome: "started", windowStart: null, remaining: null });
   });
 });
 
-describe("releaseUsage", () => {
+describe("settleBusyWeekBatch", () => {
   beforeEach(() => {
     rpc.mockReset();
-    process.env.ADMIN_USER_ID = "admin-1";
   });
 
-  afterEach(() => {
-    delete process.env.ADMIN_USER_ID;
+  it("asks the database to refund and finish the batch, interrupting pending picks only when told to", async () => {
+    rpc.mockResolvedValueOnce({
+      data: { settled: true, status: "partial", refunded: 2, refunded_now: 2 },
+      error: null,
+    });
+
+    const result = await settleBusyWeekBatch(BATCH, true);
+
+    expect(rpc).toHaveBeenCalledWith("settle_busy_week_batch", { p_batch_id: BATCH, p_interrupt_pending: true });
+    expect(result).toEqual({ ok: true, settled: true, status: "partial", refunded: 2 });
   });
 
-  it("releases into the reserved week, not the current one", async () => {
-    rpc.mockResolvedValueOnce({ data: { released: 2 }, error: null });
+  it("reports a batch that was already finished, so a second call changes nothing", async () => {
+    rpc.mockResolvedValueOnce({ data: { settled: false, reason: "already_settled", status: "completed", refunded: 0 }, error: null });
 
-    await releaseUsage("generate", plusUser, 2, "2026-10-26T04:00:00+00:00");
-
-    expect(rpc).toHaveBeenCalledWith("release_usage", {
-      p_user_id: "user-plus",
-      p_action: "generate",
-      p_count: 2,
-      p_window_start: "2026-10-26T04:00:00+00:00",
+    expect(await settleBusyWeekBatch(BATCH, false)).toEqual({
+      ok: true,
+      settled: false,
+      reason: "already_settled",
+      status: "completed",
+      refunded: 0,
     });
   });
 
-  it("does nothing for the admin, who was never counted", async () => {
-    await releaseUsage("generate", adminUser, 2, null);
+  it("reports a failed refund as an error, so the batch is not treated as finished", async () => {
+    rpc.mockResolvedValueOnce({ data: null, error: { message: "release failed" } });
 
-    expect(rpc).not.toHaveBeenCalled();
+    const result = await settleBusyWeekBatch(BATCH, false);
+
+    expect(result).toEqual({ ok: false, error: "release failed" });
   });
 });
 
@@ -126,6 +142,6 @@ describe("getUsageErrorMessage for busy week", () => {
   });
 
   it("explains a full save library", () => {
-    expect(getUsageErrorMessage("save_limit", "plus")).toMatch(/saved recipes/i);
+    expect(getUsageErrorMessage("save_limit", "plus")).toMatch(/saved recipes are full/);
   });
 });

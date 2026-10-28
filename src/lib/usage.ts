@@ -154,112 +154,131 @@ export async function recordUsageTokens(
   }
 }
 
-export type ReserveUsageResult = {
-  allowed: boolean;
-  planKey: string;
-  reason?: string;
-  /** Generations left this week after this reservation. Null when unlimited. */
-  remaining: number | null;
-  /** Start of the week bucket that was charged. Pass it to releaseUsage. */
-  windowStart: string | null;
-  resetAt?: string;
-  softLimited?: boolean;
-  error?: string;
-};
+/** The admin bypass is never counted, so admin batches skip the reservation. */
+function isAdminBypass(authenticatedUser: User): boolean {
+  return Boolean(process.env.ADMIN_USER_ID) && authenticatedUser.id === process.env.ADMIN_USER_ID;
+}
+
+export type BeginBusyWeekResult =
+  | {
+      outcome: "started";
+      planKey: string;
+      /** Start of the week bucket that was charged. Null for the admin bypass. */
+      windowStart: string | null;
+      /** Generations left this week after this batch. Null when unlimited. */
+      remaining: number | null;
+    }
+  | { outcome: "duplicate" }
+  | { outcome: "blocked"; reason: string; planKey: string; remaining: number | null }
+  | { outcome: "error"; error: string };
 
 /**
- * Reserve `count` generations for one busy-week batch, all or nothing.
- * Calls the reserve_usage RPC (service role, atomic in Postgres).
+ * Record a busy-week batch and reserve its `count` generations in one database
+ * transaction (begin_busy_week_batch). A batch id that already exists is reported
+ * as a duplicate and reserves nothing.
  */
-export async function reserveUsage(
-  action: "generate",
-  authenticatedUser: User,
-  count: number
-): Promise<ReserveUsageResult> {
-  if (
-    process.env.ADMIN_USER_ID &&
-    authenticatedUser.id === process.env.ADMIN_USER_ID
-  ) {
-    return { allowed: true, planKey: "admin", remaining: null, windowStart: null };
-  }
-
+export async function beginBusyWeekBatch({
+  batchId,
+  user,
+  weekStart,
+  count,
+  results,
+}: {
+  batchId: string;
+  user: User;
+  weekStart: string;
+  count: number;
+  results: unknown[];
+}): Promise<BeginBusyWeekResult> {
   const admin = createAdminClient();
 
   try {
-    const { data, error } = await admin.rpc("reserve_usage", {
-      p_user_id: authenticatedUser.id,
-      p_action: action,
+    const { data, error } = await admin.rpc("begin_busy_week_batch", {
+      p_batch_id: batchId,
+      p_user_id: user.id,
+      p_week_start: weekStart,
       p_count: count,
+      p_results: results,
+      p_charge: !isAdminBypass(user),
     });
 
     if (error) {
-      console.error("Usage reserve failed:", error);
-      return { allowed: false, planKey: "free", remaining: null, windowStart: null, reason: "rpc_error", error: error.message };
+      console.error("Busy week batch start failed:", error);
+      return { outcome: "error", error: error.message };
     }
 
     const result = data as {
-      allowed: boolean;
-      plan_key: string;
+      outcome: "started" | "duplicate" | "blocked" | "invalid_count";
+      plan_key?: string;
       reason?: string;
-      remaining?: number | null;
       window_start?: string | null;
-      reset_at?: string;
-      soft_limited?: boolean;
+      remaining?: number | null;
     };
 
-    return {
-      allowed: result.allowed,
-      planKey: result.plan_key,
-      reason: result.reason,
-      remaining: result.remaining ?? null,
-      windowStart: result.window_start ?? null,
-      resetAt: result.reset_at,
-      softLimited: result.soft_limited ?? false,
-    };
+    if (result.outcome === "started") {
+      return {
+        outcome: "started",
+        planKey: result.plan_key ?? "free",
+        windowStart: result.window_start ?? null,
+        remaining: result.remaining ?? null,
+      };
+    }
+    if (result.outcome === "blocked") {
+      return {
+        outcome: "blocked",
+        reason: result.reason ?? "rpc_error",
+        planKey: result.plan_key ?? "free",
+        remaining: result.remaining ?? null,
+      };
+    }
+    if (result.outcome === "duplicate") return { outcome: "duplicate" };
+    return { outcome: "error", error: `Busy week batch start returned ${result.outcome}` };
   } catch (err) {
-    console.error("Usage reserve exception:", err);
-    return {
-      allowed: false,
-      planKey: "free",
-      remaining: null,
-      windowStart: null,
-      reason: "exception",
-      error: err instanceof Error ? err.message : String(err),
-    };
+    console.error("Busy week batch start exception:", err);
+    return { outcome: "error", error: err instanceof Error ? err.message : String(err) };
   }
 }
 
+export type SettleBusyWeekResult =
+  | {
+      ok: true;
+      settled: boolean;
+      status?: string;
+      refunded?: number;
+      reason?: string;
+    }
+  | { ok: false; error: string };
+
 /**
- * Give back `count` reserved generations for picks that failed to generate or
- * save. Writes to the week bucket that was reserved (`windowStart`).
+ * Finish a busy-week batch and refund its failed picks, in one transaction
+ * (settle_busy_week_batch). Safe to call again: a finished batch is left as it is,
+ * and a refund is never counted twice. `interruptPending` is only for batches whose
+ * function died (stale), so their unfinished picks are failed instead of waited on.
  */
-export async function releaseUsage(
-  action: "generate",
-  authenticatedUser: User,
-  count: number,
-  windowStart: string | null
-): Promise<void> {
-  if (count <= 0 || !windowStart) return;
-  // The admin was never counted, so there is nothing to give back.
-  if (
-    process.env.ADMIN_USER_ID &&
-    authenticatedUser.id === process.env.ADMIN_USER_ID
-  ) {
-    return;
+export async function settleBusyWeekBatch(
+  batchId: string,
+  interruptPending: boolean
+): Promise<SettleBusyWeekResult> {
+  const admin = createAdminClient();
+
+  const { data, error } = await admin.rpc("settle_busy_week_batch", {
+    p_batch_id: batchId,
+    p_interrupt_pending: interruptPending,
+  });
+
+  if (error) {
+    console.error("Busy week settle failed:", error);
+    return { ok: false, error: error.message };
   }
 
-  const admin = createAdminClient();
-  try {
-    const { error } = await admin.rpc("release_usage", {
-      p_user_id: authenticatedUser.id,
-      p_action: action,
-      p_count: count,
-      p_window_start: windowStart,
-    });
-    if (error) console.error("Usage release failed:", error);
-  } catch (err) {
-    console.error("Usage release exception:", err);
-  }
+  const result = data as { settled: boolean; status?: string; refunded?: number; reason?: string };
+  return {
+    ok: true,
+    settled: result.settled,
+    status: result.status,
+    refunded: result.refunded,
+    reason: result.reason,
+  };
 }
 
 /**

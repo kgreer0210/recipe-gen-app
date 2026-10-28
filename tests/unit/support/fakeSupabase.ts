@@ -9,10 +9,14 @@ type Row = Record<string, unknown>;
 type Tables = Record<string, Row[]>;
 type Result = { data: unknown; error: { code?: string; message: string } | null };
 
+export type FakeRpcResult = { data: unknown; error: { code?: string; message: string } | null };
+
 export type FakeDb = {
   tables: Tables;
   /** Optional hook: return an error to make an insert fail. */
   failInsert?: (table: string, row: Row) => { code?: string; message: string } | null;
+  /** Stand-in for the database functions the routes call with `rpc`. */
+  rpc?: (name: string, args: Record<string, unknown>) => FakeRpcResult;
 };
 
 let idCounter = 0;
@@ -165,6 +169,10 @@ export function createFakeSupabase(db: FakeDb) {
   return {
     from(table: string) {
       return createBuilder(db, table);
+    },
+    rpc(name: string, args: Record<string, unknown>) {
+      const result = db.rpc?.(name, args) ?? { data: null, error: { message: `No fake for ${name}` } };
+      return Promise.resolve(result);
     },
   };
 }

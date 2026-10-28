@@ -3,8 +3,9 @@ import { getAuthenticatedUser } from "@/lib/supabase/auth-helper";
 import { validateBusyWeekRequest } from "@/lib/busyWeek";
 import { runBusyWeek } from "@/lib/busyWeekBatch";
 
-// Seven dinners with model calls can take a while. Route segment config (Next 16):
-// Pro plans allow up to 300s. Longer than the stale-batch window, so live batches are never reconciled.
+// Route segment config (Next 16 maxDuration). With fluid compute, 300s is allowed on every
+// Vercel plan. The batch deadline (BUSY_WEEK_DEADLINE_MS, 240s) answers before this limit,
+// and the stale-batch window (6 min) is longer than this limit, so a live batch is never reconciled.
 export const maxDuration = 300;
 
 // Handle CORS preflight requests
