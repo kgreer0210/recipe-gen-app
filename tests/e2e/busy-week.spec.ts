@@ -49,7 +49,12 @@ async function stubRateLimit(page: Page, remaining: number) {
     route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ isBlocked: false, remaining, limit: 100 }),
+      body: JSON.stringify({
+        isBlocked: false,
+        remaining,
+        limit: 100,
+        generate: { remaining, limit: 100, count: 100 - remaining },
+      }),
     })
   );
 }

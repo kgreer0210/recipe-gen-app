@@ -105,7 +105,7 @@ export default function BusyWeekSheet({
       current.map((draft) => {
         if (draft.id !== id) return draft;
         const dayChanged = patch.dayOfWeek !== undefined && patch.dayOfWeek !== draft.dayOfWeek;
-        return { ...draft, ...patch, replaceConfirmed: dayChanged ? false : draft.replaceConfirmed };
+        return { ...draft, ...patch, replaceConfirmed: dayChanged ? false : (patch.replaceConfirmed ?? draft.replaceConfirmed) };
       })
     );
   };
