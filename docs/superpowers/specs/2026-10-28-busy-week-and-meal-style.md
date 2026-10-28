@@ -1,5 +1,7 @@
 # Spec: Busy Week dinners + Meal Style
 
+> **Name change (2026-10-28):** this feature is now called **Chef's Week** everywhere users see it (Weekly Plan button, sheet title, pricing bullets, messages). "Busy week" below is the original working name. Code names stay as they were: the `/api/busy-week` routes, `BusyWeek*` components and hooks, `busyWeek*` modules, database functions and tables, migrations and file names.
+
 - **Status:** Approved by Kyle 2026-10-28 (open questions resolved below)
 - **Design:** Figma mockup https://www.figma.com/design/VlLQ7FRPgcXmb4nGBtSZ4U (Kyle approved it, including the parts the app didn't have yet: sheet header/footer, day chips, meal style placement in the generator)
 - **Date:** 2026-10-28

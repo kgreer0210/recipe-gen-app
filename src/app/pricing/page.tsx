@@ -198,7 +198,7 @@ export default function PricingPage() {
               "100 recipes per week",
               "100 refinements per week",
               "Save up to 200 recipes",
-              "Busy week planning",
+              "Chef's Week planning",
               "Standard generation speed",
             ].map((feature) => (
               <li key={feature} className="flex items-start">
@@ -264,7 +264,7 @@ export default function PricingPage() {
               "500+ recipes per week (soft limit)",
               "500+ refinements per week",
               "Save up to 2,000 recipes",
-              "Busy week planning",
+              "Chef's Week planning",
               "Faster generation / priority queue",
             ].map((feature) => (
               <li key={feature} className="flex items-start">

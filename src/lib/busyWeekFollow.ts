@@ -8,7 +8,7 @@ import type { BusyWeekResponse } from "@/types";
 export const NOT_FOUND_GIVE_UP_MS = 15_000;
 
 export const NOT_STARTED_MESSAGE =
-  "Busy week didn't start. Check your connection, then tap Generate to try again.";
+  "Chef's Week didn't start. Check your connection, then tap Generate to try again.";
 
 export type FollowState = {
   /** The one batch the sheet is following. Responses for any other id are ignored. */

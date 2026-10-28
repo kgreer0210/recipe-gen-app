@@ -242,8 +242,8 @@ test.describe("Busy week and meal style", () => {
     // Plan next week, the one with the seeded dinner.
     await page.getByRole("button", { name: "Next week" }).click();
     await expect(page.getByText(NEXT_WEEK_LABEL)).toBeVisible();
-    await page.getByRole("button", { name: /^Busy week/ }).click();
-    await expect(page.getByRole("heading", { name: "Busy week" })).toBeVisible();
+    await page.getByRole("button", { name: /^Chef's Week/ }).click();
+    await expect(page.getByRole("heading", { name: "Chef's Week" })).toBeVisible();
 
     // Pick 1: the day that already has a dinner, Thai, Taco.
     await pickDay(page, 1, CONFLICT_DAY);
@@ -309,7 +309,7 @@ test.describe("Busy week and meal style", () => {
     await stubRateLimit(page, 37);
     await openWeeklyPlan(page, paidEmail);
 
-    await page.getByRole("button", { name: /^Busy week/ }).click();
+    await page.getByRole("button", { name: /^Chef's Week/ }).click();
     const days = page.getByRole("radiogroup", { name: "Day for dinner 1" });
     await expect(days.getByRole("radio", { name: /^Monday/ })).toBeDisabled();
     await expect(days.getByRole("radio", { name: /^Tuesday/ })).toBeDisabled();
@@ -317,15 +317,15 @@ test.describe("Busy week and meal style", () => {
     await expect(days.getByRole("radio", { name: /^Wednesday/ })).toBeEnabled();
   });
 
-  test("a free cook sees Busy week locked, with a link to plans", async ({ page }) => {
+  test("a free cook sees Chef's Week locked, with a link to plans", async ({ page }) => {
     await stubRateLimit(page, 5);
     await signIn(page, freeEmail);
     await page.goto("/weekly-plan");
 
-    const lock = page.getByRole("link", { name: /Busy week is a Plus & Pro feature/ });
+    const lock = page.getByRole("link", { name: /Chef's Week is a Plus & Pro feature/ });
     await expect(lock).toBeVisible();
     await expect(lock).toHaveAttribute("href", "/pricing");
-    await expect(page.getByRole("button", { name: /^Busy week/ })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^Chef's Week/ })).toHaveCount(0);
   });
 
   test("the pick card offers Protein, and the request carries the chosen protein", async ({ page }) => {
@@ -333,7 +333,7 @@ test.describe("Busy week and meal style", () => {
     const posted = await stubBusyWeek(page);
     await openWeeklyPlan(page, paidEmail);
     await page.getByRole("button", { name: "Next week" }).click();
-    await page.getByRole("button", { name: /^Busy week/ }).click();
+    await page.getByRole("button", { name: /^Chef's Week/ }).click();
 
     const protein = page.getByLabel("Protein · optional");
     await expect(protein).toHaveValue("Any");
@@ -366,7 +366,7 @@ test.describe("Busy week and meal style", () => {
     await stubBusyWeek(page);
     await openWeeklyPlan(page, paidEmail);
     await page.getByRole("button", { name: "Next week" }).click();
-    await page.getByRole("button", { name: /^Busy week/ }).click();
+    await page.getByRole("button", { name: /^Chef's Week/ }).click();
 
     const dialog = page.getByRole("dialog");
     const card = dialog.locator("section").first();
@@ -396,7 +396,7 @@ test.describe("Busy week and meal style", () => {
     await openWeeklyPlan(page, paidEmail);
 
     await page.getByRole("button", { name: "Next week" }).click();
-    await page.getByRole("button", { name: /^Busy week/ }).click();
+    await page.getByRole("button", { name: /^Chef's Week/ }).click();
     await pickDay(page, 1, FREE_DAY);
     await expectButtonIsTopmost(page, /Generate 1 dinner/);
   });
@@ -421,7 +421,7 @@ test.describe("Busy week and meal style", () => {
     await openWeeklyPlan(page, paidEmail);
 
     await page.getByRole("button", { name: "Next week" }).click();
-    await page.getByRole("button", { name: /^Busy week/ }).click();
+    await page.getByRole("button", { name: /^Chef's Week/ }).click();
     const dialog = page.getByRole("dialog");
     await page.getByLabel("Cuisine").first().selectOption("Thai");
     await page.getByRole("radiogroup", { name: "Meal style for dinner 1" }).getByRole("radio", { name: "Taco" }).click();
@@ -487,7 +487,7 @@ test.describe("Busy week and meal style", () => {
     await openWeeklyPlan(page, paidEmail);
 
     await page.getByRole("button", { name: "Next week" }).click();
-    await page.getByRole("button", { name: /^Busy week/ }).click();
+    await page.getByRole("button", { name: /^Chef's Week/ }).click();
     await pickDay(page, 1, FREE_DAY);
     await page.getByRole("button", { name: /Generate 1 dinner/ }).click();
     // setFixedTime freezes Date.now, which the give-up timer reads, so move "now" past it.
@@ -527,7 +527,7 @@ test.describe("Busy week and meal style", () => {
     await openWeeklyPlan(page, paidEmail);
 
     await page.getByRole("button", { name: "Next week" }).click();
-    await page.getByRole("button", { name: /^Busy week/ }).click();
+    await page.getByRole("button", { name: /^Chef's Week/ }).click();
     await pickDay(page, 1, FREE_DAY);
     await page.getByRole("button", { name: /Generate 1 dinner/ }).click();
     // setFixedTime freezes Date.now, which the give-up timer reads, so move "now" past it.

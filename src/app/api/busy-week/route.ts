@@ -37,6 +37,6 @@ export async function POST(request: Request) {
     return NextResponse.json(outcome.body, { status: outcome.status });
   } catch (error) {
     console.error("Error planning busy week:", error);
-    return NextResponse.json({ error: "Failed to plan busy week" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to plan Chef's Week" }, { status: 500 });
   }
 }
