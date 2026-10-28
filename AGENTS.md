@@ -25,7 +25,7 @@
 
 ## Cursor Cloud specific instructions
 
-This repo is a single Next.js 16 web app (Mise AI). There is no Docker Compose stack, no `supabase/` directory, and no local database. Auth, Postgres, RLS, and Realtime all talk to a **hosted Supabase project**. OpenRouter and Stripe are external HTTPS APIs, not processes to start.
+This repo is a single Next.js 16 web app (Mise AI). The schema is tracked in `supabase/` (migrations and a fake `seed.sql`); see `docs/supabase-migrations.md`. Agents must use a non-production Supabase target: a local stack (needs Docker) or a hosted preview branch, never production. OpenRouter and Stripe are external HTTPS APIs, not processes to start.
 
 **Install:** `npm ci` (see `.cursor/environment.json`).
 
@@ -62,7 +62,7 @@ Secrets:
 - `STRIPE_WEBHOOK_SECRET`
 - `OPENROUTER_API_KEY` (`src/lib/openrouter/client.ts` also accepts `OPEN_ROUTER_API_KEY`)
 
-Agents must use Stripe TEST mode only (`sk_test` keys and test price IDs) and the Supabase dev project, never production. Do not point Cloud Agent testing at production (`https://www.mise-ai.app`).
+Agents must use Stripe TEST mode only (`sk_test` keys and test price IDs) and a non-production Supabase target (there is no separate dev project today; use a local stack or a preview branch, see `docs/supabase-migrations.md`), never production. Do not point Cloud Agent testing at production (`https://www.mise-ai.app`).
 
 `CI`, `NODE_ENV`, `VERCEL_ENV`, and `PLAYWRIGHT_ARTIFACTS` are also read. They are runtime flags, not app configuration to put in `.env.local`.
 
