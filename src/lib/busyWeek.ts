@@ -29,6 +29,10 @@ function fail(error: string): BusyWeekValidation {
   return { ok: false, error };
 }
 
+export function isUuid(value: unknown): value is string {
+  return typeof value === "string" && UUID_PATTERN.test(value);
+}
+
 /** True when `weekStart` is a real calendar date that falls on a Monday. */
 export function isMondayYmd(weekStart: unknown): weekStart is string {
   if (typeof weekStart !== "string" || !YMD_PATTERN.test(weekStart)) return false;
@@ -48,7 +52,7 @@ export function validateBusyWeekRequest(input: unknown): BusyWeekValidation {
   if (!input || typeof input !== "object") return fail("Request body must be an object.");
   const body = input as Record<string, unknown>;
 
-  if (typeof body.batchId !== "string" || !UUID_PATTERN.test(body.batchId)) {
+  if (!isUuid(body.batchId)) {
     return fail("batchId must be a UUID.");
   }
   if (!isMondayYmd(body.weekStart)) {
