@@ -25,7 +25,7 @@
 
 ## Cursor Cloud specific instructions
 
-This repo is a single Next.js 16 web app (Mise AI). There is no Docker Compose stack, no `supabase/` directory, and no local database. Auth, Postgres, RLS, and Realtime all talk to a **hosted Supabase project**. OpenRouter and Stripe are external HTTPS APIs, not processes to start.
+This repo is a single Next.js 16 web app (Mise AI). The schema is tracked in `supabase/` (migrations and a fake `seed.sql`); see `docs/supabase-migrations.md`. Agents must use a non-production Supabase target: a local stack (needs Docker) or a hosted preview branch, never production. OpenRouter and Stripe are external HTTPS APIs, not processes to start.
 
 **Install:** `npm ci` (see `.cursor/environment.json`).
 

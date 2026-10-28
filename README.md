@@ -114,10 +114,9 @@ _Note: Different subscription tiers use different AI models. Free users get a li
 
 ### 4. Database Setup
 
-Run the SQL scripts found in `src/lib/supabase/` in your Supabase SQL Editor to set up tables and functions:
+The schema is managed with the Supabase CLI. Migrations live in `supabase/migrations/`, and `supabase/seed.sql` adds fake test data for local use. See [docs/supabase-migrations.md](docs/supabase-migrations.md) for setup (`npx supabase start`, then `npx supabase db reset`).
 
-1. `weekly_plan.sql` (Contains schema for plans and base tables if not already created)
-2. `rate_limit.sql` (Sets up the rate limiting table and RPC function)
+The SQL files in `src/lib/supabase/` are historical and may be out of date. Do not run them. The baseline migration replaces them.
 
 ### 5. Run Development Server
 
