@@ -323,3 +323,9 @@ All user-facing parts (Busy week sheet, results, generator style picker) must wo
 - **Q10.** Free users get **403** (`reason: "paid_plan_required"`).
 - Busy week is paid-only (subscription `active`/`trialing`; admin bypass), with up-front reservation of N generations and refunds on failure.
 - Contradiction #1 (Preview shares Production env) is resolved by Q9. Contradiction #6 (no migrations) is resolved by PR #170.
+
+## Follow-up changes (Kyle, 2026-10-28, after the first preview test)
+
+- **Protein per pick (replaces D5).** Each Busy week pick has an optional Protein, default "Any" (the AI chooses): Any, Chicken, Beef, Pork, Turkey, Fish, Shrimp/Seafood, Tofu, Beans/Legumes, Eggs, Vegetarian (no meat). It's prompt-only and validated on the server (400 on unknown values). With "Any" the prompt is unchanged. Saved Settings preferences stay authoritative: if they include vegetarian or vegan, the clashing options are disabled in the card with a link to Settings, and the server rejects a clashing pick with a 400 before reserving anything.
+- **Pantry generator** gets the same optional Protein next to Meal style. Classic mode already requires a protein, so it's unchanged.
+- **Exactly-once refunds and atomic placement** use `begin_busy_week_batch`, `settle_busy_week_batch` and `place_busy_week_dinner` (migration `20261028180000_busy_week_atomic`) instead of calling `reserve_usage`/`release_usage` directly from the route.
