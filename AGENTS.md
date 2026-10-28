@@ -62,7 +62,7 @@ Secrets:
 - `STRIPE_WEBHOOK_SECRET`
 - `OPENROUTER_API_KEY` (`src/lib/openrouter/client.ts` also accepts `OPEN_ROUTER_API_KEY`)
 
-Agents must use Stripe TEST mode only (`sk_test` keys and test price IDs) and the Supabase dev project, never production. Do not point Cloud Agent testing at production (`https://www.mise-ai.app`).
+Agents must use Stripe TEST mode only (`sk_test` keys and test price IDs) and a non-production Supabase target (there is no separate dev project today; use a local stack or a preview branch, see `docs/supabase-migrations.md`), never production. Do not point Cloud Agent testing at production (`https://www.mise-ai.app`).
 
 `CI`, `NODE_ENV`, `VERCEL_ENV`, and `PLAYWRIGHT_ARTIFACTS` are also read. They are runtime flags, not app configuration to put in `.env.local`.
 

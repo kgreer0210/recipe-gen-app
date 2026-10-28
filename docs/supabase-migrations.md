@@ -47,11 +47,13 @@ Before any `supabase db push` or GitHub-integrated branching points at this fold
 # 1. Mark the baseline as already applied (it is already reflected in production's schema).
 npx supabase migration repair --status applied 20261028150000
 
-# 2. Decide what to do with the 15 remote-only versions. Either:
-npx supabase migration repair --status reverted <version> [<version> ...]
-#    or fetch their SQL into the repo:
-npx supabase migration fetch
+# 2. Mark the 15 remote-only versions as reverted. This only edits production's
+#    migration history table; it does not change any table or data, because the
+#    baseline already contains everything those versions did.
+npx supabase migration repair --status reverted 20260111210930 20260111212653 20260111214123 20260111214744 20260115225301 20260115231641 20260115232234 20260115232258 20260115232305 20260115232628 20260116023610 20260116024616 20260116025143 20260505145032 20260820195031
 ```
+
+Do not use `supabase migration fetch` to pull those 15 versions into `supabase/migrations/`. They sort before the baseline and cannot run on an empty database, so every `db reset` and preview branch would fail. If you want their SQL for reference, keep it outside the migrations folder.
 
 Agents must not run any of these commands, and must not run `supabase link`, `db push`, `db pull`, or `migration repair` against production.
 
