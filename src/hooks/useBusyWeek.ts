@@ -155,7 +155,7 @@ export function useBusyWeek(weekStart: string) {
         dispatch({
           type: "failed",
           batchId,
-          message: ("error" in body && body.error) || "Busy week could not start.",
+          message: ("error" in body && body.error) || "Chef's Week could not start.",
         });
         return;
       }

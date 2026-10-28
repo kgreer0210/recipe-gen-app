@@ -245,7 +245,7 @@ export default function BusyWeekSheet({
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 id="busy-week-title" className="font-serif text-2xl text-[var(--market-ink)]">
-            Busy week
+            Chef&apos;s Week
           </h2>
           <p className="mt-1 text-sm text-[var(--market-copy)]">
             {formatWeekRange(weekStart)} · dinners only
@@ -254,7 +254,7 @@ export default function BusyWeekSheet({
         <button
           type="button"
           onClick={onClose}
-          aria-label="Close busy week"
+          aria-label="Close Chef's Week"
           className="rounded-xl border border-[var(--market-line)] p-2 hover:bg-[var(--market-surface-muted)]"
         >
           <X className="h-4 w-4" />
@@ -263,7 +263,7 @@ export default function BusyWeekSheet({
 
       {!weekOpen && (
         <p className="mt-5 rounded-xl border border-[var(--market-line)] bg-[var(--market-surface-muted)] p-3 text-sm text-[var(--market-copy)]">
-          This week has already passed. Pick the current week or a later one to plan busy week dinners.
+          This week has already passed. Pick the current week or a later one to plan Chef&apos;s Week dinners.
         </p>
       )}
 

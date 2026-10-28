@@ -133,8 +133,10 @@ describe("settleBusyWeekBatch", () => {
 });
 
 describe("getUsageErrorMessage for busy week", () => {
-  it("explains that Busy week is a paid feature", () => {
-    expect(getUsageErrorMessage("paid_plan_required", "free")).toMatch(/Plus or Pro/);
+  it("explains that Chef's Week is a paid feature", () => {
+    const message = getUsageErrorMessage("paid_plan_required", "free");
+    expect(message).toMatch(/^Chef's Week/);
+    expect(message).toMatch(/Plus or Pro/);
   });
 
   it("says how many recipes are left when the batch does not fit", () => {

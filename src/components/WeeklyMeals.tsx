@@ -509,7 +509,7 @@ export default function WeeklyMeals() {
             className="flex w-full items-center justify-center gap-2 rounded-xl border-[1.5px] border-[var(--market-tomato)] bg-[var(--market-surface)] px-4 py-2.5 text-sm font-medium text-[var(--market-tomato-dark)] hover:bg-[#f7ded3]"
           >
             <Sparkles className="h-4 w-4" aria-hidden />
-            Busy week
+            Chef&apos;s Week
             <span className="rounded-full bg-[#d7eba0] px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-[#4f5f27]">
               Plus · Pro
             </span>
@@ -520,7 +520,7 @@ export default function WeeklyMeals() {
             className="flex w-full items-center justify-center gap-2 rounded-xl border-[1.5px] border-[var(--market-line)] bg-[var(--market-surface-muted)] px-4 py-2.5 text-sm font-medium text-[var(--market-copy)] hover:bg-[var(--market-line)]"
           >
             <Lock className="h-4 w-4" aria-hidden />
-            Busy week is a Plus &amp; Pro feature
+            Chef&apos;s Week is a Plus &amp; Pro feature
             <span className="font-semibold text-[var(--market-tomato-dark)]">See plans</span>
           </Link>
         )}

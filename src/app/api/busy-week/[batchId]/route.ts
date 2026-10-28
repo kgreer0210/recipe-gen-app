@@ -28,6 +28,6 @@ export async function GET(
     return NextResponse.json(outcome.body, { status: outcome.status });
   } catch (error) {
     console.error("Error reading busy week batch:", error);
-    return NextResponse.json({ error: "Failed to read busy week batch" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to read Chef's Week batch" }, { status: 500 });
   }
 }

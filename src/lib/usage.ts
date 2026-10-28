@@ -410,7 +410,7 @@ export function getUsageErrorMessage(
 ): string {
   switch (reason) {
     case "paid_plan_required":
-      return "Busy week is a Plus or Pro feature. Upgrade to plan a whole week at once.";
+      return "Chef's Week is a Plus or Pro feature. Upgrade to plan a whole week at once.";
     case "insufficient_remaining":
       return `This batch needs more recipes than you have left this week (${remaining ?? 0} left). Pick fewer dinners or try again next week.`;
     case "save_limit":

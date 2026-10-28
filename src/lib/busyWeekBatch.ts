@@ -161,7 +161,7 @@ export async function runBusyWeek({
   if (begun.outcome === "duplicate") {
     return {
       status: 409,
-      body: { error: "This busy week batch has already started.", batchId: request.batchId },
+      body: { error: "This Chef's Week batch has already started.", batchId: request.batchId },
     };
   }
   if (begun.outcome === "blocked") {
@@ -176,7 +176,7 @@ export async function runBusyWeek({
   }
   if (begun.outcome === "error") {
     console.error("Busy week batch could not start:", begun.error);
-    return { status: 500, body: { error: "Failed to start busy week" } };
+    return { status: 500, body: { error: "Failed to start Chef's Week" } };
   }
 
   const writer = createBatchWriter(admin, request.batchId);
@@ -224,7 +224,7 @@ export async function readBusyWeek({
 function failedToFinish(batchId: string): BusyWeekOutcome {
   return {
     status: 500,
-    body: { error: "Busy week could not be finished yet. It is checked again on the next read.", batchId },
+    body: { error: "Chef's Week could not be finished yet. It is checked again on the next read.", batchId },
   };
 }
 
