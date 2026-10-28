@@ -225,6 +225,14 @@ describe("busy week route", () => {
       expect(mocks.releaseUsage).not.toHaveBeenCalled();
     });
 
+    it("records the reserved week bucket on the batch so an interrupted batch can be refunded later", async () => {
+      await postBusyWeek(busyBody());
+
+      expect(db.tables.generation_batches.find((row) => row.id === BATCH)).toMatchObject({
+        usage_window_start: WINDOW,
+      });
+    });
+
     it("keeps the successful dinners and refunds only the failed ones when some generations fail", async () => {
       mocks.failCuisines.current = new Set(["Greek", "Korean"]);
 

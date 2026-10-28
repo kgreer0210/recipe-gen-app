@@ -143,6 +143,12 @@ export async function runBusyWeek({
     };
   }
 
+  // Store the charged week bucket so a stale-batch reconciliation can refund into it.
+  await updateBatch(admin, request.batchId, {
+    usage_window_start: reservation.windowStart,
+    results: stored,
+  });
+
   const kitchen = await loadKitchen(admin, user.id, request.dietaryPreferences ?? []);
   const model = getModelForTier(reservation.planKey);
   const recipes = await generateAll(request, { user, kitchen, model });
@@ -500,7 +506,7 @@ async function placeDinner(
 async function updateBatch(
   admin: SupabaseClient,
   batchId: string,
-  patch: { status?: string; succeeded?: number; results: unknown }
+  patch: { status?: string; succeeded?: number; usage_window_start?: string | null; results: unknown }
 ): Promise<void> {
   const { error } = await admin
     .from("generation_batches")
