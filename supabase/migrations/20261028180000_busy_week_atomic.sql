@@ -165,10 +165,10 @@ begin
              when pick ->> 'recipeId' is not null then pick || '{"status":"unscheduled","error":"plan_insert_failed"}'::jsonb
              else pick || '{"status":"failed","error":"interrupted"}'::jsonb
            end
-           order by ordinality
+           order by pos
          ), '[]'::jsonb)
   into v_results
-  from jsonb_array_elements(v_batch.results) with ordinality as t(pick, ordinality);
+  from jsonb_array_elements(v_batch.results) with ordinality as t(pick, pos);
 
   select count(*) into v_refundable
   from jsonb_array_elements(v_results) as pick
