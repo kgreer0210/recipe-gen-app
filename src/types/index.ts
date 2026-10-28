@@ -119,23 +119,43 @@ export interface Recipe {
   servings: number;
 }
 
-export type CuisineType =
-  | "Indian"
-  | "Italian"
-  | "Mexican"
-  | "American"
-  | "Chinese"
-  | "Japanese"
-  | "Thai"
-  | "Mediterranean"
-  | "French"
-  | "Korean"
-  | "Vietnamese"
-  | "Greek"
-  | "Spanish"
-  | "Middle Eastern"
-  | "Cajun"
-  | "German";
+export const CUISINE_TYPES = [
+  "Indian",
+  "Italian",
+  "Mexican",
+  "American",
+  "Chinese",
+  "Japanese",
+  "Thai",
+  "Mediterranean",
+  "French",
+  "Korean",
+  "Vietnamese",
+  "Greek",
+  "Spanish",
+  "Middle Eastern",
+  "Cajun",
+  "German",
+] as const;
+
+export type CuisineType = (typeof CUISINE_TYPES)[number];
+
+/** Optional shape for a dish. "Any" lets the AI choose. Prompt-only, never stored. */
+export const MEAL_STYLES = [
+  "Any",
+  "Bowl",
+  "Plate",
+  "Taco",
+  "Sandwich",
+  "Wrap",
+  "Pizza",
+  "Pasta",
+  "Soup",
+  "Salad",
+  "Skewers",
+] as const;
+
+export type MealStyle = (typeof MEAL_STYLES)[number];
 export type MealType = "Breakfast" | "Lunch" | "Dinner" | "Snack";
 export type ProteinType =
   | "Chicken"
@@ -194,7 +214,53 @@ export interface GenerateRecipeRequest {
   ingredients?: string[];
   dietaryPreferences?: string[];
   servings?: number;
+  mealStyle?: MealStyle;
   adminModelOverride?: string;
+}
+
+export type BusyWeekPickStatus = "placed" | "replaced" | "unscheduled" | "failed";
+
+export type BusyWeekErrorCode =
+  | "generation_failed"
+  | "save_failed"
+  | "slot_taken"
+  | "plan_insert_failed"
+  | "interrupted";
+
+export interface BusyWeekPick {
+  cuisine: CuisineType;
+  mealStyle?: MealStyle;
+  dayOfWeek: number;
+  replaceSlotId?: string;
+}
+
+export interface BusyWeekRequest {
+  batchId: string;
+  weekStart: string;
+  picks: BusyWeekPick[];
+  dietaryPreferences?: string[];
+}
+
+export interface BusyWeekResult {
+  index: number;
+  cuisine: CuisineType;
+  mealStyle: MealStyle;
+  dayOfWeek: number;
+  status: BusyWeekPickStatus;
+  recipe?: Recipe;
+  planSlot?: WeeklyPlanSlot;
+  error?: BusyWeekErrorCode;
+}
+
+export interface BusyWeekResponse {
+  batchId: string;
+  status: "running" | "completed" | "partial" | "failed";
+  usage: {
+    reserved: number;
+    refunded: number;
+    remaining: number | null;
+  };
+  results: BusyWeekResult[];
 }
 
 export interface RefineRecipeRequest {
