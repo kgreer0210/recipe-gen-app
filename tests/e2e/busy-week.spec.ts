@@ -48,7 +48,7 @@ const FREE_DAY = 2;
 type BusyWeekPostBody = {
   batchId: string;
   weekStart: string;
-  picks: Array<{ cuisine: string; mealStyle?: string; dayOfWeek: number; replaceSlotId?: string }>;
+  picks: Array<{ cuisine: string; mealStyle?: string; protein?: string; dayOfWeek: number; replaceSlotId?: string }>;
 };
 
 async function signIn(page: Page, email: string) {
@@ -99,6 +99,7 @@ function busyWeekResponse(body: BusyWeekPostBody, title: string, idPrefix: strin
       index,
       cuisine: pick.cuisine,
       mealStyle: pick.mealStyle ?? "Any",
+      protein: pick.protein ?? "Any",
       dayOfWeek: pick.dayOfWeek,
       status: pick.replaceSlotId ? "replaced" : "placed",
       recipe,
@@ -327,6 +328,67 @@ test.describe("Busy week and meal style", () => {
     await expect(page.getByRole("button", { name: /^Busy week/ })).toHaveCount(0);
   });
 
+  test("the pick card offers Protein, and the request carries the chosen protein", async ({ page }) => {
+    await stubRateLimit(page, 37);
+    const posted = await stubBusyWeek(page);
+    await openWeeklyPlan(page, paidEmail);
+    await page.getByRole("button", { name: "Next week" }).click();
+    await page.getByRole("button", { name: /^Busy week/ }).click();
+
+    const protein = page.getByLabel("Protein · optional");
+    await expect(protein).toHaveValue("Any");
+    await expect(protein.locator("option")).toHaveText([
+      "Any",
+      "Chicken",
+      "Beef",
+      "Pork",
+      "Turkey",
+      "Fish",
+      "Shrimp/Seafood",
+      "Tofu",
+      "Beans/Legumes",
+      "Eggs",
+      "Vegetarian (no meat)",
+    ]);
+
+    await protein.selectOption("Beans/Legumes");
+    await pickDay(page, 1, FREE_DAY);
+    await page.getByRole("button", { name: /Generate 1 dinner/ }).click();
+
+    await expect(page.getByText("All 1 dinners are in your plan.")).toBeVisible();
+    expect(posted).toHaveLength(1);
+    expect((posted[0] as { picks: Array<{ protein?: string }> }).picks[0]).toMatchObject({ protein: "Beans/Legumes" });
+  });
+
+  test("on a phone, the pick card fits: Meal style and Protein stay inside the card", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 667 });
+    await stubRateLimit(page, 37);
+    await stubBusyWeek(page);
+    await openWeeklyPlan(page, paidEmail);
+    await page.getByRole("button", { name: "Next week" }).click();
+    await page.getByRole("button", { name: /^Busy week/ }).click();
+
+    const dialog = page.getByRole("dialog");
+    const card = dialog.locator("section").first();
+    const protein = page.getByLabel("Protein · optional");
+    await expect(protein).toBeVisible();
+    await expect(protein).toHaveCSS("font-size", "16px");
+
+    // No horizontal overflow on the page or inside the card, and the controls sit within the 390px viewport.
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+    const cardOverflow = await card.evaluate((element) => element.scrollWidth - element.clientWidth);
+    expect(cardOverflow).toBeLessThanOrEqual(0);
+    for (const box of [await protein.boundingBox(), await card.boundingBox()]) {
+      expect(box).toBeTruthy();
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+    }
+
+    await pickDay(page, 1, FREE_DAY);
+    await expectButtonIsTopmost(page, /Generate 1 dinner/);
+  });
+
   test("on a phone, the Generate button stays topmost above the mobile nav", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 667 });
     await stubRateLimit(page, 37);
@@ -514,13 +576,15 @@ test.describe("Busy week and meal style", () => {
     const styles = page.getByRole("radiogroup", { name: "Meal style" });
     await expect(styles.getByRole("radio", { name: "Any" })).toHaveAttribute("aria-checked", "true");
     await styles.getByRole("radio", { name: "Taco" }).click();
+    await page.getByRole("combobox", { name: /^Protein/ }).selectOption("Beef");
     await page.getByRole("button", { name: "Next", exact: true }).click();
 
     await expect(page.getByText("Meal style: Taco")).toBeVisible();
+    await expect(page.getByText("Protein: Beef")).toBeVisible();
     await page.getByRole("button", { name: "Generate Recipe" }).click();
     await expect(page.getByRole("heading", { name: `Taco Night ${runId}` })).toBeVisible();
 
     expect(sent).toHaveLength(1);
-    expect(sent[0]).toMatchObject({ mode: "pantry", mealStyle: "Taco" });
+    expect(sent[0]).toMatchObject({ mode: "pantry", mealStyle: "Taco", protein: "Beef" });
   });
 });

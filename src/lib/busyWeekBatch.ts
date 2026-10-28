@@ -24,12 +24,14 @@ import {
   type WeeklyPlanRow,
 } from "@/lib/rowMappers";
 import type { ValidBusyWeekRequest } from "@/lib/busyWeek";
+import { proteinConflict, proteinConflictMessage } from "@/lib/proteinChoice";
 import type {
   BusyWeekErrorCode,
   BusyWeekPickStatus,
   BusyWeekResult,
   CuisineType,
   MealStyle,
+  ProteinChoice,
   Recipe,
   WeeklyPlanSlot,
 } from "@/types";
@@ -56,6 +58,8 @@ type StoredPick = {
   index: number;
   cuisine: CuisineType;
   mealStyle: MealStyle;
+  /** Missing on batches stored before Protein existed. Read as "Any". */
+  protein?: ProteinChoice;
   dayOfWeek: number;
   replaceSlotId?: string;
   status: BusyWeekPickStatus;
@@ -87,7 +91,14 @@ type Placement = {
   planSlot?: WeeklyPlanSlot;
 };
 
-type PickJob = { index: number; cuisine: CuisineType; mealStyle: MealStyle; dayOfWeek: number; replaceSlotId?: string };
+type PickJob = {
+  index: number;
+  cuisine: CuisineType;
+  mealStyle: MealStyle;
+  protein: ProteinChoice;
+  dayOfWeek: number;
+  replaceSlotId?: string;
+};
 
 type RunContext = {
   user: User;
@@ -117,11 +128,21 @@ export async function runBusyWeek({
   const admin = createAdminClient();
   await settleOpenBatches(user, supabase);
 
+  // Checked before anything is recorded or reserved, so a refused pick costs nothing.
+  const kitchen = await loadKitchen(admin, user.id, request.dietaryPreferences ?? []);
+  for (const pick of request.picks) {
+    const diet = proteinConflict(pick.protein, kitchen.dietary);
+    if (diet) {
+      return { status: 400, body: { error: proteinConflictMessage(pick.protein, diet) } };
+    }
+  }
+
   const count = request.picks.length;
   const stored: StoredPick[] = request.picks.map((pick, index) => ({
     index,
     cuisine: pick.cuisine,
     mealStyle: pick.mealStyle,
+    protein: pick.protein,
     dayOfWeek: pick.dayOfWeek,
     ...(pick.replaceSlotId ? { replaceSlotId: pick.replaceSlotId } : {}),
     status: "pending",
@@ -158,7 +179,6 @@ export async function runBusyWeek({
     return { status: 500, body: { error: "Failed to start busy week" } };
   }
 
-  const kitchen = await loadKitchen(admin, user.id, request.dietaryPreferences ?? []);
   const writer = createBatchWriter(admin, request.batchId);
   const finalStored = stored.map((pick) => ({ ...pick }));
 
@@ -284,6 +304,7 @@ function toResult(
     index: pick.index,
     cuisine: pick.cuisine,
     mealStyle: pick.mealStyle,
+    protein: pick.protein ?? "Any",
     dayOfWeek: pick.dayOfWeek,
     status: pick.status,
     ...(object?.recipe ? { recipe: object.recipe } : {}),
@@ -383,6 +404,8 @@ async function generateOne(job: PickJob, avoidTitles: string[], ctx: RunContext)
     mode: "classic",
     cuisine: job.cuisine,
     meal: "Dinner",
+    // "Any" leaves the protein out, so the model chooses it as it did before.
+    protein: job.protein === "Any" ? undefined : job.protein,
     dietaryPreferences: ctx.kitchen.dietary,
     dislikedIngredients: ctx.kitchen.disliked,
     servings: ctx.kitchen.servings,

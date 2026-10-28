@@ -1,5 +1,14 @@
 import { NextResponse } from "next/server";
-import { CuisineType, MealType, MEAL_STYLES, MealStyle, ProteinType } from "@/types";
+import {
+  CuisineType,
+  MealType,
+  MEAL_STYLES,
+  MealStyle,
+  PROTEIN_CHOICES,
+  ProteinChoice,
+  ProteinType,
+} from "@/types";
+import { proteinConflict, proteinConflictMessage } from "@/lib/proteinChoice";
 import { getAuthenticatedUser } from "@/lib/supabase/auth-helper";
 import {
   checkAndIncrementUsage,
@@ -55,7 +64,7 @@ export async function POST(request: Request) {
       mode?: "classic" | "pantry";
       cuisine?: CuisineType;
       meal?: MealType;
-      protein?: ProteinType;
+      protein?: ProteinType | ProteinChoice;
       proteinCut?: string;
       ingredients?: string[];
       dietaryPreferences?: string[];
@@ -63,6 +72,17 @@ export async function POST(request: Request) {
       mealStyle?: MealStyle;
       adminModelOverride?: string;
     };
+
+    // Pantry takes the optional Protein choice ("Any" is the default and is left out). Classic keeps its required protein.
+    if (
+      mode === "pantry" &&
+      protein !== undefined &&
+      !PROTEIN_CHOICES.includes(protein as ProteinChoice)
+    ) {
+      return NextResponse.json({ error: "Unknown protein." }, { status: 400 });
+    }
+    const pantryProtein =
+      mode === "pantry" && protein && protein !== "Any" ? (protein as ProteinChoice) : undefined;
 
     // Input validation to prevent token abuse
     if (mode === "pantry") {
@@ -141,6 +161,14 @@ export async function POST(request: Request) {
           { status: 400 }
         );
       }
+      // Saved preferences stay authoritative: a protein they rule out is rejected, not swapped.
+      const conflict = pantryProtein ? proteinConflict(pantryProtein, mergedDietary) : null;
+      if (pantryProtein && conflict) {
+        return NextResponse.json(
+          { error: proteinConflictMessage(pantryProtein, conflict) },
+          { status: 400 }
+        );
+      }
     } else if (!cuisine || !meal || !protein) {
       return NextResponse.json(
         { error: "Missing required fields" },
@@ -166,7 +194,7 @@ export async function POST(request: Request) {
         mode: mode === "pantry" ? "pantry" : "classic",
         cuisine,
         meal,
-        protein,
+        protein: mode === "pantry" ? pantryProtein : protein,
         proteinCut,
         ingredients,
         dietaryPreferences: mergedDietary,

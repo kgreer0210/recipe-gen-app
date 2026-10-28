@@ -801,6 +801,101 @@ describe("busy week route", () => {
       expect(peak).toBe(4);
     });
   });
+
+  describe("protein", () => {
+    const seedSettings = (dietary: string[]) => {
+      db.tables.user_settings = [{ user_id: USER.id, dietary_preferences: dietary, disliked_ingredients: [], default_servings: 2 }];
+    };
+
+    it("rejects an unknown protein with 400, before any batch or reservation", async () => {
+      const response = await postBusyWeek(busyBody({ picks: [{ cuisine: "Thai", protein: "Dragon", dayOfWeek: 0 }] }));
+
+      expect(response.status).toBe(400);
+      expect(mocks.beginBusyWeekBatch).not.toHaveBeenCalled();
+      expect(mocks.chatJson).not.toHaveBeenCalled();
+    });
+
+    it("sends the chosen protein into the prompt, and leaves Any and a missing protein as the AI's choice", async () => {
+      await postBusyWeek(
+        busyBody({
+          picks: [
+            { cuisine: "Thai", protein: "Beef", dayOfWeek: 0 },
+            { cuisine: "Italian", protein: "Any", dayOfWeek: 2 },
+            { cuisine: "Mexican", dayOfWeek: 4 },
+          ],
+        })
+      );
+      const promptFor = (cuisine: string) => promptsSent().find((prompt) => prompt.includes(`Cuisine: ${cuisine}\n`)) ?? "";
+      const beef = promptFor("Thai");
+      const any = promptFor("Italian");
+      const missing = promptFor("Mexican");
+
+      expect(beef).toContain("Protein (base): Beef");
+      expect(beef).toContain("tags must exactly match (Thai, Dinner, Beef).");
+      expect(any).toContain("Protein (base): Chef's choice.");
+      expect(missing).toContain("Protein (base): Chef's choice.");
+    });
+
+    it("stores the protein with each pick and returns it in the results", async () => {
+      const response = await postBusyWeek(
+        busyBody({
+          picks: [
+            { cuisine: "Thai", protein: "Tofu", dayOfWeek: 0 },
+            { cuisine: "Italian", dayOfWeek: 2 },
+          ],
+        })
+      );
+      const json = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(json.results.map((r: { protein: string }) => r.protein)).toEqual(["Tofu", "Any"]);
+      expect(batchRows().find((row) => row.id === BATCH)?.results).toMatchObject([
+        { protein: "Tofu" },
+        { protein: "Any" },
+      ]);
+    });
+
+    it("refuses a meat pick for a saved vegetarian, with 400, zero reservation and zero model calls", async () => {
+      seedSettings(["Vegetarian"]);
+
+      const response = await postBusyWeek(busyBody({ picks: [{ cuisine: "Thai", protein: "Chicken", dayOfWeek: 0 }] }));
+      const json = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(json.error).toContain("say vegetarian");
+      expect(json.error).toContain("Chicken");
+      expect(mocks.beginBusyWeekBatch).not.toHaveBeenCalled();
+      expect(mocks.chatJson).not.toHaveBeenCalled();
+      expect(batchRows()).toHaveLength(0);
+    });
+
+    it("refuses Eggs for a saved vegan, but allows Eggs for a saved vegetarian", async () => {
+      seedSettings(["vegan"]);
+      const vegan = await postBusyWeek(busyBody({ picks: [{ cuisine: "Thai", protein: "Eggs", dayOfWeek: 0 }] }));
+      expect(vegan.status).toBe(400);
+
+      seedSettings(["Vegetarian"]);
+      const vegetarian = await postBusyWeek(busyBody({ picks: [{ cuisine: "Thai", protein: "Eggs", dayOfWeek: 0 }] }));
+      expect(vegetarian.status).toBe(200);
+    });
+
+    it("applies a saved vegetarian preference to a pick that asks for Vegetarian, and it stays vegetarian", async () => {
+      seedSettings(["Vegetarian"]);
+
+      const response = await postBusyWeek(busyBody({ picks: [{ cuisine: "Thai", protein: "Vegetarian (no meat)", dayOfWeek: 0 }] }));
+
+      expect(response.status).toBe(200);
+      expect(promptsSent()[0]).toContain("This must be a vegetarian dish with no meat, poultry or fish.");
+    });
+
+    it("keeps the chosen protein on the stored pick for Retry failed to re-send", async () => {
+      mocks.failCuisines.current = new Set(["Thai"]);
+      const response = await postBusyWeek(busyBody({ picks: [{ cuisine: "Thai", protein: "Pork", dayOfWeek: 0 }] }));
+      const json = await response.json();
+
+      expect(json.results[0]).toMatchObject({ status: "failed", protein: "Pork" });
+    });
+  });
 });
 
 describe("GET /api/busy-week/[batchId]", () => {

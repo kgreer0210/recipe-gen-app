@@ -156,6 +156,26 @@ export const MEAL_STYLES = [
 ] as const;
 
 export type MealStyle = (typeof MEAL_STYLES)[number];
+
+/**
+ * Optional protein for a Busy week pick or a pantry recipe. "Any" lets the AI choose.
+ * Prompt-only, never stored. Names match ProteinType where they match.
+ */
+export const PROTEIN_CHOICES = [
+  "Any",
+  "Chicken",
+  "Beef",
+  "Pork",
+  "Turkey",
+  "Fish",
+  "Shrimp/Seafood",
+  "Tofu",
+  "Beans/Legumes",
+  "Eggs",
+  "Vegetarian (no meat)",
+] as const;
+
+export type ProteinChoice = (typeof PROTEIN_CHOICES)[number];
 export type MealType = "Breakfast" | "Lunch" | "Dinner" | "Snack";
 export type ProteinType =
   | "Chicken"
@@ -209,7 +229,7 @@ export interface GenerateRecipeRequest {
   mode: "classic" | "pantry";
   cuisine?: CuisineType;
   meal?: MealType;
-  protein?: ProteinType;
+  protein?: ProteinType | ProteinChoice;
   proteinCut?: string;
   ingredients?: string[];
   dietaryPreferences?: string[];
@@ -231,6 +251,7 @@ export type BusyWeekErrorCode =
 export interface BusyWeekPick {
   cuisine: CuisineType;
   mealStyle?: MealStyle;
+  protein?: ProteinChoice;
   dayOfWeek: number;
   replaceSlotId?: string;
 }
@@ -246,6 +267,7 @@ export interface BusyWeekResult {
   index: number;
   cuisine: CuisineType;
   mealStyle: MealStyle;
+  protein: ProteinChoice;
   dayOfWeek: number;
   status: BusyWeekPickStatus;
   recipe?: Recipe;

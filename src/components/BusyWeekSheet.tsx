@@ -1,9 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { AlertTriangle, Loader2, Plus, RefreshCw, Sparkles, X } from "lucide-react";
 import ModalShell from "@/components/ModalShell";
 import { useBusyWeek } from "@/hooks/useBusyWeek";
+import { fetchKitchenProfile } from "@/lib/kitchenProfile";
+import { disabledProteinChoices, proteinConflictNote } from "@/lib/proteinChoice";
 import { useRecipesStore } from "@/lib/stores/recipesStore";
 import { useWeeklyPlanStore } from "@/lib/stores/weeklyPlanStore";
 import {
@@ -19,10 +22,12 @@ import {
   CUISINE_TYPES,
   DAY_LABELS,
   MEAL_STYLES,
+  PROTEIN_CHOICES,
   type BusyWeekPick,
   type BusyWeekResult,
   type CuisineType,
   type MealStyle,
+  type ProteinChoice,
 } from "@/types";
 
 const DAY_LETTERS = ["M", "T", "W", "T", "F", "S", "S"] as const;
@@ -49,6 +54,7 @@ type Draft = {
   id: number;
   cuisine: CuisineType;
   mealStyle: MealStyle;
+  protein: ProteinChoice;
   dayOfWeek: number;
   /** The user ticked "Replace" for this day's existing dinner. */
   replaceConfirmed: boolean;
@@ -84,10 +90,33 @@ export default function BusyWeekSheet({
       id: 1,
       cuisine: CUISINE_TYPES[0],
       mealStyle: "Any",
+      protein: "Any",
       dayOfWeek: defaultPickDay(weekStart, today, new Set()) ?? 0,
       replaceConfirmed: false,
     },
   ]);
+
+  // Saved dietary preferences (Settings) decide which proteins can be picked.
+  const [savedDietary, setSavedDietary] = useState<string[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    void fetchKitchenProfile().then((profile) => {
+      if (cancelled) return;
+      setSavedDietary(profile.dietaryPreferences);
+      // A protein picked before the preferences loaded is reset if they now rule it out.
+      const disabled = disabledProteinChoices(profile.dietaryPreferences);
+      setDrafts((current) =>
+        current.some((draft) => disabled.has(draft.protein))
+          ? current.map((draft) => (disabled.has(draft.protein) ? { ...draft, protein: "Any" } : draft))
+          : current
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const disabledProteins = disabledProteinChoices(savedDietary);
+  const proteinNote = proteinConflictNote(savedDietary);
 
   // Remaining generations this week. Null means unlimited (admin).
   const [remaining, setRemaining] = useState<{ loaded: boolean; value: number | null }>({
@@ -140,7 +169,7 @@ export default function BusyWeekSheet({
     const id = Math.max(0, ...drafts.map((draft) => draft.id)) + 1;
     setDrafts((current) => [
       ...current,
-      { id, cuisine: CUISINE_TYPES[0], mealStyle: "Any", dayOfWeek: day, replaceConfirmed: false },
+      { id, cuisine: CUISINE_TYPES[0], mealStyle: "Any", protein: "Any", dayOfWeek: day, replaceConfirmed: false },
     ]);
   };
 
@@ -169,11 +198,13 @@ export default function BusyWeekSheet({
     const nextReplace = new Map<number, string>();
     const payload: BusyWeekPick[] = drafts.map((draft, index) => {
       const conflict = conflicts[index];
+      // "Any" is the default, so it is left out of the request.
+      const protein = draft.protein === "Any" ? {} : { protein: draft.protein };
       if (conflict && draft.replaceConfirmed) {
         nextReplace.set(draft.dayOfWeek, conflict.id);
-        return { cuisine: draft.cuisine, mealStyle: draft.mealStyle, dayOfWeek: draft.dayOfWeek, replaceSlotId: conflict.id };
+        return { cuisine: draft.cuisine, mealStyle: draft.mealStyle, ...protein, dayOfWeek: draft.dayOfWeek, replaceSlotId: conflict.id };
       }
-      return { cuisine: draft.cuisine, mealStyle: draft.mealStyle, dayOfWeek: draft.dayOfWeek };
+      return { cuisine: draft.cuisine, mealStyle: draft.mealStyle, ...protein, dayOfWeek: draft.dayOfWeek };
     });
     replaceByDay.current = nextReplace;
     setSubmitted(payload);
@@ -188,6 +219,7 @@ export default function BusyWeekSheet({
       return {
         cuisine: result.cuisine,
         mealStyle: result.mealStyle,
+        ...(result.protein && result.protein !== "Any" ? { protein: result.protein } : {}),
         dayOfWeek: result.dayOfWeek,
         ...(replaceSlotId ? { replaceSlotId } : {}),
       };
@@ -296,6 +328,29 @@ export default function BusyWeekSheet({
                     ))}
                   </div>
                 </div>
+
+                <label className="flex min-w-0 flex-col gap-1 text-xs font-semibold text-[var(--market-copy)]">
+                  Protein · optional
+                  <select
+                    value={draft.protein}
+                    onChange={(event) => updateDraft(draft.id, { protein: event.target.value as ProteinChoice })}
+                    className="h-11 w-full min-w-0 rounded-xl border border-[var(--market-line)] bg-[var(--market-surface)] px-3 text-base text-[var(--market-ink)]"
+                  >
+                    {PROTEIN_CHOICES.map((choice) => (
+                      <option key={choice} value={choice} disabled={disabledProteins.has(choice)}>
+                        {choice}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {proteinNote && disabledProteins.size > 0 && (
+                  <p className="text-xs text-[var(--market-copy)]">
+                    {proteinNote}{" "}
+                    <Link href="/settings" className="font-semibold text-[var(--market-tomato-dark)] underline">
+                      Open Settings
+                    </Link>
+                  </p>
+                )}
 
                 <div className="flex flex-col gap-1.5">
                   <span className="text-xs font-semibold text-[var(--market-copy)]">Day</span>
@@ -414,7 +469,8 @@ export default function BusyWeekSheet({
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold">{result.recipe?.title ?? `${result.cuisine} · ${result.mealStyle}`}</p>
                   <p className="text-xs text-[var(--market-copy)]">
-                    {result.cuisine} · {result.mealStyle} · {DAY_SHORT[result.dayOfWeek]}
+                    {result.cuisine} · {result.mealStyle}
+                    {result.protein && result.protein !== "Any" ? ` · ${result.protein}` : ""} · {DAY_SHORT[result.dayOfWeek]}
                   </p>
                 </div>
                 <StatusBadge result={result} />

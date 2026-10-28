@@ -13,6 +13,8 @@ import {
   DIETARY_PREFERENCES_LIST,
   MEAL_STYLES,
   MealStyle,
+  PROTEIN_CHOICES,
+  ProteinChoice,
   MealType,
   ProteinType,
   Recipe,
@@ -22,6 +24,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { generatorQueryPatch } from "@/lib/generator/queryParams";
 import { fetchKitchenProfile, uniqueStrings } from "@/lib/kitchenProfile";
+import { disabledProteinChoices, proteinConflictNote } from "@/lib/proteinChoice";
 import {
   Loader2,
   ChefHat,
@@ -176,6 +179,8 @@ function PreferencesStep({
   onToggle,
   mealStyle,
   onMealStyleSelect,
+  protein,
+  onProteinSelect,
   onNext,
   onBack,
 }: {
@@ -183,9 +188,14 @@ function PreferencesStep({
   onToggle: (pref: string) => void;
   mealStyle: MealStyle;
   onMealStyleSelect: (style: MealStyle) => void;
+  /** Only the pantry preferences step offers Protein. Classic picks a protein on its own step. */
+  protein?: ProteinChoice;
+  onProteinSelect?: (protein: ProteinChoice) => void;
   onNext: () => void;
   onBack?: () => void;
 }) {
+  const disabledProteins = disabledProteinChoices(dietaryPreferences);
+  const proteinNote = proteinConflictNote(dietaryPreferences);
   return (
     <div className="w-full">
       <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
@@ -234,6 +244,33 @@ function PreferencesStep({
           ))}
         </div>
       </fieldset>
+      {protein !== undefined && onProteinSelect && (
+        <div className="mb-8">
+          <label className="flex flex-col gap-1 text-base font-semibold text-gray-800">
+            Protein
+            <span className="text-sm font-normal text-gray-500">Optional. &quot;Any&quot; lets the AI decide.</span>
+            <select
+              value={protein}
+              onChange={(event) => onProteinSelect(event.target.value as ProteinChoice)}
+              className="mt-2 h-11 w-full min-w-0 rounded-xl border-2 border-gray-100 bg-white px-3 text-base font-normal text-gray-700"
+            >
+              {PROTEIN_CHOICES.map((choice) => (
+                <option key={choice} value={choice} disabled={disabledProteins.has(choice)}>
+                  {choice}
+                </option>
+              ))}
+            </select>
+          </label>
+          {proteinNote && disabledProteins.size > 0 && (
+            <p className="mt-2 text-sm text-gray-600">
+              {proteinNote}{" "}
+              <Link href="/settings" className="font-semibold text-blue-700 underline">
+                Open Settings
+              </Link>
+            </p>
+          )}
+        </div>
+      )}
       <div
         className={`flex w-full ${onBack ? "justify-between" : "justify-end"} gap-4`}
       >
@@ -278,6 +315,8 @@ export default function RecipeGenerator() {
   const [proteinCut, setProteinCut] = useState<string>("Any cut");
   const [dietaryPreferences, setDietaryPreferences] = useState<string[]>([]);
   const [mealStyle, setMealStyle] = useState<MealStyle>("Any");
+  // Pantry only. Classic asks for its protein on its own step.
+  const [pantryProtein, setPantryProtein] = useState<ProteinChoice>("Any");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [generatedRecipe, setGeneratedRecipe] = useState<Recipe | null>(null);
@@ -467,6 +506,7 @@ export default function RecipeGenerator() {
           servings,
           // "Any" is the default, so it is left out of the request.
           mealStyle: mealStyle === "Any" ? undefined : mealStyle,
+          protein: pantryProtein === "Any" ? undefined : pantryProtein,
           adminModelOverride: selectedModel || undefined,
         });
         setGeneratedRecipe(recipe);
@@ -576,6 +616,7 @@ export default function RecipeGenerator() {
     setGeneratedServings(2);
     setProteinCut("Any cut"); // Reset protein cut
     setMealStyle("Any");
+    setPantryProtein("Any");
     setIngredientsInput(""); // Reset ingredients
     setDietaryPreferences(profileDietaryRef.current);
   };
@@ -630,6 +671,7 @@ export default function RecipeGenerator() {
           ]),
           servings,
           mealStyle: mealStyle === "Any" ? undefined : mealStyle,
+          protein: pantryProtein === "Any" ? undefined : pantryProtein,
           adminModelOverride: currentRecipeModel || undefined,
         });
         setGeneratedRecipe(recipe);
@@ -716,9 +758,12 @@ export default function RecipeGenerator() {
   };
 
   const togglePreference = (pref: string) => {
-    setDietaryPreferences((prev) =>
-      prev.includes(pref) ? prev.filter((p) => p !== pref) : [...prev, pref]
-    );
+    const next = dietaryPreferences.includes(pref)
+      ? dietaryPreferences.filter((p) => p !== pref)
+      : [...dietaryPreferences, pref];
+    setDietaryPreferences(next);
+    // A pantry protein that the new preferences rule out goes back to "Any".
+    if (disabledProteinChoices(next).has(pantryProtein)) setPantryProtein("Any");
   };
 
   const variants = {
@@ -941,6 +986,8 @@ export default function RecipeGenerator() {
                 onToggle={togglePreference}
                 mealStyle={mealStyle}
                 onMealStyleSelect={setMealStyle}
+                protein={pantryProtein}
+                onProteinSelect={setPantryProtein}
                 onNext={nextStep}
                 onBack={goToPreviousStep}
               />
@@ -1119,7 +1166,7 @@ export default function RecipeGenerator() {
                 </div>
               )}
 
-              {(dietaryPreferences.length > 0 || mealStyle !== "Any") && (
+              {(dietaryPreferences.length > 0 || mealStyle !== "Any" || (mode === "pantry" && pantryProtein !== "Any")) && (
                 <button
                   onClick={() => { setDirection(-1); setStep(mode === "classic" ? (hasCuts ? 4 : 3) : 1); }}
                   className="w-full bg-white p-4 rounded-xl border border-gray-100 shadow-sm mb-8 hover:border-blue-200 hover:bg-blue-50/30 transition-colors cursor-pointer text-left"
@@ -1132,6 +1179,11 @@ export default function RecipeGenerator() {
                     {mealStyle !== "Any" && (
                       <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium">
                         Meal style: {mealStyle}
+                      </span>
+                    )}
+                    {mode === "pantry" && pantryProtein !== "Any" && (
+                      <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium">
+                        Protein: {pantryProtein}
                       </span>
                     )}
                     {dietaryPreferences.map((pref) => (
@@ -1534,6 +1586,7 @@ export default function RecipeGenerator() {
                     setShowLimitPopup(false);
                     setProteinCut("Any cut");
                     setMealStyle("Any");
+                    setPantryProtein("Any");
                     setIngredientsInput("");
                     setDietaryPreferences(profileDietaryRef.current);
                     setServingsInput("2");

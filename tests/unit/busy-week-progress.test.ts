@@ -3,7 +3,7 @@ import { progressRows } from "@/lib/busyWeek";
 import type { BusyWeekPick, BusyWeekResult } from "@/types";
 
 const picks: BusyWeekPick[] = [
-  { cuisine: "Thai", mealStyle: "Taco", dayOfWeek: 2 },
+  { cuisine: "Thai", mealStyle: "Taco", protein: "Shrimp/Seafood", dayOfWeek: 2 },
   { cuisine: "Mexican", mealStyle: "Any", dayOfWeek: 4 },
   { cuisine: "Thai", mealStyle: "Any", dayOfWeek: 6 },
 ];
@@ -13,16 +13,16 @@ describe("busy week progress rows", () => {
     const rows = progressRows(picks, []);
 
     expect(rows).toEqual([
-      { index: 0, cuisine: "Thai", mealStyle: "Taco", dayOfWeek: 2, status: "pending" },
-      { index: 1, cuisine: "Mexican", mealStyle: "Any", dayOfWeek: 4, status: "pending" },
-      { index: 2, cuisine: "Thai", mealStyle: "Any", dayOfWeek: 6, status: "pending" },
+      { index: 0, cuisine: "Thai", mealStyle: "Taco", protein: "Shrimp/Seafood", dayOfWeek: 2, status: "pending" },
+      { index: 1, cuisine: "Mexican", mealStyle: "Any", protein: "Any", dayOfWeek: 4, status: "pending" },
+      { index: 2, cuisine: "Thai", mealStyle: "Any", protein: "Any", dayOfWeek: 6, status: "pending" },
     ]);
   });
 
-  it("defaults a pick without a meal style to Any, as the form does", () => {
+  it("defaults a pick without a meal style or protein to Any, as the form does", () => {
     const rows = progressRows([{ cuisine: "Thai", dayOfWeek: 1 }], []);
 
-    expect(rows[0]).toMatchObject({ mealStyle: "Any" });
+    expect(rows[0]).toMatchObject({ mealStyle: "Any", protein: "Any" });
   });
 
   it("replaces a queued row with the server result that has the same index, and keeps the rest queued", () => {
@@ -30,6 +30,7 @@ describe("busy week progress rows", () => {
       index: 1,
       cuisine: "Mexican",
       mealStyle: "Any",
+      protein: "Any",
       dayOfWeek: 4,
       status: "placed",
       recipe: { id: "r1", title: "Tacos" } as BusyWeekResult["recipe"],
@@ -46,6 +47,7 @@ describe("busy week progress rows", () => {
       index: 2,
       cuisine: "Thai",
       mealStyle: "Any",
+      protein: "Any",
       dayOfWeek: 6,
       status: "failed",
       error: "generation_failed",
@@ -59,7 +61,7 @@ describe("busy week progress rows", () => {
 
   it("returns the server's results unchanged for a resumed batch with no submitted picks", () => {
     const resumed: BusyWeekResult[] = [
-      { index: 0, cuisine: "Thai", mealStyle: "Any", dayOfWeek: 0, status: "pending" },
+      { index: 0, cuisine: "Thai", mealStyle: "Any", protein: "Any", dayOfWeek: 0, status: "pending" },
     ];
 
     expect(progressRows(null, resumed)).toBe(resumed);

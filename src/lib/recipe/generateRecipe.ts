@@ -1,7 +1,7 @@
 import "server-only";
 
-import type { CuisineType, MealStyle, MealType, ProteinType, Recipe } from "@/types";
-import { MEAL_STYLES } from "@/types";
+import type { CuisineType, MealStyle, MealType, ProteinChoice, ProteinType, Recipe } from "@/types";
+import { MEAL_STYLES, PROTEIN_CHOICES } from "@/types";
 import { chatJson } from "@/lib/openrouter/chatJson";
 
 /**
@@ -14,8 +14,8 @@ export type RecipeGenerationInput = {
   mode: "classic" | "pantry";
   cuisine?: CuisineType;
   meal?: MealType;
-  /** Omitted for Busy week: the model picks a base protein that suits the dish. */
-  protein?: ProteinType;
+  /** Omitted for Busy week and pantry "Any": the model picks a base protein that suits the dish. */
+  protein?: ProteinType | ProteinChoice;
   proteinCut?: string;
   ingredients?: string[];
   dietaryPreferences: string[];
@@ -44,6 +44,25 @@ const STYLE_GUIDANCE: Record<Exclude<MealStyle, "Any">, string> = {
   Salad: "a salad with a dressing, with the protein and vegetables tossed together",
   Skewers: "skewers or kebabs, threaded and cooked on a grill, in a pan or in the oven",
 };
+
+/**
+ * How a protein reads in the prompt. Choices that have their own name (Chicken, Beef, ...)
+ * are not listed, so they keep the ProteinType wording and the exact tag rule.
+ */
+const PROTEIN_BASE: Partial<Record<ProteinChoice, string>> = {
+  "Shrimp/Seafood": "shrimp or other seafood",
+  "Beans/Legumes": "beans or legumes",
+  "Vegetarian (no meat)": "vegetarian",
+};
+
+function proteinBase(protein: ProteinType | ProteinChoice): string {
+  return PROTEIN_BASE[protein as ProteinChoice] ?? protein;
+}
+
+/** The protein the prompt should use. "Any" and a missing value both mean the model chooses. */
+function chosenProtein(input: RecipeGenerationInput): ProteinType | ProteinChoice | undefined {
+  return input.protein && input.protein !== "Any" ? input.protein : undefined;
+}
 
 /** A blank prompt line that keeps its six-space indent, as the original prompt did. */
 const INDENTED_BLANK = "      ";
@@ -77,6 +96,16 @@ function extraRequirements(input: RecipeGenerationInput): string {
       throw new Error(`Unknown meal style: ${input.mealStyle}`);
     }
     extra += `\n      - Meal style: ${input.mealStyle}. Make it ${STYLE_GUIDANCE[input.mealStyle]}.`;
+  }
+  const protein = chosenProtein(input);
+  if (protein && input.mode === "pantry") {
+    if (!PROTEIN_CHOICES.includes(protein as ProteinChoice)) {
+      throw new Error(`Unknown protein: ${protein}`);
+    }
+    extra += `\n      - Protein preference: ${proteinBase(protein)}.`;
+  }
+  if (protein === "Vegetarian (no meat)") {
+    extra += "\n      - This must be a vegetarian dish with no meat, poultry or fish.";
   }
   if (input.avoidTitles && input.avoidTitles.length > 0) {
     extra += `\n      - Important: avoid these dishes: ${input.avoidTitles.join(", ")}. Create something clearly different.`;
@@ -163,16 +192,18 @@ ${INDENTED_BLANK}
     input.proteinCut && input.proteinCut.trim().length > 0 ? input.proteinCut.trim() : "Any";
   const cuisine = input.cuisine;
   const meal = input.meal;
-  const protein = input.protein;
-  const proteinLine = protein
-    ? `Protein (base): ${protein}`
+  const protein = chosenProtein(input);
+  const base = protein ? proteinBase(protein) : undefined;
+  const proteinLine = base
+    ? `Protein (base): ${base}`
     : "Protein (base): Chef's choice. Pick the base protein that best suits this cuisine and meal style, within the dietary preferences.";
   const proteinCutLine = protein
     ? `Protein cut preference: ${cutPreference}`
     : "Protein cut preference: Any";
-  const tagsRequirement = protein
-    ? `- tags must exactly match (${cuisine}, ${meal}, ${protein}).`
-    : `- tags.cuisine must be ${cuisine} and tags.meal must be ${meal}. tags.protein must name the base protein you chose.`;
+  const tagsRequirement =
+    protein && base === protein
+      ? `- tags must exactly match (${cuisine}, ${meal}, ${protein}).`
+      : `- tags.cuisine must be ${cuisine} and tags.meal must be ${meal}. tags.protein must name the base protein you chose.`;
 
   const prompt = `
       Generate a unique, high-quality recipe that serves exactly ${servings} people based on the following selections:
@@ -183,7 +214,7 @@ ${INDENTED_BLANK}
       ${dietaryBlock}
       ${avoidBlock}
 
-      IMPORTANT: Explore the full spectrum of ${cuisine} cuisine for ${protein ?? "the chosen protein"} dishes. Consider:
+      IMPORTANT: Explore the full spectrum of ${cuisine} cuisine for ${base ?? "the chosen protein"} dishes. Consider:
       - Different cooking techniques: braising, grilling, pan-searing, stir-frying, steaming, roasting, deep-frying, smoking
       - Various flavor profiles: spicy, savory-sweet, tangy, umami-rich, aromatic, herb-forward
       - Regional variations and less common preparations within ${cuisine} cuisine

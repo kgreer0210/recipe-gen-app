@@ -1,11 +1,13 @@
 import {
   CUISINE_TYPES,
   MEAL_STYLES,
+  PROTEIN_CHOICES,
   type BusyWeekPick,
   type BusyWeekRequest,
   type BusyWeekResult,
   type CuisineType,
   type MealStyle,
+  type ProteinChoice,
   type WeeklyPlanSlot,
 } from "@/types";
 import { addDaysToYmd, formatYmd, parseYmd } from "@/lib/week";
@@ -19,7 +21,7 @@ const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type ValidBusyWeekRequest = Omit<BusyWeekRequest, "picks"> & {
-  picks: Array<BusyWeekPick & { mealStyle: MealStyle }>;
+  picks: Array<BusyWeekPick & { mealStyle: MealStyle; protein: ProteinChoice }>;
 };
 
 export type BusyWeekValidation =
@@ -81,6 +83,11 @@ export function validateBusyWeekRequest(input: unknown): BusyWeekValidation {
       return fail("Unknown meal style.");
     }
 
+    const protein = pick.protein ?? "Any";
+    if (!PROTEIN_CHOICES.includes(protein as ProteinChoice)) {
+      return fail("Unknown protein.");
+    }
+
     const day = pick.dayOfWeek;
     if (typeof day !== "number" || !Number.isInteger(day) || day < 0 || day > 6) {
       return fail("dayOfWeek must be 0 (Monday) to 6 (Sunday).");
@@ -97,6 +104,7 @@ export function validateBusyWeekRequest(input: unknown): BusyWeekValidation {
     picks.push({
       cuisine: pick.cuisine as CuisineType,
       mealStyle: style as MealStyle,
+      protein: protein as ProteinChoice,
       dayOfWeek: day,
       ...(typeof pick.replaceSlotId === "string" ? { replaceSlotId: pick.replaceSlotId } : {}),
     });
@@ -169,6 +177,7 @@ export function progressRows(
         index,
         cuisine: pick.cuisine,
         mealStyle: pick.mealStyle ?? "Any",
+        protein: pick.protein ?? "Any",
         dayOfWeek: pick.dayOfWeek,
         status: "pending",
       }
