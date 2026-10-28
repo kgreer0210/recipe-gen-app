@@ -503,6 +503,30 @@ describe("GET /api/busy-week/[batchId]", () => {
     });
   });
 
+  it("shows a live batch as running, with unfinished picks still pending, and leaves it alone", async () => {
+    db.tables.generation_batches.push({
+      id: SECOND_BATCH,
+      user_id: USER.id,
+      week_start: WEEK,
+      status: "running",
+      requested: 2,
+      succeeded: 0,
+      usage_window_start: WINDOW,
+      results: [
+        { index: 0, cuisine: "Thai", mealStyle: "Any", dayOfWeek: 0, status: "pending", recipeId: null, planSlotId: null },
+        { index: 1, cuisine: "Italian", mealStyle: "Pasta", dayOfWeek: 2, status: "pending", recipeId: null, planSlotId: null },
+      ],
+      created_at: new Date().toISOString(),
+    });
+
+    const response = await getBusyWeek(SECOND_BATCH);
+    const json = await response.json();
+
+    expect(json.status).toBe("running");
+    expect(json.results.map((r: { status: string }) => r.status)).toEqual(["pending", "pending"]);
+    expect(mocks.releaseUsage).not.toHaveBeenCalled();
+  });
+
   it("finishes a batch that was left running after its function died, and refunds the unfinished picks", async () => {
     db.tables.generation_batches.push({
       id: SECOND_BATCH,

@@ -11,6 +11,8 @@ import { formatRecipeAmount } from "@/lib/grocery/format";
 import {
   CuisineType,
   DIETARY_PREFERENCES_LIST,
+  MEAL_STYLES,
+  MealStyle,
   MealType,
   ProteinType,
   Recipe,
@@ -172,11 +174,15 @@ function StepCard<T extends string>({
 function PreferencesStep({
   dietaryPreferences,
   onToggle,
+  mealStyle,
+  onMealStyleSelect,
   onNext,
   onBack,
 }: {
   dietaryPreferences: readonly string[];
   onToggle: (pref: string) => void;
+  mealStyle: MealStyle;
+  onMealStyleSelect: (style: MealStyle) => void;
   onNext: () => void;
   onBack?: () => void;
 }) {
@@ -202,6 +208,32 @@ function PreferencesStep({
           </button>
         ))}
       </div>
+      <fieldset className="mb-8">
+        <legend className="text-base font-semibold text-gray-800 mb-1">
+          How do you want to eat it?
+        </legend>
+        <p className="text-sm text-gray-500 mb-3">
+          Optional. &quot;Any&quot; lets the AI decide.
+        </p>
+        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Meal style">
+          {MEAL_STYLES.map((style) => (
+            <button
+              key={style}
+              type="button"
+              role="radio"
+              aria-checked={mealStyle === style}
+              onClick={() => onMealStyleSelect(style)}
+              className={`px-3 py-2 min-h-[2.5rem] rounded-full border-2 text-sm font-medium transition-colors ${
+                mealStyle === style
+                  ? "border-blue-600 bg-blue-50 text-blue-700"
+                  : "border-gray-100 bg-white text-gray-600 hover:border-blue-200 hover:bg-gray-50"
+              }`}
+            >
+              {style}
+            </button>
+          ))}
+        </div>
+      </fieldset>
       <div
         className={`flex w-full ${onBack ? "justify-between" : "justify-end"} gap-4`}
       >
@@ -245,6 +277,7 @@ export default function RecipeGenerator() {
   const [protein, setProtein] = useState<ProteinType>("Chicken");
   const [proteinCut, setProteinCut] = useState<string>("Any cut");
   const [dietaryPreferences, setDietaryPreferences] = useState<string[]>([]);
+  const [mealStyle, setMealStyle] = useState<MealStyle>("Any");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [generatedRecipe, setGeneratedRecipe] = useState<Recipe | null>(null);
@@ -411,6 +444,8 @@ export default function RecipeGenerator() {
             ...dietaryPreferences,
           ]),
           servings,
+          // "Any" is the default, so it is left out of the request.
+          mealStyle: mealStyle === "Any" ? undefined : mealStyle,
           adminModelOverride: selectedModel || undefined,
         });
         setGeneratedRecipe(recipe);
@@ -430,6 +465,8 @@ export default function RecipeGenerator() {
             ...dietaryPreferences,
           ]),
           servings,
+          // "Any" is the default, so it is left out of the request.
+          mealStyle: mealStyle === "Any" ? undefined : mealStyle,
           adminModelOverride: selectedModel || undefined,
         });
         setGeneratedRecipe(recipe);
@@ -538,6 +575,7 @@ export default function RecipeGenerator() {
     setServingsInput("2"); // Reset servings
     setGeneratedServings(2);
     setProteinCut("Any cut"); // Reset protein cut
+    setMealStyle("Any");
     setIngredientsInput(""); // Reset ingredients
     setDietaryPreferences(profileDietaryRef.current);
   };
@@ -572,6 +610,7 @@ export default function RecipeGenerator() {
             ...dietaryPreferences,
           ]),
           servings,
+          mealStyle: mealStyle === "Any" ? undefined : mealStyle,
           adminModelOverride: currentRecipeModel || undefined,
         });
         setGeneratedRecipe(recipe);
@@ -590,6 +629,7 @@ export default function RecipeGenerator() {
             ...dietaryPreferences,
           ]),
           servings,
+          mealStyle: mealStyle === "Any" ? undefined : mealStyle,
           adminModelOverride: currentRecipeModel || undefined,
         });
         setGeneratedRecipe(recipe);
@@ -899,6 +939,8 @@ export default function RecipeGenerator() {
               <PreferencesStep
                 dietaryPreferences={dietaryPreferences}
                 onToggle={togglePreference}
+                mealStyle={mealStyle}
+                onMealStyleSelect={setMealStyle}
                 onNext={nextStep}
                 onBack={goToPreviousStep}
               />
@@ -998,6 +1040,8 @@ export default function RecipeGenerator() {
               <PreferencesStep
                 dietaryPreferences={dietaryPreferences}
                 onToggle={togglePreference}
+                mealStyle={mealStyle}
+                onMealStyleSelect={setMealStyle}
                 onNext={nextStep}
                 onBack={goToPreviousStep}
               />
@@ -1075,7 +1119,7 @@ export default function RecipeGenerator() {
                 </div>
               )}
 
-              {dietaryPreferences.length > 0 && (
+              {(dietaryPreferences.length > 0 || mealStyle !== "Any") && (
                 <button
                   onClick={() => { setDirection(-1); setStep(mode === "classic" ? (hasCuts ? 4 : 3) : 1); }}
                   className="w-full bg-white p-4 rounded-xl border border-gray-100 shadow-sm mb-8 hover:border-blue-200 hover:bg-blue-50/30 transition-colors cursor-pointer text-left"
@@ -1085,6 +1129,11 @@ export default function RecipeGenerator() {
                     <ChevronRight className="w-4 h-4 text-gray-400" />
                   </div>
                   <div className="flex flex-wrap gap-2">
+                    {mealStyle !== "Any" && (
+                      <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium">
+                        Meal style: {mealStyle}
+                      </span>
+                    )}
                     {dietaryPreferences.map((pref) => (
                       <span
                         key={pref}
@@ -1484,6 +1533,7 @@ export default function RecipeGenerator() {
                     setGeneratedRecipe(null);
                     setShowLimitPopup(false);
                     setProteinCut("Any cut");
+                    setMealStyle("Any");
                     setIngredientsInput("");
                     setDietaryPreferences(profileDietaryRef.current);
                     setServingsInput("2");

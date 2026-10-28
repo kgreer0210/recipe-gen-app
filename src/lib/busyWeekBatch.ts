@@ -45,8 +45,6 @@ const SLOT_COLUMNS =
   "id, recipe_id, week_start, day_of_week, meal_slot, servings_override, cooked_at, created_at";
 const BLOCKED_AS_SERVER_ERROR = ["rpc_error", "exception", "plan_not_configured", "invalid_action", "invalid_count"];
 
-type StoredStatus = BusyWeekPickStatus | "pending";
-
 /** One pick as stored in generation_batches.results. */
 type StoredPick = {
   index: number;
@@ -54,7 +52,7 @@ type StoredPick = {
   mealStyle: MealStyle;
   dayOfWeek: number;
   replaceSlotId?: string;
-  status: StoredStatus;
+  status: BusyWeekPickStatus;
   recipeId: string | null;
   planSlotId: string | null;
   error?: BusyWeekErrorCode;
@@ -296,7 +294,7 @@ function toResult(
     cuisine: pick.cuisine,
     mealStyle: pick.mealStyle,
     dayOfWeek: pick.dayOfWeek,
-    status: pick.status === "pending" ? "failed" : pick.status,
+    status: pick.status,
     ...(object?.recipe ? { recipe: object.recipe } : {}),
     ...(object?.planSlot ? { planSlot: object.planSlot } : {}),
     ...(pick.error ? { error: pick.error } : {}),

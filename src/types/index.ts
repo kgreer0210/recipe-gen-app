@@ -218,7 +218,8 @@ export interface GenerateRecipeRequest {
   adminModelOverride?: string;
 }
 
-export type BusyWeekPickStatus = "placed" | "replaced" | "unscheduled" | "failed";
+/** "pending" only appears while a batch is running. */
+export type BusyWeekPickStatus = "pending" | "placed" | "replaced" | "unscheduled" | "failed";
 
 export type BusyWeekErrorCode =
   | "generation_failed"
