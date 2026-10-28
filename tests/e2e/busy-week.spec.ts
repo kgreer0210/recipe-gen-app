@@ -339,6 +339,75 @@ test.describe("Busy week and meal style", () => {
     await expectButtonIsTopmost(page, /Generate 1 dinner/);
   });
 
+  test("after Generate, a queued row shows per pick at once, and the sheet holds still while it waits", async ({ page }) => {
+    test.setTimeout(90_000);
+    await stubRateLimit(page, 37);
+    // Hold the POST and the first poll, so the sheet stays in its waiting state.
+    let releaseWaiting!: () => void;
+    const waiting = new Promise<void>((resolve) => {
+      releaseWaiting = resolve;
+    });
+    await page.route("**/api/busy-week", async (route) => {
+      await waiting;
+      const body = route.request().postDataJSON() as BusyWeekPostBody;
+      await fulfillJson(route, busyWeekResponse(body, "Queued Dinner", "queued"));
+    });
+    await page.route("**/api/busy-week/**", async (route) => {
+      await waiting;
+      await route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: "Batch not found" }) });
+    });
+    await openWeeklyPlan(page, paidEmail);
+
+    await page.getByRole("button", { name: "Next week" }).click();
+    await page.getByRole("button", { name: /^Busy week/ }).click();
+    const dialog = page.getByRole("dialog");
+    await page.getByLabel("Cuisine").first().selectOption("Thai");
+    await page.getByRole("radiogroup", { name: "Meal style for dinner 1" }).getByRole("radio", { name: "Taco" }).click();
+    await pickDay(page, 1, FREE_DAY);
+    await page.getByRole("button", { name: /Add another/ }).click();
+    await page.getByLabel("Cuisine").nth(1).selectOption("Mexican");
+    await pickDay(page, 2, SECOND_DAY);
+    await page.getByRole("button", { name: /Add another/ }).click();
+    await page.getByLabel("Cuisine").nth(2).selectOption("Thai");
+    await pickDay(page, 3, THIRD_DAY);
+
+    const panel = dialog.locator(":scope > div");
+    const formHeight = (await panel.boundingBox())!.height;
+
+    await page.getByRole("button", { name: /Generate 3 dinners/ }).click();
+
+    // One row per pick, queued ("Making…"), in submit order, before the server has answered.
+    const rows = dialog.getByRole("listitem");
+    await expect(rows).toHaveCount(3);
+    await expect(dialog.getByText("Making…")).toHaveCount(3);
+    await expect(rows.nth(0)).toContainText("Thai · Taco · Wed");
+    await expect(rows.nth(1)).toContainText("Mexican · Any · Fri");
+    await expect(rows.nth(2)).toContainText("Thai · Any · Sun");
+
+    // The sheet keeps its height when the form gives way to the progress view.
+    expect(Math.abs((await panel.boundingBox())!.height - formHeight)).toBeLessThanOrEqual(1);
+
+    // The scroll area never overflows while it waits, across several animation frames.
+    const overflow = await page.evaluate(async () => {
+      const area = document.querySelector('[role="dialog"] [aria-live="polite"]') as HTMLElement;
+      const seen: number[] = [];
+      for (let frame = 0; frame < 60; frame++) {
+        seen.push(area.scrollHeight - area.clientHeight);
+        await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+      }
+      return seen;
+    });
+    expect(Math.max(...overflow)).toBeLessThanOrEqual(0);
+
+    // The same rows are filled in by the server's answer, not replaced.
+    releaseWaiting();
+    await expect(dialog.getByText("All 3 dinners are in your plan.")).toBeVisible();
+    await expect(rows).toHaveCount(3);
+    await expect(dialog.getByText(`Queued Dinner 1 ${runId}`)).toBeVisible();
+    // Still the same height once the dinners are placed, which also changes the conflicts the form sees.
+    expect(Math.abs((await panel.boundingBox())!.height - formHeight)).toBeLessThanOrEqual(1);
+  });
+
   test("a batch whose request never reached the server gives up with a retry that uses a new batch id", async ({ page }) => {
     test.setTimeout(90_000);
     await stubRateLimit(page, 37);

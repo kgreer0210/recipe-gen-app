@@ -3,6 +3,7 @@ import {
   MEAL_STYLES,
   type BusyWeekPick,
   type BusyWeekRequest,
+  type BusyWeekResult,
   type CuisineType,
   type MealStyle,
   type WeeklyPlanSlot,
@@ -147,6 +148,31 @@ export function findDinnerConflicts(
         slot.mealSlot === "dinner"
     );
     return occupant ?? null;
+  });
+}
+
+/**
+ * The rows the progress view shows: one per submitted pick, in submit order, so they are
+ * on screen from the moment of Generate. A server result with the same index replaces its
+ * queued row, so each row updates in place instead of being remounted on every poll.
+ * With no submitted picks (a batch resumed after a reload), the server's results are shown.
+ */
+export function progressRows(
+  submitted: BusyWeekPick[] | null,
+  serverResults: BusyWeekResult[]
+): BusyWeekResult[] {
+  if (!submitted) return serverResults;
+  return submitted.map((pick, index) => {
+    const server = serverResults.find((result) => result.index === index);
+    return (
+      server ?? {
+        index,
+        cuisine: pick.cuisine,
+        mealStyle: pick.mealStyle ?? "Any",
+        dayOfWeek: pick.dayOfWeek,
+        status: "pending",
+      }
+    );
   });
 }
 

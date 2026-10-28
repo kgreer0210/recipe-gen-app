@@ -11,6 +11,7 @@ import {
   dayIsPast,
   defaultPickDay,
   findDinnerConflicts,
+  progressRows,
   weekHasOpenDay,
 } from "@/lib/busyWeek";
 import { formatWeekRange, getZonedYmd } from "@/lib/week";
@@ -26,6 +27,23 @@ import {
 
 const DAY_LETTERS = ["M", "T", "W", "T", "F", "S", "S"] as const;
 const DAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+
+// Footer buttons. The resting state reads as tappable on touch, where there is no hover.
+const FOOTER_BUTTON =
+  "flex items-center justify-center gap-2 whitespace-nowrap rounded-full px-6 py-3 font-semibold transition duration-150 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--market-tomato-dark)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--market-surface)] active:scale-[0.98] motion-reduce:active:scale-100";
+const FOOTER_PRIMARY =
+  "bg-[var(--market-tomato)] text-[#fff7ec] shadow-[0_12px_24px_rgba(175,62,39,0.22)] hover:bg-[var(--market-tomato-dark)] active:bg-[var(--market-tomato-dark)]";
+const FOOTER_SECONDARY =
+  "border-2 border-[var(--market-tomato-dark)] bg-[var(--market-surface)] text-[var(--market-tomato-dark)] hover:bg-[#f7ded3] active:bg-[#f0cdbf]";
+
+/** The rotating box is clipped to its own size, so the spin never adds scrollable overflow to the line it sits in. */
+function Spinner() {
+  return (
+    <span aria-hidden className="inline-flex h-4 w-4 shrink-0 items-center justify-center overflow-hidden">
+      <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+    </span>
+  );
+}
 
 type Draft = {
   id: number;
@@ -48,6 +66,8 @@ export default function BusyWeekSheet({
   const slots = useWeeklyPlanStore((state) => state.slots);
   const recipes = useRecipesStore((state) => state.recipes);
   const { phase, batch, error, submit } = useBusyWeek(weekStart);
+  // The picks of the batch on screen. Their rows show as queued before the server answers.
+  const [submitted, setSubmitted] = useState<BusyWeekPick[] | null>(null);
 
   const today = useMemo(() => getZonedYmd(new Date(), timezone), [timezone]);
   const weekSlots = useMemo(
@@ -156,27 +176,28 @@ export default function BusyWeekSheet({
       return { cuisine: draft.cuisine, mealStyle: draft.mealStyle, dayOfWeek: draft.dayOfWeek };
     });
     replaceByDay.current = nextReplace;
+    setSubmitted(payload);
     void submit(payload);
   };
 
   const retryFailed = (results: BusyWeekResult[]) => {
     const failed = results.filter((result) => result.status === "failed");
     if (failed.length === 0 || phase !== "done") return;
-    void submit(
-      failed.map((result) => {
-        const replaceSlotId = replaceByDay.current.get(result.dayOfWeek);
-        return {
-          cuisine: result.cuisine,
-          mealStyle: result.mealStyle,
-          dayOfWeek: result.dayOfWeek,
-          ...(replaceSlotId ? { replaceSlotId } : {}),
-        };
-      })
-    );
+    const retry = failed.map((result) => {
+      const replaceSlotId = replaceByDay.current.get(result.dayOfWeek);
+      return {
+        cuisine: result.cuisine,
+        mealStyle: result.mealStyle,
+        dayOfWeek: result.dayOfWeek,
+        ...(replaceSlotId ? { replaceSlotId } : {}),
+      };
+    });
+    setSubmitted(retry);
+    void submit(retry);
   };
 
   const showSummary = phase !== "idle" || batch !== null;
-  const results = batch?.results ?? [];
+  const results = progressRows(submitted, batch?.results ?? []);
   const finished = results.filter((result) => result.status !== "pending").length;
   const placedCount = results.filter((result) => result.status !== "failed" && result.status !== "pending").length;
   const failedCount = results.filter((result) => result.status === "failed").length;
@@ -187,7 +208,7 @@ export default function BusyWeekSheet({
     <ModalShell
       labelledBy="busy-week-title"
       onClose={onClose}
-      panelClassName="max-w-lg overscroll-contain pb-[max(1.25rem,env(safe-area-inset-bottom))] text-[var(--market-ink)] bg-[var(--market-surface)]"
+      panelClassName="flex max-w-lg flex-col overflow-hidden overscroll-contain pb-[max(1.25rem,env(safe-area-inset-bottom))] text-[var(--market-ink)] bg-[var(--market-surface)]"
     >
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -214,8 +235,9 @@ export default function BusyWeekSheet({
         </p>
       )}
 
+      {/* One body box for the form and the progress view, so the sheet keeps its height when Generate swaps them. */}
       {!showSummary && weekOpen && (
-        <div className="mt-5 flex max-h-[min(60dvh,28rem)] flex-col gap-4 overflow-y-auto overscroll-contain pr-1">
+        <div className="mt-5 flex h-[min(60dvh,28rem)] min-h-0 flex-col gap-4 overflow-y-auto overscroll-contain pr-1">
           {drafts.map((draft, index) => {
             const conflict = conflicts[index];
             const otherDays = usedDays(draft.id);
@@ -350,7 +372,7 @@ export default function BusyWeekSheet({
       )}
 
       {showSummary && (
-        <div className="mt-5 flex max-h-[min(60dvh,28rem)] flex-col gap-3 overflow-y-auto overscroll-contain pr-1" aria-live="polite">
+        <div className="mt-5 flex h-[min(60dvh,28rem)] min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain pr-1" aria-live="polite">
           <div>
             <div className="flex items-center justify-between text-sm font-semibold text-[var(--market-ink)]">
               <span>{finished} of {total} ready</span>
@@ -402,7 +424,7 @@ export default function BusyWeekSheet({
 
           {!error && results.length === 0 && phase === "running" && (
             <p className="flex items-center gap-2 text-sm text-[var(--market-copy)]">
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Starting…
+              <Spinner /> Starting…
             </p>
           )}
         </div>
@@ -414,9 +436,13 @@ export default function BusyWeekSheet({
         </p>
       )}
 
-      <div className="mt-5 flex flex-col gap-3">
-        {!showSummary && weekOpen && (
-          <>
+      {/* The form's footer and the progress footer share one grid cell, as tall as the taller of them. The sheet keeps its height when they swap. */}
+      <div className="mt-5 grid">
+        {weekOpen && (
+          <div
+            inert={showSummary}
+            className={`col-start-1 row-start-1 flex flex-col gap-3 self-end ${showSummary ? "invisible" : ""}`}
+          >
             <div className="rounded-xl border border-[#c6d69e] bg-[#edf3dc] p-2.5 text-xs text-[var(--market-copy)]">
               {!remaining.loaded
                 ? "Checking your remaining recipes…"
@@ -434,43 +460,49 @@ export default function BusyWeekSheet({
             >
               <Sparkles className="h-4 w-4" aria-hidden />
               Generate {count} {count === 1 ? "dinner" : "dinners"}
-              {replaceCount > 0 ? ` · ${replaceCount} replace` : ""}
+              {!showSummary && replaceCount > 0 ? ` · ${replaceCount} replace` : ""}
             </button>
-            {!replacementsConfirmed && (
+            {/* Once the batch starts, the dinners it places count as conflicts. This hidden footer must not grow from that. */}
+            {!showSummary && !replacementsConfirmed && (
               <p className="text-center text-[11px] text-[var(--market-muted)]">
                 Tick &quot;Replace&quot; on a day that already has a dinner to continue.
               </p>
             )}
-          </>
+          </div>
         )}
 
-        {phase === "running" && (
-          <button
-            type="button"
-            disabled
-            className="flex w-full items-center justify-center gap-2 rounded-full bg-[#eaa797] px-6 py-3 font-semibold text-[#fff7ec]"
-          >
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Generating…
-          </button>
-        )}
-
-        {phase === "done" && (
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 rounded-full bg-[var(--market-surface-muted)] px-6 py-3 font-semibold text-[var(--market-copy)]"
-            >
-              Done
-            </button>
-            {failedCount > 0 && (
+        {showSummary && (
+          <div className="col-start-1 row-start-1 flex flex-col gap-3 self-end">
+            {phase === "running" && (
               <button
                 type="button"
-                onClick={() => retryFailed(results)}
-                className="flex flex-1 items-center justify-center gap-2 rounded-full bg-[var(--market-tomato)] px-6 py-3 font-semibold text-[#fff7ec]"
+                disabled
+                className="flex w-full items-center justify-center gap-2 rounded-full bg-[#eaa797] px-6 py-3 font-semibold text-[#fff7ec]"
               >
-                <RefreshCw className="h-4 w-4" aria-hidden /> Retry failed ({failedCount})
+                <Spinner /> Generating…
               </button>
+            )}
+
+            {phase === "done" && (
+              <div className="flex gap-3">
+                {/* Done is the only action unless dinners failed. Then Retry is the primary and Done steps back. */}
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className={`${FOOTER_BUTTON} flex-1 ${failedCount > 0 ? FOOTER_SECONDARY : FOOTER_PRIMARY}`}
+                >
+                  Done
+                </button>
+                {failedCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => retryFailed(results)}
+                    className={`${FOOTER_BUTTON} shrink-0 ${FOOTER_PRIMARY}`}
+                  >
+                    <RefreshCw className="h-4 w-4" aria-hidden /> Retry failed ({failedCount})
+                  </button>
+                )}
+              </div>
             )}
           </div>
         )}
