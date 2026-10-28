@@ -154,6 +154,114 @@ export async function recordUsageTokens(
   }
 }
 
+export type ReserveUsageResult = {
+  allowed: boolean;
+  planKey: string;
+  reason?: string;
+  /** Generations left this week after this reservation. Null when unlimited. */
+  remaining: number | null;
+  /** Start of the week bucket that was charged. Pass it to releaseUsage. */
+  windowStart: string | null;
+  resetAt?: string;
+  softLimited?: boolean;
+  error?: string;
+};
+
+/**
+ * Reserve `count` generations for one busy-week batch, all or nothing.
+ * Calls the reserve_usage RPC (service role, atomic in Postgres).
+ */
+export async function reserveUsage(
+  action: "generate",
+  authenticatedUser: User,
+  count: number
+): Promise<ReserveUsageResult> {
+  if (
+    process.env.ADMIN_USER_ID &&
+    authenticatedUser.id === process.env.ADMIN_USER_ID
+  ) {
+    return { allowed: true, planKey: "admin", remaining: null, windowStart: null };
+  }
+
+  const admin = createAdminClient();
+
+  try {
+    const { data, error } = await admin.rpc("reserve_usage", {
+      p_user_id: authenticatedUser.id,
+      p_action: action,
+      p_count: count,
+    });
+
+    if (error) {
+      console.error("Usage reserve failed:", error);
+      return { allowed: false, planKey: "free", remaining: null, windowStart: null, reason: "rpc_error", error: error.message };
+    }
+
+    const result = data as {
+      allowed: boolean;
+      plan_key: string;
+      reason?: string;
+      remaining?: number | null;
+      window_start?: string | null;
+      reset_at?: string;
+      soft_limited?: boolean;
+    };
+
+    return {
+      allowed: result.allowed,
+      planKey: result.plan_key,
+      reason: result.reason,
+      remaining: result.remaining ?? null,
+      windowStart: result.window_start ?? null,
+      resetAt: result.reset_at,
+      softLimited: result.soft_limited ?? false,
+    };
+  } catch (err) {
+    console.error("Usage reserve exception:", err);
+    return {
+      allowed: false,
+      planKey: "free",
+      remaining: null,
+      windowStart: null,
+      reason: "exception",
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+/**
+ * Give back `count` reserved generations for picks that failed to generate or
+ * save. Writes to the week bucket that was reserved (`windowStart`).
+ */
+export async function releaseUsage(
+  action: "generate",
+  authenticatedUser: User,
+  count: number,
+  windowStart: string | null
+): Promise<void> {
+  if (count <= 0 || !windowStart) return;
+  // The admin was never counted, so there is nothing to give back.
+  if (
+    process.env.ADMIN_USER_ID &&
+    authenticatedUser.id === process.env.ADMIN_USER_ID
+  ) {
+    return;
+  }
+
+  const admin = createAdminClient();
+  try {
+    const { error } = await admin.rpc("release_usage", {
+      p_user_id: authenticatedUser.id,
+      p_action: action,
+      p_count: count,
+      p_window_start: windowStart,
+    });
+    if (error) console.error("Usage release failed:", error);
+  } catch (err) {
+    console.error("Usage release exception:", err);
+  }
+}
+
 /**
  * Get current usage status without incrementing.
  * Used by the rate-limit status endpoint.
@@ -278,9 +386,16 @@ export async function getUsageStatus(
  */
 export function getUsageErrorMessage(
   reason: string | undefined,
-  planKey: string
+  planKey: string,
+  remaining?: number | null
 ): string {
   switch (reason) {
+    case "paid_plan_required":
+      return "Busy week is a Plus or Pro feature. Upgrade to plan a whole week at once.";
+    case "insufficient_remaining":
+      return `This batch needs more recipes than you have left this week (${remaining ?? 0} left). Pick fewer dinners or try again next week.`;
+    case "save_limit":
+      return "Your saved recipes are full. Remove a few from your collection, then try again.";
     case "mise_blocked:weekly":
       if (planKey === "pro") {
         return "You've reached your weekly fair-use limit. Please contact support if you need higher limits.";
