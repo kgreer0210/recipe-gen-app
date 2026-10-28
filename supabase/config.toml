@@ -244,16 +244,73 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
-# Uncomment to customize email template
-# [auth.email.template.invite]
-# subject = "You have been invited"
-# content_path = "./supabase/templates/invite.html"
+# Branded Mise AI auth emails. Production does not read this file (Supabase only deploys
+# migrations, functions and buckets from config.toml); these apply to local dev and preview
+# branches. Production templates are set in the dashboard or via the Management API.
+# See docs/auth-email-confirmation.md.
 
-# Uncomment to customize notification email template
-# [auth.email.notification.password_changed]
-# enabled = true
-# subject = "Your password has been changed"
-# content_path = "./supabase/templates/password_changed_notification.html"
+[auth.email.template.confirmation]
+subject = "Confirm your email for Mise AI"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.invite]
+subject = "You're invited to Mise AI"
+content_path = "./supabase/templates/invite.html"
+
+[auth.email.template.magic_link]
+subject = "Your Mise AI sign-in link"
+content_path = "./supabase/templates/magic_link.html"
+
+[auth.email.template.email_change]
+subject = "Confirm your new email for Mise AI"
+content_path = "./supabase/templates/email_change.html"
+
+[auth.email.template.recovery]
+subject = "Reset your Mise AI password"
+content_path = "./supabase/templates/recovery.html"
+
+[auth.email.template.reauthentication]
+subject = "Your Mise AI verification code"
+content_path = "./supabase/templates/reauthentication.html"
+
+# Security notifications (content_path is relative to supabase/ here, unlike templates above,
+# per the Supabase CLI). Only password and email changes apply to Mise AI today;
+# phone, linked sign-in and MFA notifications stay off.
+
+[auth.email.notification.password_changed]
+enabled = true
+subject = "Your Mise AI password was changed"
+content_path = "./templates/password_changed_notification.html"
+
+[auth.email.notification.email_changed]
+enabled = true
+subject = "Your Mise AI email address was changed"
+content_path = "./templates/email_changed_notification.html"
+
+[auth.email.notification.phone_changed]
+enabled = false
+subject = "Your Mise AI phone number was changed"
+content_path = "./templates/phone_changed_notification.html"
+
+[auth.email.notification.identity_linked]
+enabled = false
+subject = "A new sign-in method was added to Mise AI"
+content_path = "./templates/identity_linked_notification.html"
+
+[auth.email.notification.identity_unlinked]
+enabled = false
+subject = "A sign-in method was removed from Mise AI"
+content_path = "./templates/identity_unlinked_notification.html"
+
+[auth.email.notification.mfa_factor_enrolled]
+enabled = false
+subject = "A verification method was added to Mise AI"
+content_path = "./templates/mfa_factor_enrolled_notification.html"
+
+[auth.email.notification.mfa_factor_unenrolled]
+enabled = false
+subject = "A verification method was removed from Mise AI"
+content_path = "./templates/mfa_factor_unenrolled_notification.html"
 
 [auth.sms]
 # Allow/disallow new user signups via SMS to your project.

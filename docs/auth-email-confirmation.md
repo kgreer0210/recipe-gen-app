@@ -18,20 +18,30 @@ confirmation flow to work reliably, including **cross-device** confirmations
 
 ## Required Supabase dashboard configuration
 
-### 1. Use a token-hash confirmation link (cross-device safe)
+### 1. Branded templates with token-hash links (cross-device safe)
 
-By default Supabase's "Confirm signup" template emits a PKCE `?code=` link,
-which only works in the original browser. To make confirmation work on any
-device, change the template to send `token_hash` instead.
+All Supabase auth emails use the branded HTML in `supabase/templates/` (subjects and
+paths in `supabase/config.toml`, logo at `https://www.mise-ai.app/email-logo.png` from
+`public/email-logo.png`). Production does not read `config.toml`, so after changing a
+template, paste it into **Authentication → Emails** (or PATCH the Management API
+`/v1/projects/{ref}/config/auth` `mailer_subjects_*` / `mailer_templates_*_content`).
+Supabase renders them with Go `html/template`, which strips HTML comments, so keep
+the templates comment-free.
 
-**Authentication → Email Templates → Confirm signup**, set the link to:
+Link emails skip `{{ .ConfirmationURL }}` and go straight to our callback with
+`token_hash`, which routes through `verifyOtp` and needs no code-verifier cookie:
 
-```
-{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=email&next=/generator
-```
+| Template | Link |
+|---|---|
+| Confirm signup | `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=email&next=/generator` |
+| Magic link | `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=email&next=/generator` |
+| Invite user | `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=invite&next=/reset-password` |
+| Reset password | `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=recovery&next=/reset-password` |
+| Change email | `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=email_change&next=/settings` |
 
-This routes through `verifyOtp`, which does not depend on the code-verifier
-cookie, so the link works regardless of which browser/device opens it.
+Reauthentication shows `{{ .Token }}` as a code. Security notifications are on only
+for password changed and email changed; phone, linked sign-in and MFA notifications
+stay off because the app doesn't use them.
 
 ### 2. URL configuration
 
