@@ -1,0 +1,97 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`recipe prompt: protein > is byte-identical for Busy week when the protein is Any or missing 1`] = `
+"
+      Generate a unique, high-quality recipe that serves exactly 2 people based on the following selections:
+      Cuisine: Thai
+      Meal: Dinner
+      Protein (base): Chef's choice. Pick the base protein that best suits this cuisine and meal style, within the dietary preferences.
+      Protein cut preference: Any
+      Dietary Preferences/Allergies: Gluten-Free
+      STRICTLY AVOID these ingredients: cilantro.
+
+      IMPORTANT: Explore the full spectrum of Thai cuisine for the chosen protein dishes. Consider:
+      - Different cooking techniques: braising, grilling, pan-searing, stir-frying, steaming, roasting, deep-frying, smoking
+      - Various flavor profiles: spicy, savory-sweet, tangy, umami-rich, aromatic, herb-forward
+      - Regional variations and less common preparations within Thai cuisine
+      - Aim for creative dishes that go beyond the most obvious or commonly known recipes
+
+      Your response must be ONLY a valid JSON object that matches this exact TypeScript interface:
+      
+      interface Recipe {
+        title: string;
+        description: string;
+        ingredients: {
+          name: string;
+          amount: number;
+          unit: string;
+          category: "Produce" | "Meat" | "Dairy" | "Bakery" | "Frozen" | "Pantry" | "Spices" | "Other";
+        }[];
+        instructions: string[];
+        tags: { cuisine: string; meal: string; protein: string };
+        prepTime: string;
+        cookTime: string;
+      }
+      
+      Requirements:
+      - The recipe must clearly reflect the selected cuisine, meal type, and protein.
+      - Title format: Use English translations or descriptive English names for the dish (e.g., "Roasted Red Pepper and Nduja Chicken" instead of the native language name). Keep titles clear and concise.
+      - Use the protein cut preference when naming/selecting the ingredient (e.g., "chicken thighs"), but tags.protein must remain the base protein.
+      - The recipe must serve exactly 2 people.
+      - STRICTLY ADHERE to these dietary preferences: Gluten-Free.
+      - STRICTLY AVOID these ingredients: cilantro.
+      - All ingredient amounts must be numeric and use one of the following units: "lb", "oz", "cup", "tbsp", "tsp", "g", "kg", "ml", "l", "count", "clove", "slice", "pinch".
+      - For Meat-category ingredients: avoid fractional pounds. If the amount is under 1 lb, prefer ounces (e.g., 4 oz, 6 oz, 8 oz, 12 oz) instead of values like 0.25 lb.
+      - Categorize ingredients accurately.
+      - CRITICAL - Ingredient Formatting: Ingredient names must be SIMPLE and contain NO preparation methods. Do NOT include terms like "minced", "diced", "chopped", "sliced", "crushed", "julienned", "grated", or any other cutting/cooking methods in ingredient names. Example: Use "2 clove garlic" NOT "2 clove garlic, minced". Use "1 cup onion" NOT "1 cup diced onion". ALL preparation instructions (mincing, dicing, chopping, etc.) must go in the cooking instructions/steps instead.
+      - Instructions must be a step-by-step array of clear, concise cooking steps. Include ALL preparation methods here (e.g., "Mince the garlic", "Dice the onion", "Slice the chicken").
+      - prepTime and cookTime should be realistic human-readable strings (e.g., "10 minutes").
+      - tags.cuisine must be Thai and tags.meal must be Dinner. tags.protein must name the base protein you chose.
+      - Do NOT include any extra text, comments, or markdown—return ONLY the JSON object.
+      "
+`;
+
+exports[`recipe prompt: protein > is byte-identical for pantry when the protein is Any or missing 1`] = `
+"
+      Generate a unique, high-quality recipe that serves exactly 2 people based on the following available ingredients:
+      Ingredients: eggs, spinach, feta
+      
+      
+
+      IMPORTANT: When creating this recipe, consider multiple possible approaches and cooking techniques that work with these ingredients. Choose an interesting, creative preparation rather than defaulting to the most obvious combination. Explore different flavor profiles, cooking methods, and cuisines if the ingredients allow for it.
+
+      Your response must be ONLY a valid JSON object that matches this exact TypeScript interface:
+      
+      interface Recipe {
+        title: string;
+        description: string;
+        ingredients: {
+          name: string;
+          amount: number;
+          unit: string;
+          category: "Produce" | "Meat" | "Dairy" | "Bakery" | "Frozen" | "Pantry" | "Spices" | "Other";
+        }[];
+        instructions: string[];
+        tags: { cuisine: string; meal: string; protein: string };
+        prepTime: string;
+        cookTime: string;
+        error?: string;
+      }
+      
+      Requirements:
+      - VALIDATION STEP: You must first validate the input ingredients. If the input contains non-food items, gibberish, or dangerous items, you MUST return a JSON object with a single "error" field explaining why the input is invalid. Example: { "error": "I can only cook with edible ingredients. Please remove 'rocks' from your list." }
+      - Title format: Use English translations or descriptive English names for dishes. Keep titles clear and concise for English-speaking users.
+      - The recipe should primarily use the provided ingredients, but you may assume basic pantry staples (oil, salt, pepper, water, basic spices).
+      - The recipe must serve exactly 2 people.
+      
+      
+      - All ingredient amounts must be numeric and use one of the following units: "lb", "oz", "cup", "tbsp", "tsp", "g", "kg", "ml", "l", "count", "clove", "slice", "pinch".
+      - For Meat-category ingredients: avoid fractional pounds. If the amount is under 1 lb, prefer ounces (e.g., 4 oz, 6 oz, 8 oz, 12 oz) instead of values like 0.25 lb.
+      - Categorize ingredients accurately.
+      - CRITICAL - Ingredient Formatting: Ingredient names must be SIMPLE and contain NO preparation methods. Do NOT include terms like "minced", "diced", "chopped", "sliced", "crushed", "julienned", "grated", or any other cutting/cooking methods in ingredient names. Example: Use "2 clove garlic" NOT "2 clove garlic, minced". Use "1 cup onion" NOT "1 cup diced onion". ALL preparation instructions (mincing, dicing, chopping, etc.) must go in the cooking instructions/steps instead.
+      - Instructions must be a step-by-step array of clear, concise cooking steps. Include ALL preparation methods here (e.g., "Mince the garlic", "Dice the onion", "Slice the chicken").
+      - prepTime and cookTime should be realistic human-readable strings (e.g., "10 minutes").
+      - tags: Infer the cuisine, meal, and protein based on the generated recipe.
+      - Do NOT include any extra text, comments, or markdown—return ONLY the JSON object.
+      "
+`;

@@ -1,15 +1,27 @@
 import { NextResponse } from "next/server";
-import { Recipe, CuisineType, MealType, ProteinType } from "@/types";
+import {
+  CuisineType,
+  MealType,
+  MEAL_STYLES,
+  MealStyle,
+  PROTEIN_CHOICES,
+  ProteinChoice,
+  ProteinType,
+} from "@/types";
+import { proteinConflict, proteinConflictMessage } from "@/lib/proteinChoice";
 import { getAuthenticatedUser } from "@/lib/supabase/auth-helper";
 import {
   checkAndIncrementUsage,
   recordUsageTokens,
   getUsageErrorMessage,
 } from "@/lib/usage";
-import { chatJson } from "@/lib/openrouter/chatJson";
 import { getModelForTier, isValidAdminModelOverride } from "@/lib/openrouter/models";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { uniqueStrings } from "@/lib/kitchenProfile";
+import {
+  finalizeRecipe,
+  requestRecipe,
+} from "@/lib/recipe/generateRecipe";
 
 // Handle CORS preflight requests
 export async function OPTIONS() {
@@ -46,18 +58,31 @@ export async function POST(request: Request) {
       ingredients,
       dietaryPreferences,
       servings,
+      mealStyle,
       adminModelOverride,
     } = body as {
       mode?: "classic" | "pantry";
       cuisine?: CuisineType;
       meal?: MealType;
-      protein?: ProteinType;
+      protein?: ProteinType | ProteinChoice;
       proteinCut?: string;
       ingredients?: string[];
       dietaryPreferences?: string[];
       servings?: number;
+      mealStyle?: MealStyle;
       adminModelOverride?: string;
     };
+
+    // Pantry takes the optional Protein choice ("Any" is the default and is left out). Classic keeps its required protein.
+    if (
+      mode === "pantry" &&
+      protein !== undefined &&
+      !PROTEIN_CHOICES.includes(protein as ProteinChoice)
+    ) {
+      return NextResponse.json({ error: "Unknown protein." }, { status: 400 });
+    }
+    const pantryProtein =
+      mode === "pantry" && protein && protein !== "Any" ? (protein as ProteinChoice) : undefined;
 
     // Input validation to prevent token abuse
     if (mode === "pantry") {
@@ -90,6 +115,10 @@ export async function POST(request: Request) {
         { error: "Dietary preference names are too long." },
         { status: 400 }
       );
+    }
+
+    if (mealStyle !== undefined && !MEAL_STYLES.includes(mealStyle)) {
+      return NextResponse.json({ error: "Unknown meal style." }, { status: 400 });
     }
 
     const normalizedServings =
@@ -125,37 +154,6 @@ export async function POST(request: Request) {
         ? normalizedServings
         : servingsFromProfile;
 
-    const dietaryBlock =
-      mergedDietary.length > 0
-        ? `Dietary Preferences/Allergies: ${mergedDietary.join(", ")}`
-        : "";
-    const avoidBlock =
-      dislikedIngredients.length > 0
-        ? `STRICTLY AVOID these ingredients: ${dislikedIngredients.join(", ")}.`
-        : "";
-
-    let prompt = "";
-    const systemPrompt = `You are Mise AI, an expert culinary assistant created to help home cooks discover delicious, approachable recipes. You embody the expertise of a classically trained chef combined with the warmth of a home cooking enthusiast.
-
-Your Core Principles:
-- **Authenticity**: Honor the cultural origins of each cuisine. Use traditional techniques, authentic ingredient combinations, and respect regional variations.
-- **Practicality**: Create recipes achievable in a home kitchen with commonly available ingredients. Suggest substitutions only when an ingredient may be hard to find.
-- **Clarity**: Write instructions that are precise yet encouraging. A beginner should feel confident, while an experienced cook should find efficiency.
-- **Flavor Balance**: Every recipe should have well-developed flavors—consider salt, acid, fat, heat, and umami in your compositions.
-- **Small Batch Excellence**: Specialize in recipes that serve 2 people by default, while still scaling cleanly for different serving sizes.
-- **Variety & Exploration**: When generating recipes for a given cuisine and protein, explore the full breadth of that cuisine's cooking traditions. Consider multiple cooking techniques (braised, grilled, pan-seared, stir-fried, steamed, roasted, crispy-fried), diverse flavor profiles (spicy, umami-rich, tangy, sweet-savory, aromatic), and regional variations. Avoid defaulting to the most common or obvious preparation.
-
-Your Personality:
-- Passionate about food and eager to share culinary knowledge
-- Encouraging and supportive, never condescending
-- Creative but grounded in solid cooking fundamentals
-
-Output Guidelines:
-- Generate unique recipes that feel inspired, not generic
-- Use descriptive, appetizing language in descriptions
-- Ensure cooking times and temperatures are accurate and safe
-- Consider the flow of a recipe—minimize unnecessary dish-dirtying and optimize prep order`;
-
     if (mode === "pantry") {
       if (!ingredients || ingredients.length === 0) {
         return NextResponse.json(
@@ -163,123 +161,19 @@ Output Guidelines:
           { status: 400 }
         );
       }
-
-      const ingredientsList = ingredients.join(", ");
-
-      prompt = `
-      Generate a unique, high-quality recipe that serves exactly ${finalServings} people based on the following available ingredients:
-      Ingredients: ${ingredientsList}
-      ${dietaryBlock}
-      ${avoidBlock}
-
-      IMPORTANT: When creating this recipe, consider multiple possible approaches and cooking techniques that work with these ingredients. Choose an interesting, creative preparation rather than defaulting to the most obvious combination. Explore different flavor profiles, cooking methods, and cuisines if the ingredients allow for it.
-
-      Your response must be ONLY a valid JSON object that matches this exact TypeScript interface:
-      
-      interface Recipe {
-        title: string;
-        description: string;
-        ingredients: {
-          name: string;
-          amount: number;
-          unit: string;
-          category: "Produce" | "Meat" | "Dairy" | "Bakery" | "Frozen" | "Pantry" | "Spices" | "Other";
-        }[];
-        instructions: string[];
-        tags: { cuisine: string; meal: string; protein: string };
-        prepTime: string;
-        cookTime: string;
-        error?: string;
-      }
-      
-      Requirements:
-      - VALIDATION STEP: You must first validate the input ingredients. If the input contains non-food items, gibberish, or dangerous items, you MUST return a JSON object with a single "error" field explaining why the input is invalid. Example: { "error": "I can only cook with edible ingredients. Please remove 'rocks' from your list." }
-      - Title format: Use English translations or descriptive English names for dishes. Keep titles clear and concise for English-speaking users.
-      - The recipe should primarily use the provided ingredients, but you may assume basic pantry staples (oil, salt, pepper, water, basic spices).
-      - The recipe must serve exactly ${finalServings} people.
-      ${
-        mergedDietary.length > 0
-          ? `- STRICTLY ADHERE to these dietary preferences: ${mergedDietary.join(
-              ", "
-            )}.`
-          : ""
-      }
-      ${avoidBlock ? `- ${avoidBlock}` : ""}
-      - All ingredient amounts must be numeric and use one of the following units: "lb", "oz", "cup", "tbsp", "tsp", "g", "kg", "ml", "l", "count", "clove", "slice", "pinch".
-      - For Meat-category ingredients: avoid fractional pounds. If the amount is under 1 lb, prefer ounces (e.g., 4 oz, 6 oz, 8 oz, 12 oz) instead of values like 0.25 lb.
-      - Categorize ingredients accurately.
-      - CRITICAL - Ingredient Formatting: Ingredient names must be SIMPLE and contain NO preparation methods. Do NOT include terms like "minced", "diced", "chopped", "sliced", "crushed", "julienned", "grated", or any other cutting/cooking methods in ingredient names. Example: Use "2 clove garlic" NOT "2 clove garlic, minced". Use "1 cup onion" NOT "1 cup diced onion". ALL preparation instructions (mincing, dicing, chopping, etc.) must go in the cooking instructions/steps instead.
-      - Instructions must be a step-by-step array of clear, concise cooking steps. Include ALL preparation methods here (e.g., "Mince the garlic", "Dice the onion", "Slice the chicken").
-      - prepTime and cookTime should be realistic human-readable strings (e.g., "10 minutes").
-      - tags: Infer the cuisine, meal, and protein based on the generated recipe.
-      - Do NOT include any extra text, comments, or markdown—return ONLY the JSON object.
-      `;
-    } else {
-      // Classic Mode
-      if (!cuisine || !meal || !protein) {
+      // Saved preferences stay authoritative: a protein they rule out is rejected, not swapped.
+      const conflict = pantryProtein ? proteinConflict(pantryProtein, mergedDietary) : null;
+      if (pantryProtein && conflict) {
         return NextResponse.json(
-          { error: "Missing required fields" },
+          { error: proteinConflictMessage(pantryProtein, conflict) },
           { status: 400 }
         );
       }
-
-      const cutPreference =
-        proteinCut && proteinCut.trim().length > 0 ? proteinCut.trim() : "Any";
-
-      prompt = `
-      Generate a unique, high-quality recipe that serves exactly ${finalServings} people based on the following selections:
-      Cuisine: ${cuisine}
-      Meal: ${meal}
-      Protein (base): ${protein}
-      Protein cut preference: ${cutPreference}
-      ${dietaryBlock}
-      ${avoidBlock}
-
-      IMPORTANT: Explore the full spectrum of ${cuisine} cuisine for ${protein} dishes. Consider:
-      - Different cooking techniques: braising, grilling, pan-searing, stir-frying, steaming, roasting, deep-frying, smoking
-      - Various flavor profiles: spicy, savory-sweet, tangy, umami-rich, aromatic, herb-forward
-      - Regional variations and less common preparations within ${cuisine} cuisine
-      - Aim for creative dishes that go beyond the most obvious or commonly known recipes
-
-      Your response must be ONLY a valid JSON object that matches this exact TypeScript interface:
-      
-      interface Recipe {
-        title: string;
-        description: string;
-        ingredients: {
-          name: string;
-          amount: number;
-          unit: string;
-          category: "Produce" | "Meat" | "Dairy" | "Bakery" | "Frozen" | "Pantry" | "Spices" | "Other";
-        }[];
-        instructions: string[];
-        tags: { cuisine: string; meal: string; protein: string };
-        prepTime: string;
-        cookTime: string;
-      }
-      
-      Requirements:
-      - The recipe must clearly reflect the selected cuisine, meal type, and protein.
-      - Title format: Use English translations or descriptive English names for the dish (e.g., "Roasted Red Pepper and Nduja Chicken" instead of the native language name). Keep titles clear and concise.
-      - Use the protein cut preference when naming/selecting the ingredient (e.g., "chicken thighs"), but tags.protein must remain the base protein.
-      - The recipe must serve exactly ${finalServings} people.
-      ${
-        mergedDietary.length > 0
-          ? `- STRICTLY ADHERE to these dietary preferences: ${mergedDietary.join(
-              ", "
-            )}.`
-          : ""
-      }
-      ${avoidBlock ? `- ${avoidBlock}` : ""}
-      - All ingredient amounts must be numeric and use one of the following units: "lb", "oz", "cup", "tbsp", "tsp", "g", "kg", "ml", "l", "count", "clove", "slice", "pinch".
-      - For Meat-category ingredients: avoid fractional pounds. If the amount is under 1 lb, prefer ounces (e.g., 4 oz, 6 oz, 8 oz, 12 oz) instead of values like 0.25 lb.
-      - Categorize ingredients accurately.
-      - CRITICAL - Ingredient Formatting: Ingredient names must be SIMPLE and contain NO preparation methods. Do NOT include terms like "minced", "diced", "chopped", "sliced", "crushed", "julienned", "grated", or any other cutting/cooking methods in ingredient names. Example: Use "2 clove garlic" NOT "2 clove garlic, minced". Use "1 cup onion" NOT "1 cup diced onion". ALL preparation instructions (mincing, dicing, chopping, etc.) must go in the cooking instructions/steps instead.
-      - Instructions must be a step-by-step array of clear, concise cooking steps. Include ALL preparation methods here (e.g., "Mince the garlic", "Dice the onion", "Slice the chicken").
-      - prepTime and cookTime should be realistic human-readable strings (e.g., "10 minutes").
-      - tags must exactly match (${cuisine}, ${meal}, ${protein}).
-      - Do NOT include any extra text, comments, or markdown—return ONLY the JSON object.
-      `;
+    } else if (!cuisine || !meal || !protein) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      );
     }
 
     // Select model based on user's plan tier
@@ -295,19 +189,24 @@ Output Guidelines:
       }
     }
 
-    const { data: recipeData, usage } = await chatJson<Record<string, unknown>>(
-      systemPrompt,
-      prompt,
+    const { data: recipeData, totalTokens } = await requestRecipe(
       {
-        // Pantry mode can legitimately return { error: string } for invalid inputs.
-        treatErrorFieldAsFailure: mode !== "pantry",
-        // Use tier-appropriate model
-        model: modelToUse,
-      }
+        mode: mode === "pantry" ? "pantry" : "classic",
+        cuisine,
+        meal,
+        protein: mode === "pantry" ? pantryProtein : protein,
+        proteinCut,
+        ingredients,
+        dietaryPreferences: mergedDietary,
+        dislikedIngredients,
+        servings: finalServings,
+        mealStyle,
+      },
+      modelToUse
     );
 
     // Record token usage (even if request fails, to prevent gaming)
-    await recordUsageTokens("generate", user, usage?.totalTokens);
+    await recordUsageTokens("generate", user, totalTokens);
 
     // Handle validation error from AI
     if (
@@ -322,16 +221,7 @@ Output Guidelines:
       );
     }
 
-    // Add server-controlled fields since the AI doesn't generate them reliably.
-    const recipe: Recipe = {
-      ...(recipeData as Omit<Recipe, "id" | "servings">),
-      id: Math.random().toString(36).substr(2, 9),
-      servings: finalServings,
-      // For pantry mode, tags are inferred by AI, so we use what's returned.
-      // For classic mode, we could enforce them, but trusting the AI's return (which we instructed to match) is fine.
-    };
-
-    return NextResponse.json(recipe);
+    return NextResponse.json(finalizeRecipe(recipeData, finalServings));
   } catch (error) {
     console.error("Error generating recipe:", error);
     return NextResponse.json(

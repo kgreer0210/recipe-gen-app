@@ -154,6 +154,133 @@ export async function recordUsageTokens(
   }
 }
 
+/** The admin bypass is never counted, so admin batches skip the reservation. */
+function isAdminBypass(authenticatedUser: User): boolean {
+  return Boolean(process.env.ADMIN_USER_ID) && authenticatedUser.id === process.env.ADMIN_USER_ID;
+}
+
+export type BeginBusyWeekResult =
+  | {
+      outcome: "started";
+      planKey: string;
+      /** Start of the week bucket that was charged. Null for the admin bypass. */
+      windowStart: string | null;
+      /** Generations left this week after this batch. Null when unlimited. */
+      remaining: number | null;
+    }
+  | { outcome: "duplicate" }
+  | { outcome: "blocked"; reason: string; planKey: string; remaining: number | null }
+  | { outcome: "error"; error: string };
+
+/**
+ * Record a busy-week batch and reserve its `count` generations in one database
+ * transaction (begin_busy_week_batch). A batch id that already exists is reported
+ * as a duplicate and reserves nothing.
+ */
+export async function beginBusyWeekBatch({
+  batchId,
+  user,
+  weekStart,
+  count,
+  results,
+}: {
+  batchId: string;
+  user: User;
+  weekStart: string;
+  count: number;
+  results: unknown[];
+}): Promise<BeginBusyWeekResult> {
+  const admin = createAdminClient();
+
+  try {
+    const { data, error } = await admin.rpc("begin_busy_week_batch", {
+      p_batch_id: batchId,
+      p_user_id: user.id,
+      p_week_start: weekStart,
+      p_count: count,
+      p_results: results,
+      p_charge: !isAdminBypass(user),
+    });
+
+    if (error) {
+      console.error("Busy week batch start failed:", error);
+      return { outcome: "error", error: error.message };
+    }
+
+    const result = data as {
+      outcome: "started" | "duplicate" | "blocked" | "invalid_count";
+      plan_key?: string;
+      reason?: string;
+      window_start?: string | null;
+      remaining?: number | null;
+    };
+
+    if (result.outcome === "started") {
+      return {
+        outcome: "started",
+        planKey: result.plan_key ?? "free",
+        windowStart: result.window_start ?? null,
+        remaining: result.remaining ?? null,
+      };
+    }
+    if (result.outcome === "blocked") {
+      return {
+        outcome: "blocked",
+        reason: result.reason ?? "rpc_error",
+        planKey: result.plan_key ?? "free",
+        remaining: result.remaining ?? null,
+      };
+    }
+    if (result.outcome === "duplicate") return { outcome: "duplicate" };
+    return { outcome: "error", error: `Busy week batch start returned ${result.outcome}` };
+  } catch (err) {
+    console.error("Busy week batch start exception:", err);
+    return { outcome: "error", error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+export type SettleBusyWeekResult =
+  | {
+      ok: true;
+      settled: boolean;
+      status?: string;
+      refunded?: number;
+      reason?: string;
+    }
+  | { ok: false; error: string };
+
+/**
+ * Finish a busy-week batch and refund its failed picks, in one transaction
+ * (settle_busy_week_batch). Safe to call again: a finished batch is left as it is,
+ * and a refund is never counted twice. `interruptPending` is only for batches whose
+ * function died (stale), so their unfinished picks are failed instead of waited on.
+ */
+export async function settleBusyWeekBatch(
+  batchId: string,
+  interruptPending: boolean
+): Promise<SettleBusyWeekResult> {
+  const admin = createAdminClient();
+
+  const { data, error } = await admin.rpc("settle_busy_week_batch", {
+    p_batch_id: batchId,
+    p_interrupt_pending: interruptPending,
+  });
+
+  if (error) {
+    console.error("Busy week settle failed:", error);
+    return { ok: false, error: error.message };
+  }
+
+  const result = data as { settled: boolean; status?: string; refunded?: number; reason?: string };
+  return {
+    ok: true,
+    settled: result.settled,
+    status: result.status,
+    refunded: result.refunded,
+    reason: result.reason,
+  };
+}
+
 /**
  * Get current usage status without incrementing.
  * Used by the rate-limit status endpoint.
@@ -278,9 +405,16 @@ export async function getUsageStatus(
  */
 export function getUsageErrorMessage(
   reason: string | undefined,
-  planKey: string
+  planKey: string,
+  remaining?: number | null
 ): string {
   switch (reason) {
+    case "paid_plan_required":
+      return "Busy week is a Plus or Pro feature. Upgrade to plan a whole week at once.";
+    case "insufficient_remaining":
+      return `This batch needs more recipes than you have left this week (${remaining ?? 0} left). Pick fewer dinners or try again next week.`;
+    case "save_limit":
+      return "Your saved recipes are full. Remove a few from your collection, then try again.";
     case "mise_blocked:weekly":
       if (planKey === "pro") {
         return "You've reached your weekly fair-use limit. Please contact support if you need higher limits.";

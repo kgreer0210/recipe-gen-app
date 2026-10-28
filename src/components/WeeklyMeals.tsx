@@ -20,8 +20,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Lock,
   Plus,
   ShoppingBasket,
+  Sparkles,
   Utensils,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -60,6 +62,8 @@ import {
   type Recipe,
   type WeeklyPlanSlot,
 } from "@/types";
+import { hasBusyWeekAccess } from "@/lib/busyWeek";
+import BusyWeekSheet from "@/components/BusyWeekSheet";
 import AddToWeekModal from "@/components/AddToWeekModal";
 import LeftoversModal, {
   type LeftoverDraft,
@@ -246,7 +250,13 @@ function UnscheduledTray({
 
 export default function WeeklyMeals() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, subscription } = useAuth();
+  const [busyWeekOpen, setBusyWeekOpen] = useState(false);
+  const busyWeekAllowed = hasBusyWeekAccess(
+    subscription,
+    user?.id,
+    process.env.NEXT_PUBLIC_ADMIN_USER_ID
+  );
   const { slots, recipesById } = useWeeklyPlanRealtime();
   const { recipes: collectionRecipes } = useRecipesRealtime();
   usePantryRealtime();
@@ -259,9 +269,10 @@ export default function WeeklyMeals() {
     useBuildGroceryFromWeek();
   const { mutateAsync: upsertPantry } = useUpsertPantryItem();
   const [timezone, setTimezone] = useState("UTC");
-  const [weekStart, setWeekStart] = useState(() =>
-    getWeekStart(new Date(), "UTC")
-  );
+  // Only the week the user navigated to is stored. The default week is derived from
+  // the timezone, so loading the timezone never overwrites a week the user picked.
+  const [weekOverride, setWeekOverride] = useState<string | null>(null);
+  const weekStart = weekOverride ?? getWeekStart(new Date(), timezone);
   const [picker, setPicker] = useState<PickerState | null>(null);
   const [leftoversSlot, setLeftoversSlot] = useState<WeeklyPlanSlot | null>(
     null
@@ -269,10 +280,7 @@ export default function WeeklyMeals() {
   const [groceryBuildVersion, setGroceryBuildVersion] = useState(0);
 
   useEffect(() => {
-    void fetchUserTimezone().then((tz) => {
-      setTimezone(tz);
-      setWeekStart(getWeekStart(new Date(), tz));
-    });
+    void fetchUserTimezone().then(setTimezone);
   }, []);
 
   const weekSlots = useMemo(
@@ -457,9 +465,7 @@ export default function WeeklyMeals() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() =>
-                setWeekStart((current) => shiftWeekStart(current, -1))
-              }
+              onClick={() => setWeekOverride(shiftWeekStart(weekStart, -1))}
               className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50"
               aria-label="Previous week"
             >
@@ -471,9 +477,7 @@ export default function WeeklyMeals() {
               </p>
               <button
                 type="button"
-                onClick={() =>
-                  setWeekStart(getWeekStart(new Date(), timezone))
-                }
+                onClick={() => setWeekOverride(null)}
                 className="text-xs text-blue-600 hover:underline"
               >
                 This week
@@ -481,9 +485,7 @@ export default function WeeklyMeals() {
             </div>
             <button
               type="button"
-              onClick={() =>
-                setWeekStart((current) => shiftWeekStart(current, 1))
-              }
+              onClick={() => setWeekOverride(shiftWeekStart(weekStart, 1))}
               className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50"
               aria-label="Next week"
             >
@@ -500,6 +502,37 @@ export default function WeeklyMeals() {
             {isBuilding ? "Building..." : "Build grocery list from this week"}
           </button>
         </div>
+        {busyWeekAllowed ? (
+          <button
+            type="button"
+            onClick={() => setBusyWeekOpen(true)}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border-[1.5px] border-[var(--market-tomato)] bg-[var(--market-surface)] px-4 py-2.5 text-sm font-medium text-[var(--market-tomato-dark)] hover:bg-[#f7ded3]"
+          >
+            <Sparkles className="h-4 w-4" aria-hidden />
+            Busy week
+            <span className="rounded-full bg-[#d7eba0] px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-[#4f5f27]">
+              Plus · Pro
+            </span>
+          </button>
+        ) : (
+          <Link
+            href="/pricing"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border-[1.5px] border-[var(--market-line)] bg-[var(--market-surface-muted)] px-4 py-2.5 text-sm font-medium text-[var(--market-copy)] hover:bg-[var(--market-line)]"
+          >
+            <Lock className="h-4 w-4" aria-hidden />
+            Busy week is a Plus &amp; Pro feature
+            <span className="font-semibold text-[var(--market-tomato-dark)]">See plans</span>
+          </Link>
+        )}
+        {busyWeekOpen && busyWeekAllowed && (
+          // Keyed by week: the sheet's day defaults belong to the week it opened on.
+          <BusyWeekSheet
+            key={weekStart}
+            weekStart={weekStart}
+            timezone={timezone}
+            onClose={() => setBusyWeekOpen(false)}
+          />
+        )}
         {planGroceryStale && (
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 flex items-center justify-between gap-3">
             <span>Your plan changed — rebuild the grocery list?</span>
