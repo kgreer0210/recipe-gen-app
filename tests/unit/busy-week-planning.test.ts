@@ -3,6 +3,7 @@ import {
   dayDate,
   dayIsPast,
   findDinnerConflicts,
+  hasBusyWeekAccess,
   suggestDay,
   validateBusyWeekRequest,
 } from "@/lib/busyWeek";
@@ -185,6 +186,28 @@ describe("dayIsPast across timezones", () => {
   it("picks the Monday that the user's own timezone calls this week", () => {
     expect(getWeekStart(instant, "America/New_York")).toBe("2026-10-26");
     expect(getWeekStart(instant, "America/Los_Angeles")).toBe("2026-10-19");
+  });
+});
+
+describe("hasBusyWeekAccess", () => {
+  it("allows an active or trialing Plus or Pro subscription", () => {
+    expect(hasBusyWeekAccess({ status: "active", plan_key: "plus" }, "u1", "admin")).toBe(true);
+    expect(hasBusyWeekAccess({ status: "trialing", plan_key: "pro" }, "u1", "admin")).toBe(true);
+  });
+
+  it("treats a paid subscription with no plan key as Plus, as the server does", () => {
+    expect(hasBusyWeekAccess({ status: "active" }, "u1", "admin")).toBe(true);
+  });
+
+  it("locks free users and lapsed subscriptions", () => {
+    expect(hasBusyWeekAccess(null, "u1", "admin")).toBe(false);
+    expect(hasBusyWeekAccess({ status: "active", plan_key: "free" }, "u1", "admin")).toBe(false);
+    expect(hasBusyWeekAccess({ status: "past_due", plan_key: "plus" }, "u1", "admin")).toBe(false);
+    expect(hasBusyWeekAccess({ status: "canceled", plan_key: "pro" }, "u1", "admin")).toBe(false);
+  });
+
+  it("lets the admin in regardless of subscription", () => {
+    expect(hasBusyWeekAccess(null, "admin", "admin")).toBe(true);
   });
 });
 
