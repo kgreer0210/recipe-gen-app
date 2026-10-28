@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef } from "react";
 import { useWeeklyPlanStore } from "@/lib/stores/weeklyPlanStore";
 import { useRecipesStore } from "@/lib/stores/recipesStore";
+import { followReducer, initialFollowState } from "@/lib/busyWeekFollow";
 import type { BusyWeekPick, BusyWeekResponse, BusyWeekResult } from "@/types";
 
 const POLL_MS = 2_000;
@@ -60,21 +61,27 @@ function applyResults(weekStart: string, results: BusyWeekResult[]) {
 export type BusyWeekPhase = "idle" | "running" | "done";
 
 /**
- * Runs one busy-week batch for the week on screen. The POST gives the final
- * answer. Polling GET /api/busy-week/[batchId] shows progress and recovers the
- * batch after a dropped request, a locked phone or a backgrounded tab (iOS).
+ * Runs one busy-week batch for the week on screen. The POST gives the final answer.
+ * Polling GET /api/busy-week/[batchId] shows progress and recovers the batch after a
+ * dropped request, a locked phone or a backgrounded tab (iOS). Which responses count
+ * is decided by followReducer: only the active batch's.
  */
 export function useBusyWeek(weekStart: string) {
-  const [phase, setPhase] = useState<BusyWeekPhase>("idle");
-  const [batch, setBatch] = useState<BusyWeekResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [state, dispatch] = useReducer(followReducer, initialFollowState);
 
+  // The active batch id, readable synchronously by in-flight requests and effects.
   const batchIdRef = useRef<string | null>(null);
   const weekRef = useRef(weekStart);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const wasRunning = useRef(false);
+
   useEffect(() => {
     weekRef.current = weekStart;
   }, [weekStart]);
+
+  useEffect(() => {
+    batchIdRef.current = state.batchId;
+  }, [state.batchId]);
 
   const stopPolling = useCallback(() => {
     if (pollRef.current) {
@@ -83,32 +90,27 @@ export function useBusyWeek(weekStart: string) {
     }
   }, []);
 
-  /** Reads the server's copy of the batch, applies it to the plan, and stops when it is no longer running. */
-  const refresh = useCallback(
-    async (batchId: string): Promise<BusyWeekResponse | null> => {
-      try {
-        const response = await fetch(`/api/busy-week/${batchId}`, {
-          method: "GET",
-          headers: { Accept: "application/json" },
-        });
-        if (!response.ok) return null;
-        const data = (await response.json()) as BusyWeekResponse;
-        setBatch(data);
-        applyResults(weekRef.current, data.results);
-        if (data.status !== "running") {
-          stopPolling();
-          setPhase("done");
-          batchIdRef.current = null;
-          storeBatchId(weekRef.current, null);
-        }
-        return data;
-      } catch {
-        // A failed poll is retried on the next tick.
-        return null;
+  /** Reads the server's copy of one batch. Only the active batch's answer is applied. */
+  const refresh = useCallback(async (batchId: string) => {
+    try {
+      const response = await fetch(`/api/busy-week/${batchId}`, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+      });
+      if (response.status === 404) {
+        dispatch({ type: "missing", batchId, now: Date.now() });
+        return;
       }
-    },
-    [stopPolling]
-  );
+      if (!response.ok) return;
+
+      const data = (await response.json()) as BusyWeekResponse;
+      if (batchIdRef.current !== batchId) return;
+      applyResults(weekRef.current, data.results);
+      dispatch({ type: "response", batchId, data });
+    } catch {
+      // A dropped read is retried on the next tick.
+    }
+  }, []);
 
   const startPolling = useCallback(
     (batchId: string) => {
@@ -128,63 +130,52 @@ export function useBusyWeek(weekStart: string) {
       const batchId = crypto.randomUUID();
       batchIdRef.current = batchId;
       storeBatchId(weekRef.current, batchId);
-      setPhase("running");
-      setError(null);
-      setBatch(null);
+      dispatch({ type: "start", batchId, now: Date.now() });
       startPolling(batchId);
 
+      let response: Response;
       try {
-        const response = await fetch("/api/busy-week", {
+        response = await fetch("/api/busy-week", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ batchId, weekStart: weekRef.current, picks }),
         });
-        const body = (await response.json().catch(() => ({}))) as
-          | BusyWeekResponse
-          | { error?: string };
-
-        if (response.status === 409) {
-          // The batch already exists (a retry of an earlier request). Keep following it.
-          return;
-        }
-        if (!response.ok) {
-          stopPolling();
-          batchIdRef.current = null;
-          storeBatchId(weekRef.current, null);
-          setPhase("idle");
-          setError(("error" in body && body.error) || "Busy week could not start.");
-          return;
-        }
-
-        const data = body as BusyWeekResponse;
-        stopPolling();
-        setBatch(data);
-        applyResults(weekRef.current, data.results);
-        setPhase("done");
-        batchIdRef.current = null;
-        storeBatchId(weekRef.current, null);
       } catch {
-        // The connection dropped (for example the phone locked). The server keeps
-        // going, so keep polling for the batch instead of posting it again.
-        await refresh(batchId);
+        // The request may never have reached the server. Polling decides: if the server
+        // never learns of this batch, the sheet gives up and offers a retry.
+        return;
       }
+
+      // 409: the batch already exists, so keep following it. 5xx: the server may still
+      // finish the batch, and the polling settles it, so keep following it too.
+      if (response.status === 409 || response.status >= 500) return;
+
+      const body = (await response.json().catch(() => ({}))) as BusyWeekResponse | { error?: string };
+      if (!response.ok) {
+        dispatch({
+          type: "failed",
+          batchId,
+          message: ("error" in body && body.error) || "Busy week could not start.",
+        });
+        return;
+      }
+
+      if (batchIdRef.current !== batchId) return;
+      const data = body as BusyWeekResponse;
+      applyResults(weekRef.current, data.results);
+      dispatch({ type: "response", batchId, data });
     },
-    [refresh, startPolling, stopPolling]
+    [startPolling]
   );
 
-  // Resume after a reload, or when the week changes, from the best-effort stored id.
+  // Resume after a reload, from the best-effort stored id.
   useEffect(() => {
     const resumeId = batchIdRef.current ?? storedBatchId(weekStart);
     if (!resumeId) return;
     batchIdRef.current = resumeId;
-    setPhase("running");
-    void refresh(resumeId).then((data) => {
-      if (data && data.status === "running") startPolling(resumeId);
-      if (!data) {
-        batchIdRef.current = null;
-        setPhase("idle");
-      }
-    });
+    dispatch({ type: "start", batchId: resumeId, now: Date.now() });
+    void refresh(resumeId);
+    startPolling(resumeId);
     return () => stopPolling();
   }, [weekStart, refresh, startPolling, stopPolling]);
 
@@ -193,23 +184,28 @@ export function useBusyWeek(weekStart: string) {
     const onVisible = () => {
       const batchId = batchIdRef.current;
       if (document.visibilityState === "visible" && batchId) {
-        void refresh(batchId).then((data) => {
-          if (data?.status === "running") startPolling(batchId);
-        });
+        startPolling(batchId);
+        void refresh(batchId);
       }
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [refresh, startPolling]);
 
+  // Polling runs only while a batch is running. When the run ends, the stored id is cleared.
+  useEffect(() => {
+    if (state.phase === "running") {
+      wasRunning.current = true;
+      return;
+    }
+    stopPolling();
+    if (wasRunning.current) {
+      wasRunning.current = false;
+      storeBatchId(weekRef.current, null);
+    }
+  }, [state.phase, stopPolling]);
+
   useEffect(() => stopPolling, [stopPolling]);
 
-  const reset = useCallback(() => {
-    if (batchIdRef.current) return;
-    setPhase("idle");
-    setBatch(null);
-    setError(null);
-  }, []);
-
-  return { phase, batch, error, submit, reset };
+  return { phase: state.phase, batch: state.batch, error: state.error, submit };
 }
