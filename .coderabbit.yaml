@@ -1,0 +1,109 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: en-US
+
+reviews:
+  profile: assertive
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - main
+
+  path_filters:
+    - "!package-lock.json"
+    - "!**/*.png"
+    - "!**/*.jpg"
+    - "!**/*.svg"
+    - "!**/*.ico"
+    - "!**/*.webp"
+
+  path_instructions:
+    - path: "**/*.{ts,tsx}"
+      instructions: |
+        Safari / WebKit compatibility (macOS Safari and iOS Safari). The maintainer has no Apple devices, so Safari problems must be caught here in review. Suggest code-level fixes; never ask the author to test on Safari hardware.
+        Flag use of APIs or syntax that is missing or buggy in Safari/iOS WebKit unless guarded by a feature check or fallback:
+        - `requestIdleCallback` (not in Safari): fall back to `setTimeout`.
+        - RegExp lookbehind (`(?<=`, `(?<!`) on older iOS.
+        - `structuredClone`, `Array.prototype.at`, `Object.hasOwn`, `findLast`, `toSorted` without a check, when the browser target looks too new.
+        - Non-ISO date parsing such as `new Date("YYYY-MM-DD HH:mm")`: Safari returns Invalid Date. Require ISO 8601 with a `T` (and a timezone where it matters), or parse the parts manually.
+        - Drag-and-drop and touch events on iOS. The weekly planner uses drag-and-drop, and HTML5 drag events are unreliable on iOS, so check touch and pointer-event handling.
+        - Media autoplay without `muted` and `playsInline`.
+        - `localStorage`/`sessionStorage` access without try/catch (it can throw in Safari private mode or when storage is blocked).
+        - Clipboard API calls that are not made from a direct user gesture.
+    - path: "**/*.css"
+      instructions: |
+        Safari / WebKit compatibility (macOS Safari and iOS Safari). The maintainer has no Apple devices, so catch Safari problems in review. Suggest code-level fixes; never ask the author to test on Safari hardware.
+        - `100vh` on iOS includes the dynamic toolbar: prefer `dvh`/`svh` with a `vh` fallback.
+        - `backdrop-filter` needs the `-webkit-backdrop-filter` prefix. Check the same for `background-clip: text` and `mask`.
+        - `:has()`, container queries, `@property` and `color-mix()` need a reasonable fallback or a Safari version that supports them.
+        - Form inputs, selects and textareas with a font-size under 16px cause iOS to zoom on focus.
+        - `position: sticky` inside `overflow` containers, and fixed bars without `env(safe-area-inset-*)` padding.
+        - Tap targets under 44px, and `-webkit-` prefixed properties missing where Safari still requires them.
+        Tailwind utility classes in `.tsx` files fall under the same rules.
+
+    - path: "**/*.{ts,tsx,js,mjs,cjs}"
+      instructions: |
+        Secrets and env exposure. Flag any committed secret, token, API key or real credential.
+        Server-only secrets must never be prefixed `NEXT_PUBLIC_`, imported into a `use client` file, passed as props to client components, logged, or returned in responses:
+        - Supabase Secret Key (`SUPABASE_SERVICE_ROLE_KEY`)
+        - Stripe secret key (`STRIPE_SECRET_KEY`) and webhook secret (`STRIPE_WEBHOOK_SECRET`)
+        - OpenRouter key (`OPENROUTER_API_KEY` / `OPEN_ROUTER_API_KEY`)
+        - any Resend key
+        Clients built from these keys belong only in server code (route handlers, server actions, `server-only` modules). Do not log tokens, keys, auth headers or session cookies.
+        `NEXT_PUBLIC_*` values must be safe to ship to browsers (Supabase URL and anon key, site URL, verification tags).
+    - path: "**/.env*"
+      instructions: |
+        Only `.env.example` may be committed, and every value in it must stay empty. Flag any other `.env*` file, and any non-empty value, key or token in an env file.
+    - path: "next.config.ts"
+      instructions: |
+        Do not expose server secrets through `env`, `publicRuntimeConfig` or `NEXT_PUBLIC_` names. Next.js 16 has breaking changes: check `node_modules/next/dist/docs/` before suggesting config changes. CORS headers here support the mobile app, so flag widened origins or headers.
+
+    - path: "supabase/migrations/**"
+      instructions: |
+        Review database migrations carefully; production holds real user data.
+        - Prefer idempotent SQL: `if not exists`, `or replace`, `on conflict`.
+        - Every new table enables RLS and has policies scoped to `user_id = auth.uid()`; flag permissive policies and grants to `anon`/`public`.
+        - `security definer` functions must set `search_path` explicitly.
+        - Flag destructive drops, deletes, truncates or updates of existing user data unless the PR explains why.
+        - `20261028150000_baseline.sql` is a snapshot of production and must never be applied to production, and must not be edited casually.
+        - Schema changes go in new migration files, never through the SQL editor.
+    - path: "supabase/seed.sql"
+      instructions: |
+        Fake data only (for example `@example.com` users). It must never be run against production. Flag any real emails, real user ids, real keys or anything that looks like production data.
+    - path: "supabase/config.toml"
+      instructions: |
+        Local-stack and auth-template configuration. Flag secrets, production URLs and project refs, and changes that make local settings differ from what the templates in `supabase/templates/` expect.
+    - path: "src/lib/supabase/*.sql"
+      instructions: |
+        Historical SQL, superseded by `supabase/migrations/`. It must not be run. Flag edits and suggest a migration instead.
+    - path: "{scripts,tests}/**"
+      instructions: |
+        Production data safety. No script or test may write to, migrate or delete production data, or target the production Supabase ref `yjmprltzauajahmejaxi` or `https://www.mise-ai.app`. Integration and e2e tests must use a non-production Supabase project and must clean up the temporary Auth users they create. Use Stripe test mode only (`sk_test` keys, test price IDs). Do not call live OpenRouter from e2e tests. Node test files run on Node 22.
+    - path: "src/**/*.{ts,tsx}"
+      instructions: |
+        Production data safety: application code must not run bulk writes, migrations or deletes against production data outside normal user-scoped flows.
+        Stack conventions:
+        - Next.js 16 App Router. Check `node_modules/next/dist/docs/` and do not suggest pre-16 patterns (for example `src/proxy.ts` replaces middleware; `params` and `searchParams` are async).
+        - Server Components by default; add `use client` only where interactivity requires it. Use the `@/` alias for imports from `src/`.
+        - React Compiler is enabled: do not suggest needless `useMemo`/`useCallback`/`React.memo`.
+        - Zustand is for transient UI state; persistent data lives in Supabase.
+        - Respect RLS: user-scoped reads and writes use the user's session client, not the service-role client.
+        - API routes validate input and enforce usage limits through the RPCs `check_and_increment_usage`, `get_usage_status` and `record_usage_tokens`.
+        - AI calls go through `chatJson()` in `src/lib/openrouter/chatJson.ts` with its fallback model.
+        - Stripe webhooks must verify the signature before acting.
+        Intentional naming: the user-facing feature "Chef's Week" keeps `busy_week`, `busy-week` and `useBusyWeek` names in code, routes, DB and files. Do not flag this naming mismatch.
+    - path: "supabase/templates/**"
+      instructions: |
+        Supabase auth email templates use Go `html/template` syntax. Check that template actions are well-formed and links use `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=...`. Keep the HTML email-client safe: tables and inline styles, no external scripts, no unsupported CSS. No secrets or hard-coded production URLs.
+
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "**/AGENTS.md"
+      - "**/CLAUDE.md"
+      - "docs/supabase-migrations.md"
