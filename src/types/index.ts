@@ -60,8 +60,12 @@ export const DIETARY_PREFERENCES_LIST = [
   "Keto",
   "Paleo",
   "Bariatric",
+  "GLP-1",
   "Heart Healthy",
 ] as const;
+
+/** Max dietary preferences per request or saved profile. Sized above the list so picking every chip fits. */
+export const MAX_DIETARY_PREFERENCES = 20;
 
 export interface Ingredient {
   id?: string;

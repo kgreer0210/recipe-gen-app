@@ -3,6 +3,7 @@ import "server-only";
 import type { CuisineType, MealStyle, MealType, ProteinChoice, ProteinType, Recipe } from "@/types";
 import { MEAL_STYLES, PROTEIN_CHOICES } from "@/types";
 import { chatJson } from "@/lib/openrouter/chatJson";
+import { dietaryGuidanceBlock } from "./dietaryGuidance";
 
 /**
  * Shared recipe generation for /api/generate-recipe and Busy week.
@@ -126,6 +127,7 @@ export function buildRecipePrompts(input: RecipeGenerationInput): RecipeGenerati
       ? `STRICTLY AVOID these ingredients: ${dislikedIngredients.join(", ")}.`
       : "";
   const extra = extraRequirements(input);
+  const dietaryGuidance = dietaryGuidanceBlock(mergedDietary);
 
   if (input.mode === "pantry") {
     const ingredients = input.ingredients ?? [];
@@ -166,7 +168,7 @@ ${INDENTED_BLANK}
         mergedDietary.length > 0
           ? `- STRICTLY ADHERE to these dietary preferences: ${mergedDietary.join(
               ", "
-            )}.`
+            )}.${dietaryGuidance}`
           : ""
       }
       ${avoidBlock ? `- ${avoidBlock}` : ""}
@@ -246,7 +248,7 @@ ${INDENTED_BLANK}
         mergedDietary.length > 0
           ? `- STRICTLY ADHERE to these dietary preferences: ${mergedDietary.join(
               ", "
-            )}.`
+            )}.${dietaryGuidance}`
           : ""
       }
       ${avoidBlock ? `- ${avoidBlock}` : ""}

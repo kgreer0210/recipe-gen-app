@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   CuisineType,
   MealType,
+  MAX_DIETARY_PREFERENCES,
   MEAL_STYLES,
   MealStyle,
   PROTEIN_CHOICES,
@@ -100,9 +101,9 @@ export async function POST(request: Request) {
       }
     }
 
-    if (dietaryPreferences && dietaryPreferences.length > 10) {
+    if (dietaryPreferences && dietaryPreferences.length > MAX_DIETARY_PREFERENCES) {
       return NextResponse.json(
-        { error: "Too many dietary preferences. Please limit to 10." },
+        { error: `Too many dietary preferences. Please limit to ${MAX_DIETARY_PREFERENCES}.` },
         { status: 400 }
       );
     }
@@ -138,7 +139,7 @@ export async function POST(request: Request) {
         ? settings.dietary_preferences
         : []),
       ...(dietaryPreferences ?? []),
-    ]).slice(0, 10);
+    ]).slice(0, MAX_DIETARY_PREFERENCES);
     const dislikedIngredients = uniqueStrings(
       Array.isArray(settings?.disliked_ingredients)
         ? settings.disliked_ingredients

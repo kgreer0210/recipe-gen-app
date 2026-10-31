@@ -10,7 +10,7 @@ import {
   weekHasOpenDay,
 } from "@/lib/busyWeek";
 import { getWeekStart, getZonedYmd } from "@/lib/week";
-import type { WeeklyPlanSlot } from "@/types";
+import { DIETARY_PREFERENCES_LIST, MAX_DIETARY_PREFERENCES, type WeeklyPlanSlot } from "@/types";
 
 const BATCH_ID = "3f0c9c2e-6a1e-4c7e-9a55-1f2b3c4d5e6f";
 
@@ -117,8 +117,16 @@ describe("validateBusyWeekRequest", () => {
   });
 
   it("rejects too many dietary preferences", () => {
-    const dietaryPreferences = Array.from({ length: 11 }, (_, i) => `Pref ${i}`);
+    const dietaryPreferences = Array.from(
+      { length: MAX_DIETARY_PREFERENCES + 1 },
+      (_, i) => `Pref ${i}`
+    );
     expect(validateBusyWeekRequest(request({ dietaryPreferences })).ok).toBe(false);
+  });
+
+  it("accepts every dietary preference chip at once", () => {
+    const dietaryPreferences = [...DIETARY_PREFERENCES_LIST];
+    expect(validateBusyWeekRequest(request({ dietaryPreferences })).ok).toBe(true);
   });
 });
 

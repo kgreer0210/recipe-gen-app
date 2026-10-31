@@ -25,6 +25,7 @@ import {
 } from "@/lib/rowMappers";
 import type { ValidBusyWeekRequest } from "@/lib/busyWeek";
 import { proteinConflict, proteinConflictMessage } from "@/lib/proteinChoice";
+import { MAX_DIETARY_PREFERENCES } from "@/types";
 import type {
   BusyWeekErrorCode,
   BusyWeekPickStatus,
@@ -327,7 +328,7 @@ async function loadKitchen(
   const dietary = uniqueStrings([
     ...(Array.isArray(data?.dietary_preferences) ? data.dietary_preferences : []),
     ...requestDietary,
-  ]).slice(0, 10);
+  ]).slice(0, MAX_DIETARY_PREFERENCES);
   const disliked = uniqueStrings(
     Array.isArray(data?.disliked_ingredients) ? data.disliked_ingredients : []
   ).slice(0, 40);

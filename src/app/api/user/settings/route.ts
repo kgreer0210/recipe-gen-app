@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/supabase/auth-helper";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { uniqueStrings } from "@/lib/kitchenProfile";
+import { MAX_DIETARY_PREFERENCES } from "@/types";
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 200 });
@@ -104,7 +105,7 @@ export async function POST(request: Request) {
     const dietaryPreferences =
       body.dietaryPreferences === undefined
         ? asStringArray(existing?.dietary_preferences)
-        : asStringArray(body.dietaryPreferences).slice(0, 10);
+        : asStringArray(body.dietaryPreferences).slice(0, MAX_DIETARY_PREFERENCES);
     const dislikedIngredients =
       body.dislikedIngredients === undefined
         ? asStringArray(existing?.disliked_ingredients)
