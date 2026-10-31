@@ -64,6 +64,10 @@ describe("dietaryGuidanceBlock", () => {
     expect(dietaryGuidanceBlock(["GLP"])).toBe("");
   });
 
+  it("ignores names that collide with Object.prototype members", () => {
+    expect(dietaryGuidanceBlock(["constructor", "toString", "__proto__"])).toBe("");
+  });
+
   it("does not repeat guidance for duplicate spellings", () => {
     expect(dietaryGuidanceBlock(["GLP-1", "glp-1"])).toBe(dietaryGuidanceBlock(["GLP-1"]));
   });
