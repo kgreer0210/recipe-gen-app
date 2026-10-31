@@ -1,5 +1,6 @@
 import {
   CUISINE_TYPES,
+  MAX_DIETARY_PREFERENCES,
   MEAL_STYLES,
   PROTEIN_CHOICES,
   type BusyWeekPick,
@@ -13,7 +14,7 @@ import {
 import { addDaysToYmd, formatYmd, parseYmd } from "@/lib/week";
 
 export const BUSY_WEEK_MAX_PICKS = 7;
-export const BUSY_WEEK_MAX_DIETARY = 10;
+export const BUSY_WEEK_MAX_DIETARY = MAX_DIETARY_PREFERENCES;
 export const BUSY_WEEK_MAX_DIETARY_LENGTH = 100;
 
 const YMD_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
