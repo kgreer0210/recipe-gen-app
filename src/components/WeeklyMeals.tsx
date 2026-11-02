@@ -250,13 +250,9 @@ function UnscheduledTray({
 
 export default function WeeklyMeals() {
   const router = useRouter();
-  const { user, subscription } = useAuth();
+  const { user } = useAuth();
   const [busyWeekOpen, setBusyWeekOpen] = useState(false);
-  const busyWeekAllowed = hasBusyWeekAccess(
-    subscription,
-    user?.id,
-    process.env.NEXT_PUBLIC_ADMIN_USER_ID
-  );
+  const busyWeekAllowed = hasBusyWeekAccess(user?.id);
   const { slots, recipesById } = useWeeklyPlanRealtime();
   const { recipes: collectionRecipes } = useRecipesRealtime();
   usePantryRealtime();

@@ -230,24 +230,13 @@ describe("dayIsPast across timezones", () => {
 });
 
 describe("hasBusyWeekAccess", () => {
-  it("allows an active or trialing Plus or Pro subscription", () => {
-    expect(hasBusyWeekAccess({ status: "active", plan_key: "plus" }, "u1", "admin")).toBe(true);
-    expect(hasBusyWeekAccess({ status: "trialing", plan_key: "pro" }, "u1", "admin")).toBe(true);
+  it("lets every signed-in account in, as the family plan does on the server", () => {
+    expect(hasBusyWeekAccess("u1")).toBe(true);
   });
 
-  it("treats a paid subscription with no plan key as Plus, as the server does", () => {
-    expect(hasBusyWeekAccess({ status: "active" }, "u1", "admin")).toBe(true);
-  });
-
-  it("locks free users and lapsed subscriptions", () => {
-    expect(hasBusyWeekAccess(null, "u1", "admin")).toBe(false);
-    expect(hasBusyWeekAccess({ status: "active", plan_key: "free" }, "u1", "admin")).toBe(false);
-    expect(hasBusyWeekAccess({ status: "past_due", plan_key: "plus" }, "u1", "admin")).toBe(false);
-    expect(hasBusyWeekAccess({ status: "canceled", plan_key: "pro" }, "u1", "admin")).toBe(false);
-  });
-
-  it("lets the admin in regardless of subscription", () => {
-    expect(hasBusyWeekAccess(null, "admin", "admin")).toBe(true);
+  it("keeps signed-out visitors out", () => {
+    expect(hasBusyWeekAccess(null)).toBe(false);
+    expect(hasBusyWeekAccess(undefined)).toBe(false);
   });
 });
 

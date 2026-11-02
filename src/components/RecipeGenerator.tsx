@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react";
 import { generateRecipe, refineRecipe } from "@/lib/generator";
 import { useAuth } from "@/hooks/useAuth";
 import { useSaveRecipe } from "@/hooks/useRecipesMutations";
-import { useRecipesRealtime } from "@/hooks/useRecipesRealtime";
 import { useAddToGroceryList } from "@/hooks/useGroceryListMutations";
 import { usePantryRealtime } from "@/hooks/usePantryRealtime";
 import { formatRecipeAmount } from "@/lib/grocery/format";
@@ -369,7 +368,6 @@ export default function RecipeGenerator() {
   const { pantryItems } = usePantryRealtime();
   const profileDietaryRef = useRef<string[]>([]);
   const { mutateAsync: saveRecipe } = useSaveRecipe();
-  const { recipes: savedRecipes = [] } = useRecipesRealtime();
   const { mutateAsync: addToGroceryList } = useAddToGroceryList();
 
   useEffect(() => {
@@ -570,17 +568,8 @@ export default function RecipeGenerator() {
 
     setError(null);
 
-    // Save limit is now enforced at DB level, but we can still show a helpful message
-    // The DB trigger will catch it if they somehow bypass this check
-    // Check save limits based on plan
-    const planKey = subscription?.plan_key || "free";
-    const saveLimit = planKey === "pro" ? 2000 : planKey === "plus" ? 200 : 20;
-
-    if (savedRecipes.length >= saveLimit) {
-      setShowLimitPopup(true);
-      return;
-    }
-
+    // The family plan has no saved-recipe cap. The DB trigger enforces save_limit
+    // if one is ever set.
     if (generatedRecipe) {
       try {
         const saved = await saveRecipe(generatedRecipe);
@@ -813,7 +802,7 @@ export default function RecipeGenerator() {
           </p>
           <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 mb-6">
             <p className="text-sm text-blue-800 font-medium">
-              Limit: 5 recipes per week
+              Limit: {rateLimit?.limit ?? rateLimit?.generate?.limit ?? 150} recipes per week
             </p>
           </div>
 
