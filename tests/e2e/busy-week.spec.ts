@@ -66,6 +66,16 @@ async function openWeeklyPlan(page: Page, email: string) {
   await page.goto("/weekly-plan");
 }
 
+/**
+ * Exact week-heading text. Playwright freezes the browser clock only; the
+ * server still renders the real UTC week. Once those weeks differ, the Next.js
+ * dev overlay repeats the date inside a longer diff line, and a substring
+ * query matches both. Exact text matches the heading only.
+ */
+function weekRangeText(page: Page, label: string) {
+  return page.getByText(label, { exact: true });
+}
+
 async function stubRateLimit(page: Page, remaining: number) {
   await page.route("**/api/rate-limit", (route) =>
     route.fulfill({
@@ -241,7 +251,7 @@ test.describe("Busy week and meal style", () => {
 
     // Plan next week, the one with the seeded dinner.
     await page.getByRole("button", { name: "Next week" }).click();
-    await expect(page.getByText(NEXT_WEEK_LABEL)).toBeVisible();
+    await expect(weekRangeText(page, NEXT_WEEK_LABEL)).toBeVisible();
     await page.getByRole("button", { name: /^Chef's Week/ }).click();
     await expect(page.getByRole("heading", { name: "Chef's Week" })).toBeVisible();
 
@@ -294,15 +304,15 @@ test.describe("Busy week and meal style", () => {
     await signIn(page, paidEmail);
     await page.goto("/weekly-plan");
     await page.getByRole("button", { name: "Next week" }).click();
-    await expect(page.getByText(NEXT_WEEK_LABEL)).toBeVisible();
+    await expect(weekRangeText(page, NEXT_WEEK_LABEL)).toBeVisible();
 
     const settled = page.waitForResponse((response) => response.url().includes("/api/user/settings"));
     releaseSettings();
     await settled;
     await flushReact(page);
 
-    await expect(page.getByText(NEXT_WEEK_LABEL)).toBeVisible();
-    await expect(page.getByText(CURRENT_WEEK_LABEL)).toHaveCount(0);
+    await expect(weekRangeText(page, NEXT_WEEK_LABEL)).toBeVisible();
+    await expect(weekRangeText(page, CURRENT_WEEK_LABEL)).toHaveCount(0);
   });
 
   test("days behind today in the current week are disabled and never preselected", async ({ page }) => {
