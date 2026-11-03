@@ -13,7 +13,6 @@ const hasEnv = Boolean(supabaseUrl && anonKey && serviceRoleKey);
 const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const password = `Mise-Busy-${runId}!`;
 const paidEmail = `mise-busy-paid-${runId}@example.com`;
-const freeEmail = `mise-busy-free-${runId}@example.com`;
 const generatorEmail = `mise-busy-gen-${runId}@example.com`;
 const existingTitle = `Busy Week Existing ${runId}`;
 
@@ -184,7 +183,7 @@ test.describe("Busy week and meal style", () => {
 
   test.beforeAll(async () => {
     if (!admin) return;
-    for (const email of [paidEmail, freeEmail, generatorEmail]) {
+    for (const email of [paidEmail, generatorEmail]) {
       const created = await admin.auth.admin.createUser({ email, password, email_confirm: true });
       if (created.error || !created.data.user) {
         throw created.error ?? new Error(`Could not create ${email}`);
@@ -192,17 +191,6 @@ test.describe("Busy week and meal style", () => {
       userIds.push(created.data.user.id);
     }
     [paidId] = userIds;
-
-    const subscription = await admin.from("subscriptions").upsert(
-      {
-        user_id: paidId,
-        status: "active",
-        plan_key: "plus",
-        price_id: "price_test_placeholder",
-      },
-      { onConflict: "user_id" }
-    );
-    if (subscription.error) throw subscription.error;
 
     // A dinner that is already on the plan next week, so the journey hits the replace warning.
     const recipe = await admin
@@ -238,13 +226,12 @@ test.describe("Busy week and meal style", () => {
     if (!admin || userIds.length === 0) return;
     await admin.from("weekly_plan").delete().in("user_id", userIds);
     await admin.from("recipes").delete().in("user_id", userIds);
-    await admin.from("subscriptions").delete().in("user_id", userIds);
     for (const id of userIds) {
       await admin.auth.admin.deleteUser(id);
     }
   });
 
-  test("a paid cook plans three dinners, confirms a replacement, and sees them in the plan", async ({ page }) => {
+  test("a cook plans three dinners, confirms a replacement, and sees them in the plan", async ({ page }) => {
     await stubRateLimit(page, 37);
     const posted = await stubBusyWeek(page);
     await openWeeklyPlan(page, paidEmail);
@@ -325,17 +312,6 @@ test.describe("Busy week and meal style", () => {
     await expect(days.getByRole("radio", { name: /^Tuesday/ })).toBeDisabled();
     await expect(days.getByRole("radio", { name: /^Wednesday/ })).toHaveAttribute("aria-checked", "true");
     await expect(days.getByRole("radio", { name: /^Wednesday/ })).toBeEnabled();
-  });
-
-  test("a free cook sees Chef's Week locked, with a link to plans", async ({ page }) => {
-    await stubRateLimit(page, 5);
-    await signIn(page, freeEmail);
-    await page.goto("/weekly-plan");
-
-    const lock = page.getByRole("link", { name: /Chef's Week is a Plus & Pro feature/ });
-    await expect(lock).toBeVisible();
-    await expect(lock).toHaveAttribute("href", "/pricing");
-    await expect(page.getByRole("button", { name: /^Chef's Week/ })).toHaveCount(0);
   });
 
   test("the pick card offers Protein, and the request carries the chosen protein", async ({ page }) => {

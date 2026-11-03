@@ -20,7 +20,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  Lock,
   Plus,
   ShoppingBasket,
   Sparkles,
@@ -62,7 +61,6 @@ import {
   type Recipe,
   type WeeklyPlanSlot,
 } from "@/types";
-import { hasBusyWeekAccess } from "@/lib/busyWeek";
 import BusyWeekSheet from "@/components/BusyWeekSheet";
 import AddToWeekModal from "@/components/AddToWeekModal";
 import LeftoversModal, {
@@ -252,7 +250,6 @@ export default function WeeklyMeals() {
   const router = useRouter();
   const { user } = useAuth();
   const [busyWeekOpen, setBusyWeekOpen] = useState(false);
-  const busyWeekAllowed = hasBusyWeekAccess(user?.id);
   const { slots, recipesById } = useWeeklyPlanRealtime();
   const { recipes: collectionRecipes } = useRecipesRealtime();
   usePantryRealtime();
@@ -498,29 +495,15 @@ export default function WeeklyMeals() {
             {isBuilding ? "Building..." : "Build grocery list from this week"}
           </button>
         </div>
-        {busyWeekAllowed ? (
-          <button
-            type="button"
-            onClick={() => setBusyWeekOpen(true)}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border-[1.5px] border-[var(--market-tomato)] bg-[var(--market-surface)] px-4 py-2.5 text-sm font-medium text-[var(--market-tomato-dark)] hover:bg-[#f7ded3]"
-          >
-            <Sparkles className="h-4 w-4" aria-hidden />
-            Chef&apos;s Week
-            <span className="rounded-full bg-[#d7eba0] px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-[#4f5f27]">
-              Plus · Pro
-            </span>
-          </button>
-        ) : (
-          <Link
-            href="/pricing"
-            className="flex w-full items-center justify-center gap-2 rounded-xl border-[1.5px] border-[var(--market-line)] bg-[var(--market-surface-muted)] px-4 py-2.5 text-sm font-medium text-[var(--market-copy)] hover:bg-[var(--market-line)]"
-          >
-            <Lock className="h-4 w-4" aria-hidden />
-            Chef&apos;s Week is a Plus &amp; Pro feature
-            <span className="font-semibold text-[var(--market-tomato-dark)]">See plans</span>
-          </Link>
-        )}
-        {busyWeekOpen && busyWeekAllowed && (
+        <button
+          type="button"
+          onClick={() => setBusyWeekOpen(true)}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border-[1.5px] border-[var(--market-tomato)] bg-[var(--market-surface)] px-4 py-2.5 text-sm font-medium text-[var(--market-tomato-dark)] hover:bg-[#f7ded3]"
+        >
+          <Sparkles className="h-4 w-4" aria-hidden />
+          Chef&apos;s Week
+        </button>
+        {busyWeekOpen && (
           // Keyed by week: the sheet's day defaults belong to the week it opened on.
           <BusyWeekSheet
             key={weekStart}

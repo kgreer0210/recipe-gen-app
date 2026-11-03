@@ -1,7 +1,6 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
-import { Subscription } from "@/types";
 import { User } from "@supabase/supabase-js";
 import { createContext, useEffect, useState, useRef, ReactNode } from "react";
 import { useRouter, usePathname } from "next/navigation";
@@ -9,67 +8,29 @@ import { detectUserTimezone, saveUserTimezone } from "@/lib/timezone";
 
 interface AuthContextType {
   user: User | null;
-  subscription: Subscription | null;
   loading: boolean;
-  refreshSubscription: () => Promise<void>;
   supabase: ReturnType<typeof createClient>;
 }
 
 export const AuthContext = createContext<AuthContextType>({
   user: null,
-  subscription: null,
   loading: true,
-  refreshSubscription: async () => {},
   supabase: createClient(),
 });
 
 interface AuthProviderProps {
   children: ReactNode;
   initialUser: User | null;
-  initialSubscription: Subscription | null;
 }
 
-export function AuthProvider({
-  children,
-  initialUser,
-  initialSubscription,
-}: AuthProviderProps) {
+export function AuthProvider({ children, initialUser }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(initialUser);
-  const [subscription, setSubscription] = useState<Subscription | null>(
-    initialSubscription
-  );
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
   const [supabase] = useState(() => createClient());
 
   const userRef = useRef<User | null>(initialUser);
-
-  const fetchSubscription = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("subscriptions")
-        .select("*")
-        .eq("user_id", userId)
-        .maybeSingle();
-
-      if (error) {
-        console.error("Error fetching subscription:", error);
-        return null;
-      }
-
-      return data as Subscription | null;
-    } catch (error) {
-      console.error("Subscription fetch failed:", error);
-      return null;
-    }
-  };
-
-  const refreshSubscription = async () => {
-    if (!user) return;
-    const sub = await fetchSubscription(user.id);
-    setSubscription(sub);
-  };
 
   const ensureUserTimezone = async () => {
     try {
@@ -105,14 +66,8 @@ export function AuthProvider({
         setUser(sessionUser);
 
         if (sessionUser) {
-          const sub = await fetchSubscription(sessionUser.id);
-          if (isMounted) {
-            setSubscription(sub);
-          }
           // Timezone save is non-blocking so the chrome can render the signed-in user.
           void ensureUserTimezone();
-        } else {
-          setSubscription(null);
         }
       } finally {
         if (isMounted) {
@@ -137,13 +92,8 @@ export function AuthProvider({
         setUser(nextUser);
 
         if (nextUser) {
-          const sub = await fetchSubscription(nextUser.id);
-          if (isMounted) {
-            setSubscription(sub);
-          }
           void ensureUserTimezone();
         } else {
-          setSubscription(null);
           // If the user becomes unauthenticated (e.g., explicit sign-out), send them to sign-in.
           router.replace("/login");
         }
@@ -152,17 +102,9 @@ export function AuthProvider({
         return;
       }
 
-      if (event === "TOKEN_REFRESHED" && nextUser) {
-        const sub = await fetchSubscription(nextUser.id);
-        if (isMounted) {
-          setSubscription(sub);
-        }
-      }
-
       if (event === "SIGNED_OUT") {
         userRef.current = null;
         setUser(null);
-        setSubscription(null);
         router.replace("/login");
         router.refresh();
       }
@@ -192,12 +134,7 @@ export function AuthProvider({
         setUser(sessionUser);
 
         if (sessionUser) {
-          const sub = await fetchSubscription(sessionUser.id);
-          if (!isMounted) return;
-          setSubscription(sub);
           void ensureUserTimezone();
-        } else {
-          setSubscription(null);
         }
       } catch {
         // ignore
@@ -212,9 +149,7 @@ export function AuthProvider({
   }, [pathname, loading, supabase]);
 
   return (
-    <AuthContext.Provider
-      value={{ user, subscription, loading, refreshSubscription, supabase }}
-    >
+    <AuthContext.Provider value={{ user, loading, supabase }}>
       {children}
     </AuthContext.Provider>
   );

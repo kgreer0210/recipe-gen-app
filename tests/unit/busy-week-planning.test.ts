@@ -4,7 +4,6 @@ import {
   dayIsPast,
   defaultPickDay,
   findDinnerConflicts,
-  hasBusyWeekAccess,
   suggestDay,
   validateBusyWeekRequest,
   weekHasOpenDay,
@@ -226,17 +225,6 @@ describe("dayIsPast across timezones", () => {
   it("picks the Monday that the user's own timezone calls this week", () => {
     expect(getWeekStart(instant, "America/New_York")).toBe("2026-10-26");
     expect(getWeekStart(instant, "America/Los_Angeles")).toBe("2026-10-19");
-  });
-});
-
-describe("hasBusyWeekAccess", () => {
-  it("lets every signed-in account in, as the family plan does on the server", () => {
-    expect(hasBusyWeekAccess("u1")).toBe(true);
-  });
-
-  it("keeps signed-out visitors out", () => {
-    expect(hasBusyWeekAccess(null)).toBe(false);
-    expect(hasBusyWeekAccess(undefined)).toBe(false);
   });
 });
 

@@ -20,7 +20,6 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@openrouter/sdk": "^1.5.33",
-    "@stripe/stripe-js": "^10.2.0",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.118.0",
     "@vercel/analytics": "^2.0.1",
@@ -31,7 +30,6 @@
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "sonner": "^2.0.8",
-    "stripe": "^23.1.0",
     "tailwind-merge": "^3.7.0",
     "zustand": "^5.0.16"
   },

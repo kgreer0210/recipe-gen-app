@@ -54,7 +54,7 @@ export async function checkAndIncrementUsage(
   if (!authenticatedUser) {
     return {
       allowed: false,
-      planKey: "free",
+      planKey: "family",
       reason: "not_authenticated",
       error: "User not authenticated",
     };
@@ -88,7 +88,7 @@ export async function checkAndIncrementUsage(
       console.error("Usage check failed:", error);
       return {
         allowed: false,
-        planKey: "free",
+        planKey: "family",
         reason: "rpc_error",
         error: error.message,
       };
@@ -120,7 +120,7 @@ export async function checkAndIncrementUsage(
     console.error("Usage check exception:", err);
     return {
       allowed: false,
-      planKey: "free",
+      planKey: "family",
       reason: "exception",
       error: err instanceof Error ? err.message : String(err),
     };
@@ -218,7 +218,7 @@ export async function beginBusyWeekBatch({
     if (result.outcome === "started") {
       return {
         outcome: "started",
-        planKey: result.plan_key ?? "free",
+        planKey: result.plan_key ?? "family",
         windowStart: result.window_start ?? null,
         remaining: result.remaining ?? null,
       };
@@ -227,7 +227,7 @@ export async function beginBusyWeekBatch({
       return {
         outcome: "blocked",
         reason: result.reason ?? "rpc_error",
-        planKey: result.plan_key ?? "free",
+        planKey: result.plan_key ?? "family",
         remaining: result.remaining ?? null,
       };
     }
@@ -405,27 +405,21 @@ export async function getUsageStatus(
  */
 export function getUsageErrorMessage(
   reason: string | undefined,
-  planKey: string,
   remaining?: number | null
 ): string {
   switch (reason) {
-    case "paid_plan_required":
-      return "Chef's Week is a Plus or Pro feature. Upgrade to plan a whole week at once.";
     case "insufficient_remaining":
       return `This batch needs more recipes than you have left this week (${remaining ?? 0} left). Pick fewer dinners or try again next week.`;
     case "save_limit":
       return "Your saved recipes are full. Remove a few from your collection, then try again.";
     case "mise_blocked:weekly":
-      if (planKey === "pro") {
-        return "You've reached your weekly fair-use limit. Please contact support if you need higher limits.";
-      }
-      return "You've reached your weekly recipe limit! 🧑‍🍳 Our chefs are taking a break. Please come back next week for more delicious ideas.";
+      return "You've reached the weekly recipe limit. Our chefs are taking a break, so please come back next week for more delicious ideas.";
     case "mise_blocked:per_minute":
       return "Too many requests per minute. Please slow down and try again in a moment.";
     case "mise_blocked:per_hour":
       return "Too many requests per hour. Please slow down and try again later.";
     case "weekly_token_hard_limit":
-      return "You've reached your weekly token limit. Please try again next week or upgrade your plan.";
+      return "You've reached the weekly usage limit. Please try again next week.";
     default:
       return "Usage limit reached. Please try again later.";
   }

@@ -11,8 +11,8 @@ type ChatJsonOptions = {
   treatErrorFieldAsFailure?: boolean;
 
   /**
-   * The model to use for this request. Required - use getModelForTier() to
-   * get the appropriate model for a user's plan tier.
+   * The model to use for this request. Required - use FAMILY_MODEL
+   * unless an admin picked another one.
    */
   model: string;
 };

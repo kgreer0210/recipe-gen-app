@@ -304,7 +304,6 @@ body {
 .fresh-market-app .market-nav__mobile-account { border-color: var(--market-line) !important; }
 .fresh-market-app .market-account__signin { border-radius: 999px; background: var(--market-tomato) !important; box-shadow: 0 0.5rem 1rem rgba(217, 95, 66, 0.18) !important; }
 .fresh-market-app .market-account__signin:hover { background: var(--market-tomato-dark) !important; }
-.fresh-market-app .market-account__subscription:hover { color: var(--market-tomato-dark) !important; }
 .fresh-market-app .market-account__signout:hover { color: #b64e3c !important; }
 
 .fresh-market-app .market-footer {

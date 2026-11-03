@@ -2,7 +2,7 @@ import "server-only";
 
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getModelForTier } from "@/lib/openrouter/models";
+import { FAMILY_MODEL } from "@/lib/openrouter/models";
 import {
   finalizeRecipe,
   requestRecipe,
@@ -169,7 +169,7 @@ export async function runBusyWeek({
     return {
       status: blockedStatus(begun.reason),
       body: {
-        error: getUsageErrorMessage(begun.reason, begun.planKey, begun.remaining),
+        error: getUsageErrorMessage(begun.reason, begun.remaining),
         reason: begun.reason,
         remaining: begun.remaining,
       },
@@ -188,7 +188,7 @@ export async function runBusyWeek({
     supabase,
     weekStart: request.weekStart,
     kitchen,
-    model: getModelForTier(begun.planKey),
+    model: FAMILY_MODEL,
     deadline: Date.now() + BUSY_WEEK_DEADLINE_MS,
     save: () => writer.save(finalStored),
   });
@@ -292,7 +292,6 @@ async function loadBatch({
 }
 
 function blockedStatus(reason: string | undefined): number {
-  if (reason === "paid_plan_required") return 403;
   if (reason && BLOCKED_AS_SERVER_ERROR.includes(reason)) return 500;
   return 429;
 }

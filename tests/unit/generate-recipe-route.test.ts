@@ -71,7 +71,7 @@ describe("POST /api/generate-recipe prompt", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getAuthenticatedUser.mockResolvedValue({ user: { id: "user-1" } });
-    checkAndIncrementUsage.mockResolvedValue({ allowed: true, planKey: "plus" });
+    checkAndIncrementUsage.mockResolvedValue({ allowed: true, planKey: "family" });
     chatJson.mockResolvedValue({ data: recipeJson, modelUsed: "m", usage: undefined });
     settings.current = {
       dietary_preferences: ["Gluten-Free"],

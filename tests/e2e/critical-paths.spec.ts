@@ -188,7 +188,7 @@ test.describe("Mise AI's three critical user journeys", () => {
     await page.getByRole("button", { name: "Open site menu" }).click();
     const siteMenu = page.getByRole("navigation", { name: "Site" });
     await expect(siteMenu.getByRole("link", { name: "About" })).toBeVisible();
-    await expect(siteMenu.getByRole("link", { name: "Pricing" })).toBeVisible();
+    await expect(siteMenu.getByRole("link", { name: "Pricing" })).toHaveCount(0);
     await expect(siteMenu.getByRole("link", { name: "Contact" })).toBeVisible();
     await expect(siteMenu.getByRole("link", { name: "Pantry" })).toHaveCount(0);
     await expect(siteMenu.getByRole("link", { name: "Weekly Plan" })).toHaveCount(0);

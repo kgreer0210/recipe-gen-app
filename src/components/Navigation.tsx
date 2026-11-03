@@ -77,15 +77,6 @@ export default function Navigation() {
               About
             </Link>
             <Link
-              href="/pricing"
-              className={`market-nav__link inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors ${isActive("/pricing")
-                  ? "border-blue-600 text-gray-900"
-                  : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-                }`}
-            >
-              Pricing
-            </Link>
-            <Link
               href="/contact"
               className={`market-nav__link inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors ${isActive("/contact")
                   ? "border-blue-600 text-gray-900"
@@ -220,16 +211,6 @@ export default function Navigation() {
                 }`}
             >
               About
-            </Link>
-            <Link
-              href="/pricing"
-              onClick={closeMobileMenu}
-              className={`market-nav__mobile-link block px-3 py-2 rounded-md text-base font-medium ${isActive("/pricing")
-                  ? "bg-blue-50 text-blue-700"
-                  : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-                }`}
-            >
-              Pricing
             </Link>
             <Link
               href="/contact"

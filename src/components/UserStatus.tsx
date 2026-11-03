@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import { LogOut, User as UserIcon, CreditCard, Loader2 } from "lucide-react";
+import { LogOut, User as UserIcon } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useSignOut } from "@/hooks/useSignOut";
 
@@ -13,9 +12,8 @@ export default function UserStatus({
   onAction?: () => void;
   showLabels?: boolean;
 }) {
-  const { user, subscription, loading } = useAuth();
+  const { user, loading } = useAuth();
   const { mutateAsync: signOut } = useSignOut();
-  const [portalLoading, setPortalLoading] = useState(false);
 
   const handleSignOut = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -30,34 +28,6 @@ export default function UserStatus({
     }
   };
 
-  const handleManageSubscription = async () => {
-    onAction?.();
-    setPortalLoading(true);
-    try {
-      const response = await fetch("/api/stripe/portal", {
-        method: "POST",
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to open portal");
-      }
-
-      const data = await response.json();
-      if (data.url) {
-        window.location.href = data.url;
-      }
-    } catch (error) {
-      console.error("Portal error:", error);
-      alert("Failed to open subscription management.");
-    } finally {
-      setPortalLoading(false);
-    }
-  };
-
-  const isSubscribed =
-    subscription &&
-    (subscription.status === "active" || subscription.status === "trialing");
-
   if (user) {
     return (
       <div
@@ -67,23 +37,6 @@ export default function UserStatus({
             : "flex items-center gap-4"
         }
       >
-        {isSubscribed && (
-          <button
-            onClick={handleManageSubscription}
-            disabled={portalLoading}
-            className="market-account__subscription flex items-center gap-2 text-sm text-gray-700 hover:text-blue-600 transition-colors"
-            title="Manage Subscription"
-          >
-            {portalLoading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <CreditCard className="w-4 h-4 shrink-0" />
-            )}
-            <span className={showLabels ? "inline" : "hidden sm:inline"}>
-              Subscription
-            </span>
-          </button>
-        )}
         <div className="market-account__identity flex items-center gap-2 min-w-0">
           <UserIcon className="w-4 h-4 shrink-0 text-gray-700" />
           <span

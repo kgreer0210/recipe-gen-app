@@ -9,10 +9,10 @@
  * Includes models from multiple providers (Gemini, Claude, GPT)
  */
 export const ADMIN_MODEL_OPTIONS = [
-  // Gemini Models (tier-based defaults)
-  { value: 'google/gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite (Free Tier)' },
-  { value: 'google/gemini-2.5-flash', label: 'Gemini 2.5 Flash (Plus Tier)' },
-  { value: 'google/gemini-3-flash-preview', label: 'Gemini 3 Flash Preview (Pro Tier)' },
+  // Gemini Models (Gemini 3 Flash Preview is the model everyone uses)
+  { value: 'google/gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
+  { value: 'google/gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+  { value: 'google/gemini-3-flash-preview', label: 'Gemini 3 Flash Preview (default)' },
 
   // Claude Models
   { value: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet' },

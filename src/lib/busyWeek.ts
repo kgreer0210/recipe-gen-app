@@ -186,15 +186,6 @@ export function progressRows(
   });
 }
 
-/**
- * Client-side gate for the Busy week button. The server is the source of truth.
- * Mirrors resolve_user_plan_key: every account is on the family plan, so any
- * signed-in user may plan a week.
- */
-export function hasBusyWeekAccess(userId: string | null | undefined): boolean {
-  return Boolean(userId);
-}
-
 /** A day is past when it is before the user's "today" in that week. */
 export function dayIsPast(weekStart: string, dayOfWeek: number, todayYmd: string): boolean {
   return dayDate(weekStart, dayOfWeek) < todayYmd;

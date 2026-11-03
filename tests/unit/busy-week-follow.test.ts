@@ -84,9 +84,9 @@ describe("busy week follow state", () => {
   it("ends the run with the server's message when a start is refused", () => {
     const state = started(initialFollowState, RETRY, T0);
 
-    const next = followReducer(state, { type: "failed", batchId: RETRY, message: "You need a Plus plan." });
+    const next = followReducer(state, { type: "failed", batchId: RETRY, message: "Chef's Week could not start." });
 
-    expect(next).toMatchObject({ phase: "idle", batchId: null, error: "You need a Plus plan." });
+    expect(next).toMatchObject({ phase: "idle", batchId: null, error: "Chef's Week could not start." });
   });
 
   it("ignores a missing report for an earlier batch", () => {

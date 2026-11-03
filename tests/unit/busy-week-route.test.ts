@@ -16,7 +16,7 @@ const mocks = vi.hoisted(() => ({
   reservation: {
     current: {
       allowed: true,
-      planKey: "plus",
+      planKey: "family",
       reason: undefined as string | undefined,
       remaining: 97 as number | null,
       windowStart: "2026-10-26T04:00:00.000Z" as string | null,
@@ -267,7 +267,7 @@ describe("busy week route", () => {
     mocks.refundFails.current = false;
     mocks.reservation.current = {
       allowed: true,
-      planKey: "plus",
+      planKey: "family",
       reason: undefined,
       remaining: 97,
       windowStart: WINDOW,
@@ -341,21 +341,9 @@ describe("busy week route", () => {
     });
   });
 
-  describe("paid plan and limits", () => {
-    it("refuses a free user with 403, makes no model calls and refunds nothing", async () => {
-      mocks.reservation.current = { allowed: false, planKey: "free", reason: "paid_plan_required", remaining: null, windowStart: null };
-
-      const response = await postBusyWeek(busyBody());
-      const json = await response.json();
-
-      expect(response.status).toBe(403);
-      expect(json.reason).toBe("paid_plan_required");
-      expect(mocks.chatJson).not.toHaveBeenCalled();
-      expect(mocks.refunds).toHaveLength(0);
-    });
-
+  describe("limits", () => {
     it("returns 429 with what is left when the batch does not fit, before any model call", async () => {
-      mocks.reservation.current = { allowed: false, planKey: "plus", reason: "insufficient_remaining", remaining: 2, windowStart: null };
+      mocks.reservation.current = { allowed: false, planKey: "family", reason: "insufficient_remaining", remaining: 2, windowStart: null };
 
       const response = await postBusyWeek(busyBody());
       const json = await response.json();
@@ -375,7 +363,7 @@ describe("busy week route", () => {
       );
     });
 
-    it("answers a request with an admin bypass the same way as a paid user, with no weekly count", async () => {
+    it("answers a request with an admin bypass the same way as any other user, with no weekly count", async () => {
       process.env.ADMIN_USER_ID = USER.id;
       mocks.getUsageStatus.mockResolvedValueOnce({ generate: { remaining: null } });
 
@@ -903,7 +891,7 @@ describe("GET /api/busy-week/[batchId]", () => {
     vi.clearAllMocks();
     mocks.refunds.length = 0;
     mocks.refundFails.current = false;
-    mocks.reservation.current = { allowed: true, planKey: "plus", reason: undefined, remaining: 97, windowStart: WINDOW };
+    mocks.reservation.current = { allowed: true, planKey: "family", reason: undefined, remaining: 97, windowStart: WINDOW };
     db = { tables: { user_settings: [], recipes: [], weekly_plan: [], generation_batches: [] } };
     const client = createFakeSupabase(db);
     mocks.adminClient.current = client;

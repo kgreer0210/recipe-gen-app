@@ -35,7 +35,7 @@ describe("beginBusyWeekBatch", () => {
 
   it("records the batch and reserves the whole batch in one database call", async () => {
     rpc.mockResolvedValueOnce({
-      data: { outcome: "started", plan_key: "plus", window_start: "2026-10-26T04:00:00+00:00", remaining: 94 },
+      data: { outcome: "started", plan_key: "family", window_start: "2026-10-26T04:00:00+00:00", remaining: 94 },
       error: null,
     });
 
@@ -52,7 +52,7 @@ describe("beginBusyWeekBatch", () => {
     });
     expect(result).toEqual({
       outcome: "started",
-      planKey: "plus",
+      planKey: "family",
       windowStart: "2026-10-26T04:00:00+00:00",
       remaining: 94,
     });
@@ -66,14 +66,14 @@ describe("beginBusyWeekBatch", () => {
 
   it("reports a block with its reason and what is left", async () => {
     rpc.mockResolvedValueOnce({
-      data: { outcome: "blocked", reason: "insufficient_remaining", plan_key: "plus", remaining: 2 },
+      data: { outcome: "blocked", reason: "insufficient_remaining", plan_key: "family", remaining: 2 },
       error: null,
     });
 
     expect(await begin(plusUser)).toEqual({
       outcome: "blocked",
       reason: "insufficient_remaining",
-      planKey: "plus",
+      planKey: "family",
       remaining: 2,
     });
   });
@@ -133,17 +133,30 @@ describe("settleBusyWeekBatch", () => {
 });
 
 describe("getUsageErrorMessage for busy week", () => {
-  it("explains that Chef's Week is a paid feature", () => {
-    const message = getUsageErrorMessage("paid_plan_required", "free");
-    expect(message).toMatch(/^Chef's Week/);
-    expect(message).toMatch(/Plus or Pro/);
+  it("never mentions plans or upgrades in any limit message", () => {
+    const reasons = [
+      "insufficient_remaining",
+      "save_limit",
+      "mise_blocked:weekly",
+      "mise_blocked:per_minute",
+      "mise_blocked:per_hour",
+      "weekly_token_hard_limit",
+      undefined,
+    ];
+    for (const reason of reasons) {
+      expect(getUsageErrorMessage(reason)).not.toMatch(/upgrade|plan\b|plus|pro\b|paid|subscri/i);
+    }
+  });
+
+  it("keeps the weekly wording the generator screen looks for", () => {
+    expect(getUsageErrorMessage("mise_blocked:weekly")).toMatch(/weekly recipe limit/);
   });
 
   it("says how many recipes are left when the batch does not fit", () => {
-    expect(getUsageErrorMessage("insufficient_remaining", "plus", 2)).toMatch(/2 left/);
+    expect(getUsageErrorMessage("insufficient_remaining", 2)).toMatch(/2 left/);
   });
 
   it("explains a full save library", () => {
-    expect(getUsageErrorMessage("save_limit", "plus")).toMatch(/saved recipes are full/);
+    expect(getUsageErrorMessage("save_limit")).toMatch(/saved recipes are full/);
   });
 });
