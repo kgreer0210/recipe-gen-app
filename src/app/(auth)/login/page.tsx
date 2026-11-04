@@ -29,10 +29,7 @@ export default function LoginPage() {
                     Welcome back
                 </h2>
                 <p className="mt-2 text-sm text-gray-600">
-                    Don&apos;t have an account?{' '}
-                    <Link href="/signup" className="font-medium text-blue-600 hover:text-blue-500">
-                        Sign up for free
-                    </Link>
+                    Mise AI is invite-only. If you were invited, use the link in your invite email to set up your account.
                 </p>
             </div>
 

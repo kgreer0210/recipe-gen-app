@@ -94,11 +94,42 @@ test.describe("Mise AI's three critical user journeys", () => {
     await admin.auth.admin.deleteUser(userId);
   });
 
-  test("a visitor is guided from the home page to sign in", async ({ page }) => {
+  test("a visitor sees the invite-only front door and is guided to sign in", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("link", { name: /Let's make dinner/i }).click();
+    const main = page.getByRole("main");
+    await expect(main.getByText("Invite only").first()).toBeVisible();
+    await expect(main.getByRole("link", { name: /sign up/i })).toHaveCount(0);
+    await main.getByRole("link", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/login$/);
     await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
+  });
+
+  test("the sign-up page is an invite-only note with no form", async ({ page }) => {
+    const response = await page.goto("/signup");
+    expect(response?.status()).toBe(200);
+    await expect(page.getByRole("heading", { name: "Mise AI is invite-only" })).toBeVisible();
+    await expect(page.getByText(/check your email for the invite link/i)).toBeVisible();
+    await expect(page.locator("form")).toHaveCount(0);
+    await expect(page.getByLabel("Email address")).toHaveCount(0);
+    await expect(page.getByLabel("Password")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /sign up/i })).toHaveCount(0);
+
+    await page.getByRole("main").getByRole("link", { name: "Sign in" }).click();
+    await expect(page).toHaveURL(/\/login$/);
+  });
+
+  test("the login page explains invites and has no sign-up link", async ({ page }) => {
+    await page.goto("/login");
+    await expect(page.getByText(/invite-only/i)).toBeVisible();
+    await expect(page.getByText("Sign up for free")).toHaveCount(0);
+    await expect(page.locator('a[href="/signup"]')).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Forgot your password?" })).toBeVisible();
+  });
+
+  test("the callback ignores an unsafe next and lands on a same-origin page", async ({ page }) => {
+    // No valid credentials, so the callback sends the visitor to /login on this origin.
+    await page.goto("/auth/callback?next=//evil.com");
+    await expect(page).toHaveURL(/\/login\?error=confirmation_failed$/);
   });
 
   test("a returning cook can sign in and reach the recipe generator", async ({ page }) => {

@@ -12,7 +12,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/meal-planner",
     "/grocery-list-maker",
     "/generator",
-    "/pricing",
     "/about",
     "/contact",
   ];

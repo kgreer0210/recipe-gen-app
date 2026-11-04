@@ -2,14 +2,19 @@ import { NextResponse } from 'next/server'
 import { type EmailOtpType } from '@supabase/supabase-js'
 // The client you created from the Server-Side Auth instructions
 import { createClient } from '@/lib/supabase/server'
+import { safeNextPath } from '@/lib/auth/safeNextPath'
+
+// A bare host (optionally with a port). Anything else in x-forwarded-host is ignored.
+const HOST_PATTERN = /^[A-Za-z0-9.-]+(:\d{1,5})?$/
 
 export async function GET(request: Request) {
     const { searchParams, origin } = new URL(request.url)
     const code = searchParams.get('code')
     const token_hash = searchParams.get('token_hash')
     const type = searchParams.get('type') as EmailOtpType | null
-    // if "next" is in param, use it as the redirect URL after a successful exchange
-    const next = searchParams.get('next') ?? '/generator'
+    // "next" is where to go after a successful exchange. Only a same-origin
+    // relative path is accepted; anything else falls back to /generator.
+    const next = safeNextPath(searchParams.get('next'), origin)
 
     const supabase = await createClient()
 
@@ -33,7 +38,7 @@ export async function GET(request: Request) {
         if (isLocalEnv) {
             // we can be sure that there is no load balancer in between, so no need to watch for X-Forwarded-Host
             return NextResponse.redirect(`${origin}${next}`)
-        } else if (forwardedHost) {
+        } else if (forwardedHost && HOST_PATTERN.test(forwardedHost)) {
             return NextResponse.redirect(`https://${forwardedHost}${next}`)
         } else {
             return NextResponse.redirect(`${origin}${next}`)
