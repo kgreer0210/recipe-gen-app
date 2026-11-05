@@ -1,20 +1,40 @@
 # Email Confirmation Flow (Supabase Auth)
 
-This documents the dashboard configuration required for the signup email
-confirmation flow to work reliably, including **cross-device** confirmations
-(e.g. sign up on desktop, open the confirmation email on a phone).
+This documents the dashboard configuration required for the emailed-link flows
+(invites, password resets) to work reliably, including **cross-device** links
+(e.g. request one on desktop, open the email on a phone).
+
+## Invite-only
+
+Mise AI is a private family app. **Public sign-ups are turned off in the Supabase
+dashboard** (Authentication → Sign In / Providers), and that setting is the real
+lock; the app has no sign-up form (`/signup` is a static invite-only note).
+Accounts are created by inviting people from the Supabase dashboard
+(Authentication → Users → Invite user). The **Invite user** email below sends the
+person to `/auth/callback?token_hash=…&type=invite&next=/reset-password`, where
+they set a password and then continue into the app. After that they sign in at
+`/login`. If an invite or reset link has expired or was already used, the callback
+sends them to `/login?error=invite_expired` (or `reset_expired` /
+`confirmation_failed`) and the login page shows a friendly message. Invite
+links expire (see the dashboard's OTP expiry); send a new invite to re-issue one.
 
 ## How the code is wired
 
-- `signup()` in `src/app/(auth)/actions.ts` sends confirmations through our
-  callback via `emailRedirectTo: ${NEXT_PUBLIC_SITE_URL}/auth/callback?next=/generator`.
+- `resetPassword()` in `src/app/(auth)/actions.ts` sends reset emails through our
+  callback via `redirectTo: ${NEXT_PUBLIC_SITE_URL}/auth/callback?next=/reset-password`.
+  There is no `signup()` action any more.
 - `src/app/auth/callback/route.ts` handles **both**:
   - `?code=` → `exchangeCodeForSession` (PKCE). Requires the code-verifier
-    cookie set in the **same browser** that submitted the signup form.
+    cookie set in the **same browser** that requested the link.
   - `?token_hash=&type=` → `verifyOtp`. Needs **no** cookie, so it works
     cross-device.
-- On success it redirects to `next` (default `/generator`); on failure it
-  redirects to `/login?error=confirmation_failed`.
+- On success it redirects to `next` (default `/generator`). Only a same-origin
+  relative path is accepted (`src/lib/auth/safeNextPath.ts`); anything else falls
+  back to `/generator`. On failure it redirects to `/login?error=<code>`:
+  `invite_expired` (type `invite`), `reset_expired` (type `recovery`) or
+  `confirmation_failed` (anything else). `src/lib/auth/loginNotice.ts` maps those
+  codes, and Supabase's `error_code=otp_expired` / `error=access_denied`, to fixed
+  messages. Query text is never shown.
 
 ## Required Supabase dashboard configuration
 
@@ -33,8 +53,8 @@ Link emails skip `{{ .ConfirmationURL }}` and go straight to our callback with
 
 | Template | Link |
 |---|---|
-| Confirm signup | `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=email&next=/generator` |
-| Magic link | `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=email&next=/generator` |
+| Confirm signup (unused: sign-ups are off) | `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=email&next=/generator` |
+| Magic link (unused) | `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=email&next=/generator` |
 | Invite user | `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=invite&next=/reset-password` |
 | Reset password | `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=recovery&next=/reset-password` |
 | Change email | `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=email_change&next=/settings` |

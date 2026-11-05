@@ -130,6 +130,19 @@ test.describe("Mise AI's three critical user journeys", () => {
     // No valid credentials, so the callback sends the visitor to /login on this origin.
     await page.goto("/auth/callback?next=//evil.com");
     await expect(page).toHaveURL(/\/login\?error=confirmation_failed$/);
+    await expect(page.getByText(/This link expired or was already used/)).toBeVisible();
+  });
+
+  test("the login page explains an expired invite or reset link, and never echoes the query", async ({ page }) => {
+    await page.goto("/login?error=invite_expired");
+    await expect(page.getByText("This invite link expired. Ask Kyle for a new one.")).toBeVisible();
+
+    await page.goto("/login?error=reset_expired");
+    await expect(page.getByText(/password reset link expired/)).toBeVisible();
+
+    await page.goto("/login?error=%3Cb%3Ehello%3C%2Fb%3E");
+    await expect(page.getByText("hello")).toHaveCount(0);
+    await expect(page.getByText(/link expired/)).toHaveCount(0);
   });
 
   test("a returning cook can sign in and reach the recipe generator", async ({ page }) => {

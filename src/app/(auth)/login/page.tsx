@@ -1,6 +1,7 @@
 'use client';
 
 import { login } from '../actions'
+import LoginNotice from '@/components/LoginNotice'
 import Link from 'next/link'
 import { useState } from 'react'
 import { Loader2, Eye, EyeOff } from 'lucide-react'
@@ -32,6 +33,8 @@ export default function LoginPage() {
                     Mise AI is invite-only. If you were invited, use the link in your invite email to set up your account.
                 </p>
             </div>
+
+            <LoginNotice />
 
             <form action={handleSubmit} className="space-y-6">
                 <div className="space-y-4">

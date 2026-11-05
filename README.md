@@ -1,8 +1,8 @@
 # Mise AI - Your Personal AI Chef
 
-**Mise AI** is a modern SaaS application that solves the eternal "What's for dinner?" problem. By leveraging Artificial Intelligence, it generates custom recipes based on user cravings, organizes them into a weekly meal plan, and automatically generates consolidated grocery lists.
+**Mise AI** is a private, invite-only family app that solves the eternal "What's for dinner?" problem. By leveraging Artificial Intelligence, it generates custom recipes based on user cravings, organizes them into a weekly meal plan, and automatically generates consolidated grocery lists.
 
-This project is built as a highly scalable, production-ready Next.js application, featuring robust authentication, database management, and AI integration.
+It is a Next.js application with Supabase authentication and database management and OpenRouter for AI. There is no public sign-up and there are no payments: people join by invitation from the Supabase dashboard.
 
 ---
 
@@ -12,7 +12,7 @@ This project is built as a highly scalable, production-ready Next.js application
 - **Interactive Weekly Planner**: specialized drag-and-drop interface to schedule meals for the week.
 - **Smart Grocery Lists**: Automatically aggregates ingredients from your weekly plan into a sorted shopping list.
 - **User Collections**: Save and organize favorite generated recipes.
-- **Rate Limiting System**: Custom Postgres-based rate limiting to manage AI costs for free users.
+- **Safety Caps**: Postgres-based usage caps (one `family` plan for every account) keep AI costs bounded.
 - **Responsive UI**: Beautiful, mobile-first interface built with Tailwind CSS and Motion.
 
 ---
@@ -44,7 +44,7 @@ The application uses the **Next.js 16 App Router**.
 
 The "backend" is implemented using **Next.js API Routes** (`src/app/api/`) which act as a secure proxy between the client and external services.
 
-- `/api/generate-recipe`: Handles the prompt engineering and communication with OpenAI. This keeps API keys secure on the server.
+- `/api/generate-recipe`: Handles the prompt engineering and communication with OpenRouter. This keeps API keys secure on the server.
 - `/api/refine-recipe`: Refines an existing recipe based on user instructions.
 - `/api/rate-limit`: Checks and updates user rate limits before allowing expensive AI operations.
 
@@ -58,7 +58,7 @@ The project uses Supabase for PostgreSQL and Authentication.
 - `collections`: Links users to saved recipes.
 - `weekly_plan`: Maps recipes to specific days/slots for a user.
 - `user_usage_counters`: Tracks usage for AI generation and refinement.
-- `plan_entitlements`: Defines limits per subscription plan.
+- `plan_entitlements`: Defines usage caps. Every account uses the `family` row; the older free, plus and pro rows are kept but unused.
 
 **Security (RLS):**
 Row Level Security (RLS) policies are strictly enforced. Users can only `SELECT`, `INSERT`, `UPDATE`, or `DELETE` rows where `user_id` matches their authenticated UUID.
@@ -99,9 +99,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_for_admin_tasks
 OPEN_ROUTER_API_KEY=your_openrouter_api_key
 
-# Optional: Tier-based model configuration
-OPENROUTER_FREE_TIER_MODEL=google/gemini-2.5-flash-lite
-OPENROUTER_PLUS_TIER_MODEL=google/gemini-2.5-flash
+# Optional: model configuration
 OPENROUTER_PRO_TIER_MODEL=google/gemini-3-flash-preview
 OPENROUTER_FALLBACK_MODEL=google/gemini-2.5-flash-lite
 ```
@@ -110,7 +108,9 @@ _Note: `SUPABASE_SERVICE_ROLE_KEY` is required for the rate-limit check API rout
 
 _Note: The app also supports `OPENROUTER_API_KEY` (without the underscore) for compatibility with the OpenRouter SDK docs._
 
-_Note: Different subscription tiers use different AI models. Free users get a lighter model, while Plus and Pro users get faster, higher-quality models._
+_Note: Every account uses the same AI model (`OPENROUTER_PRO_TIER_MODEL`, default Gemini 3 Flash Preview). `OPENROUTER_FALLBACK_MODEL` is used if it fails._
+
+_Note: Accounts are invite-only. Supabase public sign-ups are turned off, and invites are sent from the Supabase dashboard. See [docs/auth-email-confirmation.md](docs/auth-email-confirmation.md)._
 
 ### 4. Database Setup
 

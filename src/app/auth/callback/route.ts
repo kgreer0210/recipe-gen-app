@@ -3,6 +3,7 @@ import { type EmailOtpType } from '@supabase/supabase-js'
 // The client you created from the Server-Side Auth instructions
 import { createClient } from '@/lib/supabase/server'
 import { safeNextPath } from '@/lib/auth/safeNextPath'
+import { CALLBACK_ERROR } from '@/lib/auth/loginNotice'
 
 // A bare host (optionally with a port). Anything else in x-forwarded-host is ignored.
 const HOST_PATTERN = /^[A-Za-z0-9.-]+(:\d{1,5})?$/
@@ -45,6 +46,11 @@ export async function GET(request: Request) {
         }
     }
 
-    // Exchange failed (or no credentials present) — send the user back to login.
-    return NextResponse.redirect(`${origin}/login?error=confirmation_failed`)
+    // Exchange failed (or no credentials present) — send the user back to login
+    // with a fixed error code the login page turns into a friendly message.
+    const failure =
+        type === 'invite' ? CALLBACK_ERROR.inviteExpired
+        : type === 'recovery' ? CALLBACK_ERROR.resetExpired
+        : CALLBACK_ERROR.generic
+    return NextResponse.redirect(`${origin}/login?error=${failure}`)
 }

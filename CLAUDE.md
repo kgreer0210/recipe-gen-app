@@ -18,21 +18,21 @@ npm run test:e2e         # Playwright, tests/e2e/** (Chromium, binds 127.0.0.1:3
 
 ## Architecture Overview
 
-**Mise AI** is a Next.js 16 SaaS for AI-powered recipe generation, weekly meal planning, and smart grocery lists.
+**Mise AI** is a Next.js 16 app for AI-powered recipe generation, weekly meal planning, and smart grocery lists. It is a private, invite-only family app: no public sign-up, no payments, no plans or tiers. Accounts come only from invites sent in the Supabase dashboard (see `docs/auth-email-confirmation.md`). Every account is on one `family` plan whose caps are safety limits, not product tiers.
 
 ### Tech Stack
 - Next.js 16 (App Router) + React 19 + TypeScript
 - Tailwind CSS 4 + Motion (animations) + Lucide React (icons)
 - Supabase (PostgreSQL + Auth with RLS)
 - OpenRouter SDK for all AI calls (automatic fallback to a secondary OpenRouter model)
-- Zustand (client state) + Stripe (payments)
+- Zustand (client state)
 
 ### Directory Structure
 
 ```
 src/
 ├── app/
-│   ├── (auth)/              # Auth routes (login, signup, password reset)
+│   ├── (auth)/              # Auth routes (login, invite-only note at /signup, password reset)
 │   ├── api/                 # Backend API routes
 │   │   ├── generate-recipe/ # AI recipe generation
 │   │   ├── refine-recipe/   # AI recipe refinement
@@ -56,9 +56,9 @@ src/
 - **Client Components** (`use client`): Interactive forms, drag-drop UI, animations, Zustand state
 
 ### State Management
-- **Supabase**: Persistent data (recipes, collections, weekly plans, subscriptions, rate limits)
+- **Supabase**: Persistent data (recipes, collections, weekly plans, rate limits)
 - **Zustand**: Transient UI state (current recipe, form selections, loading states)
-- **React Context**: Auth session and subscription status
+- **React Context**: Auth session
 
 ### Key API Routes
 - `POST /api/generate-recipe` - AI recipe generation with usage tracking
@@ -66,7 +66,7 @@ src/
 - `GET /api/rate-limit` - Get current usage status
 
 ### Usage Tracking
-Uses PostgreSQL RPC functions (`check_and_increment_usage`, `get_usage_status`, `record_usage_tokens`) with the `user_usage_counters` table. Supports weekly limits, per-minute/per-hour burst limits, soft/hard limits, and token tracking. Plan entitlements are defined in `plan_entitlements` table.
+Uses PostgreSQL RPC functions (`check_and_increment_usage`, `get_usage_status`, `record_usage_tokens`) with the `user_usage_counters` table. Supports weekly limits, per-minute/per-hour burst limits, soft/hard limits, and token tracking. Every account resolves to the `family` row in the `plan_entitlements` table (150 recipes and 300 refinements a week, 10 a minute and 60 an hour, 1M tokens a week, no saved-recipe cap). The old free, plus and pro rows and the `subscriptions` table are kept in the database but unused.
 
 ### AI Integration
 OpenRouter is primary (`chatJson()` wrapper in `src/lib/openrouter/chatJson.ts`). Automatic fallback to secondary model on failure. Models configured via environment variables.
@@ -84,13 +84,12 @@ SUPABASE_SERVICE_ROLE_KEY
 OPEN_ROUTER_API_KEY (or OPENROUTER_API_KEY)
 ```
 
-Optional tier-based model configuration:
+Optional model configuration (one model for every account):
 ```
-OPENROUTER_FREE_TIER_MODEL (default: google/gemini-2.5-flash-lite)
-OPENROUTER_PLUS_TIER_MODEL (default: google/gemini-2.5-flash)
-OPENROUTER_PRO_TIER_MODEL (default: google/gemini-3-flash-preview)
-OPENROUTER_FALLBACK_MODEL (default: free tier model)
+OPENROUTER_PRO_TIER_MODEL (default: google/gemini-3-flash-preview; the model everyone uses)
+OPENROUTER_FALLBACK_MODEL (default: google/gemini-2.5-flash-lite)
 ```
+Optional admin bypass (unlimited usage, model picker): `ADMIN_USER_ID` and `NEXT_PUBLIC_ADMIN_USER_ID`.
 
 ## Key Patterns
 
@@ -99,6 +98,7 @@ OPENROUTER_FALLBACK_MODEL (default: free tier model)
 - React Compiler enabled (Babel plugin)
 - CORS headers configured in `next.config.ts` for mobile app support
 - Ingredient processing: normalize → fetch profiles → canonicalize → format
+- Auth is login-only. Supabase public sign-ups are off. `/auth/callback` only follows a same-origin relative `next` (`src/lib/auth/safeNextPath.ts`), and failed links redirect to `/login?error=<code>` (`src/lib/auth/loginNotice.ts`).
 
 ## Agent skills
 

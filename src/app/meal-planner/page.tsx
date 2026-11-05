@@ -9,7 +9,7 @@ const faqs: FaqItem[] = [
   {
     question: "Do I need an account to use the meal planner?",
     answer:
-      "To save recipes and maintain a weekly plan, you'll want to be logged in so your data is stored securely.",
+      "Yes. Mise AI is a private, invite-only app, so sign in with your invited account to save recipes and keep a weekly plan.",
   },
   {
     question: "Can I generate recipes and add them to my week?",
@@ -112,9 +112,6 @@ export default function MealPlannerLandingPage() {
           <Link href="/weekly-plan" className="text-blue-700 font-semibold hover:underline">
             Go to weekly plan →
           </Link>
-          <Link href="/pricing" className="text-blue-700 font-semibold hover:underline">
-            Compare plans →
-          </Link>
         </div>
       </section>
 
@@ -126,8 +123,8 @@ export default function MealPlannerLandingPage() {
               Do I need an account to use the meal planner?
             </h3>
             <p className="text-gray-700">
-              To save recipes and maintain a weekly plan, you&apos;ll want to be
-              logged in so your data is stored securely.
+              Yes. Mise AI is a private, invite-only app, so sign in with your
+              invited account to save recipes and keep a weekly plan.
             </p>
           </div>
           <div className="bg-white rounded-2xl border border-gray-100 p-6">

@@ -147,10 +147,26 @@ describe("auth callback redirect", () => {
     expect(response.headers.get("location")).toBe(`${ORIGIN}/reset-password`);
   });
 
-  it("sends a failed exchange back to /login without following next", async () => {
+  it("sends a failed invite back to /login with the invite error, without following next", async () => {
     mocks.verifyOtp.mockResolvedValue({ error: new Error("expired") });
 
     const response = await callback("token_hash=abc&type=invite&next=//evil.com");
+
+    expect(response.headers.get("location")).toBe(`${ORIGIN}/login?error=invite_expired`);
+  });
+
+  it("sends a failed password-reset link back to /login with the reset error", async () => {
+    mocks.verifyOtp.mockResolvedValue({ error: new Error("expired") });
+
+    const response = await callback("token_hash=abc&type=recovery&next=/reset-password");
+
+    expect(response.headers.get("location")).toBe(`${ORIGIN}/login?error=reset_expired`);
+  });
+
+  it("uses the generic error for any other failed link type, and never echoes the type", async () => {
+    mocks.verifyOtp.mockResolvedValue({ error: new Error("expired") });
+
+    const response = await callback("token_hash=abc&type=%3Cscript%3E");
 
     expect(response.headers.get("location")).toBe(`${ORIGIN}/login?error=confirmation_failed`);
   });
