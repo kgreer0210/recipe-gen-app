@@ -45,7 +45,6 @@ export async function updateSession(request: NextRequest) {
     !request.nextUrl.pathname.startsWith("/reset-password") &&
     !request.nextUrl.pathname.startsWith("/auth") &&
     !request.nextUrl.pathname.startsWith("/about") &&
-    !request.nextUrl.pathname.startsWith("/pricing") &&
     !request.nextUrl.pathname.startsWith("/contact") &&
     !request.nextUrl.pathname.startsWith("/ai-recipe-generator") &&
     !request.nextUrl.pathname.startsWith("/meal-planner") &&

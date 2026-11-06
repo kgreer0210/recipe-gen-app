@@ -1,7 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-// Runs against a non-production Supabase target (the busy-week preview branch).
+// Runs against a non-production Supabase target, with migrations through
+// 20261102120000_family_plan_safety_caps applied. Every account is on the family plan
+// (150 recipes a week, 10 a minute), whatever its subscriptions row says.
 // Skips cleanly when the env is missing, so local runs without secrets still pass.
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -15,6 +17,7 @@ const emails = [
   `mise-busy-pro-${runId}@example.com`,
   `mise-busy-free-${runId}@example.com`,
   `mise-busy-burst-${runId}@example.com`,
+  `mise-busy-caps-${runId}@example.com`,
 ];
 
 let admin: SupabaseClient;
@@ -23,6 +26,7 @@ let plusId = "";
 let proId = "";
 let freeId = "";
 let burstId = "";
+let capsId = "";
 let proClient: SupabaseClient;
 let otherClient: SupabaseClient;
 
@@ -33,7 +37,7 @@ type Reserve = {
   window_start?: string | null;
 };
 
-/** Plus allows 2 generations a minute; these tests check the weekly limit, so they clear the burst buckets. */
+/** The family plan allows 10 generations a minute; these tests check the weekly limit, so they clear the burst buckets. */
 async function clearBurstCounters(userId: string) {
   const { error } = await admin
     .from("user_usage_counters")
@@ -93,7 +97,7 @@ describe.skipIf(!hasEnv)("Busy week usage RPCs and generation_batches", () => {
       }
       userIds.push(created.data.user.id);
     }
-    [plusId, proId, freeId, burstId] = userIds;
+    [plusId, proId, freeId, burstId, capsId] = userIds;
 
     await setPlan(plusId, "plus");
     await setPlan(proId, "pro");
@@ -122,19 +126,72 @@ describe.skipIf(!hasEnv)("Busy week usage RPCs and generation_batches", () => {
     }
   });
 
-  it("refuses a free user with paid_plan_required and changes nothing", async () => {
-    const result = await reserve(freeId, 3);
+  it("gives every account the family plan, whatever its subscription says", async () => {
+    for (const id of [plusId, proId, freeId]) {
+      const { data, error } = await admin.rpc("resolve_user_plan_key", { p_user_id: id });
+      if (error) throw error;
+      expect(data).toBe("family");
+    }
+  });
 
-    expect(result).toMatchObject({ allowed: false, reason: "paid_plan_required" });
-    expect(await weekCount(freeId)).toBe(0);
+  it("stores the family safety caps", async () => {
+    const { data, error } = await admin
+      .from("plan_entitlements")
+      .select("*")
+      .eq("plan_key", "family")
+      .single();
+    if (error) throw error;
+    expect(data).toMatchObject({
+      weekly_generate_limit: 150,
+      weekly_generate_soft_limit: null,
+      weekly_generate_hard_limit: 150,
+      weekly_refine_limit: 300,
+      weekly_refine_soft_limit: null,
+      weekly_refine_hard_limit: 300,
+      save_limit: null,
+      per_minute_generate_limit: 10,
+      per_hour_generate_limit: 60,
+      per_minute_refine_limit: 10,
+      per_hour_refine_limit: 60,
+      weekly_token_soft_limit: 500000,
+      weekly_token_hard_limit: 1000000,
+    });
+  });
+
+  it("lets an account with no subscription plan a week, and reports the family limits", async () => {
+    const result = await reserve(freeId, 3);
+    expect(result).toMatchObject({ allowed: true, plan_key: "family", remaining: 147 });
+    expect(await weekCount(freeId)).toBe(3);
+
+    const { data, error } = await admin.rpc("get_usage_status", { p_user_id: freeId });
+    if (error) throw error;
+    expect(data).toMatchObject({
+      plan_key: "family",
+      generate: { count: 3, remaining: 147, hard_limit: 150 },
+      refine: { hard_limit: 300 },
+      weekly_tokens: { soft_limit: 500000, hard_limit: 1000000 },
+    });
+  });
+
+  it("does not cap saved recipes", async () => {
+    const rows = Array.from({ length: 21 }, (_, index) => ({
+      user_id: freeId,
+      title: `Family cap ${runId} ${index}`,
+    }));
+    try {
+      const { error } = await admin.from("recipes").insert(rows);
+      expect(error).toBeNull();
+    } finally {
+      await admin.from("recipes").delete().eq("user_id", freeId);
+    }
   });
 
   it("does not partially reserve when the batch does not fit", async () => {
-    // Plus allows 100 a week. Seed 98 used (a batch is at most 7), then ask for 3 more: rejected, still 98.
+    // Family allows 150 a week. Seed 148 used (a batch is at most 7), then ask for 3 more: rejected, still 148.
     expect(await reserve(plusId, 1)).toMatchObject({ allowed: true });
     const { error: seedError } = await admin
       .from("user_usage_counters")
-      .update({ count: 98 })
+      .update({ count: 148 })
       .eq("user_id", plusId)
       .eq("scope", "week_generate");
     if (seedError) throw seedError;
@@ -144,13 +201,13 @@ describe.skipIf(!hasEnv)("Busy week usage RPCs and generation_batches", () => {
       reason: "insufficient_remaining",
       remaining: 2,
     });
-    expect(await weekCount(plusId)).toBe(98);
+    expect(await weekCount(plusId)).toBe(148);
   });
 
   it("reserves exactly what is left", async () => {
     await clearBurstCounters(plusId);
     expect(await reserve(plusId, 2)).toMatchObject({ allowed: true, remaining: 0 });
-    expect(await weekCount(plusId)).toBe(100);
+    expect(await weekCount(plusId)).toBe(150);
   });
 
   it("releases back down and never below zero", async () => {
@@ -173,7 +230,7 @@ describe.skipIf(!hasEnv)("Busy week usage RPCs and generation_batches", () => {
       p_window_start: windowStart,
     });
     expect(first).toMatchObject({ released: 2 });
-    expect(await weekCount(plusId)).toBe(98);
+    expect(await weekCount(plusId)).toBe(148);
 
     await admin.rpc("release_usage", {
       p_user_id: plusId,
@@ -185,12 +242,12 @@ describe.skipIf(!hasEnv)("Busy week usage RPCs and generation_batches", () => {
   });
 
   it("lets only one of several concurrent reserves through near the limit", async () => {
-    // Pro has a 1500 weekly hard limit. Seed it at 1499, then race four 1-dinner reserves.
+    // Family has a 150 weekly hard limit. Seed it at 149, then race four 1-dinner reserves.
     const seed = await reserve(proId, 1);
     expect(seed).toMatchObject({ allowed: true });
     const { error: seedError } = await admin
       .from("user_usage_counters")
-      .update({ count: 1499 })
+      .update({ count: 149 })
       .eq("user_id", proId)
       .eq("scope", "week_generate");
     if (seedError) throw seedError;
@@ -199,13 +256,13 @@ describe.skipIf(!hasEnv)("Busy week usage RPCs and generation_batches", () => {
     const allowed = results.filter((result) => result.allowed);
 
     expect(allowed).toHaveLength(1);
-    expect(await weekCount(proId)).toBe(1500);
+    expect(await weekCount(proId)).toBe(150);
   });
 
   it("counts a whole batch as one burst request", async () => {
-    // Pro's per-minute limit is 5. A 7-dinner batch must not use up 7 minute slots.
+    // The per-minute limit is 10. A 7-dinner batch must not use up 7 minute slots.
     const result = await reserve(burstId, 7);
-    expect(result).toMatchObject({ allowed: true, remaining: 1493 });
+    expect(result).toMatchObject({ allowed: true, remaining: 143 });
 
     const { data: minute } = await admin
       .from("user_usage_counters")
@@ -218,6 +275,55 @@ describe.skipIf(!hasEnv)("Busy week usage RPCs and generation_batches", () => {
   it("returns the window the batch was charged to", async () => {
     const result = await reserve(burstId, 1);
     expect(result.window_start).toEqual(expect.any(String));
+  });
+
+  it("stops refinements at the weekly cap of 300", async () => {
+    const check = async () => {
+      const { data, error } = await admin.rpc("check_and_increment_usage", {
+        p_user_id: capsId,
+        p_action: "refine",
+        p_request_meta: {},
+      });
+      if (error) throw error;
+      return data as { allowed: boolean; reason?: string; week_count?: number; plan_key?: string };
+    };
+
+    expect(await check()).toMatchObject({ allowed: true, plan_key: "family", week_count: 1 });
+    const { error: seedError } = await admin
+      .from("user_usage_counters")
+      .update({ count: 299 })
+      .eq("user_id", capsId)
+      .eq("scope", "week_refine");
+    if (seedError) throw seedError;
+
+    expect(await check()).toMatchObject({ allowed: true, week_count: 300 });
+    expect(await check()).toMatchObject({ allowed: false, reason: "mise_blocked:weekly" });
+  });
+
+  it("warns at 500,000 weekly tokens and stops at 1,000,000", async () => {
+    const check = async () => {
+      const { data, error } = await admin.rpc("check_and_increment_usage", {
+        p_user_id: capsId,
+        p_action: "generate",
+        p_request_meta: {},
+      });
+      if (error) throw error;
+      return data as { allowed: boolean; reason?: string; soft_limited?: boolean };
+    };
+    const addTokens = async (tokens: number) => {
+      const { error } = await admin.rpc("record_usage_tokens", {
+        p_user_id: capsId,
+        p_action: "generate",
+        p_tokens: tokens,
+      });
+      if (error) throw error;
+    };
+
+    expect(await check()).toMatchObject({ allowed: true, soft_limited: false });
+    await addTokens(500000);
+    expect(await check()).toMatchObject({ allowed: true, soft_limited: true });
+    await addTokens(500000);
+    expect(await check()).toMatchObject({ allowed: false, reason: "weekly_token_hard_limit" });
   });
 
   it("keeps one user's generation_batches invisible to another user", async () => {

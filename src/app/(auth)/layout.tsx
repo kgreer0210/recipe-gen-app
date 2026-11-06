@@ -27,7 +27,7 @@ export default function AuthLayout({
           <div className="flex items-center gap-4 text-blue-100">
             <Heart className="w-6 h-6" />
             <p className="text-xl">
-              Join other home cooks that are simplifying their grocery shopping.
+              Recipes, the week&apos;s plan and the grocery list, all in one private kitchen.
             </p>
           </div>
         </div>

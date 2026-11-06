@@ -1,40 +1,18 @@
 import "server-only";
 
 /**
- * Tier-based model configuration.
- * Each tier maps to a specific model for recipe generation.
- *
- * - free: Slower, more cost-effective model (also used as fallback)
- * - plus: Faster, higher quality model
- * - pro/admin: Fastest, highest quality model
+ * The one model every account uses for recipe generation and refinement.
+ * Defaults to Gemini 3 Flash Preview; OPENROUTER_PRO_TIER_MODEL overrides it.
  */
-export const TIER_MODELS = {
-  free: process.env.OPENROUTER_FREE_TIER_MODEL ?? "google/gemini-2.5-flash-lite",
-  plus: process.env.OPENROUTER_PLUS_TIER_MODEL ?? "google/gemini-2.5-flash",
-  pro: process.env.OPENROUTER_PRO_TIER_MODEL ?? "google/gemini-3-flash-preview",
-  admin: process.env.OPENROUTER_PRO_TIER_MODEL ?? "google/gemini-3-flash-preview",
-} as const;
+export const FAMILY_MODEL =
+  process.env.OPENROUTER_PRO_TIER_MODEL ?? "google/gemini-3-flash-preview";
 
 /**
- * Fallback model used when the primary tier model fails.
- * Defaults to the free tier model for reliability.
+ * Fallback model used when the primary model fails.
+ * Defaults to a lighter model for reliability.
  */
 export const FALLBACK_MODEL =
-  process.env.OPENROUTER_FALLBACK_MODEL ?? TIER_MODELS.free;
-
-export type PlanTier = keyof typeof TIER_MODELS;
-
-/**
- * Get the appropriate model for a given plan tier.
- * Falls back to free tier model if tier is unknown.
- */
-export function getModelForTier(planKey: string): string {
-  if (planKey in TIER_MODELS) {
-    return TIER_MODELS[planKey as PlanTier];
-  }
-  // Default to free tier for unknown plan keys
-  return TIER_MODELS.free;
-}
+  process.env.OPENROUTER_FALLBACK_MODEL ?? "google/gemini-2.5-flash-lite";
 
 /**
  * Whitelist of models available for admin override.

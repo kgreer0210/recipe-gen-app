@@ -7,7 +7,7 @@ import {
   getUsageErrorMessage,
 } from "@/lib/usage";
 import { chatJson } from "@/lib/openrouter/chatJson";
-import { getModelForTier } from "@/lib/openrouter/models";
+import { FAMILY_MODEL } from "@/lib/openrouter/models";
 
 // Handle CORS preflight requests
 export async function OPTIONS() {
@@ -75,7 +75,7 @@ export async function POST(request: Request) {
     if (!usageCheck.allowed) {
       return NextResponse.json(
         {
-          error: getUsageErrorMessage(usageCheck.reason, usageCheck.planKey),
+          error: getUsageErrorMessage(usageCheck.reason),
         },
         { status: 429 }
       );
@@ -158,17 +158,13 @@ Refinement Requirements (VALID only):
     Refine the recipe above according to the instructions.
     `;
 
-    // Select model based on user's plan tier
-    const tierModel = getModelForTier(usageCheck.planKey);
-
     const { data: recipeData, usage } = await chatJson<Record<string, unknown>>(
       systemPrompt,
       prompt,
       {
         // For refinement, { error: string } indicates invalid/off-topic instructions.
         treatErrorFieldAsFailure: false,
-        // Use tier-appropriate model
-        model: tierModel,
+        model: FAMILY_MODEL,
       }
     );
 

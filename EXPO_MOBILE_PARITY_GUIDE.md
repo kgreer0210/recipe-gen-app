@@ -1,5 +1,7 @@
 # Expo React Native Parity Guide for Mise AI (Web → Mobile)
 
+> **Status: billing is removed.** Mise AI is now a private, invite-only family app with no payments. The Stripe routes (`/api/stripe/*`), the `/pricing` page, the `subscriptions` reads in `AuthProvider`, the 2-refinement UI cap and all plan gating are gone from the web app. Sign-up is closed too: accounts come only from invites sent in the Supabase dashboard, and `/signup` is a static invite-only note. Every account is on one `family` plan with safety caps only. Where this guide still mentions Stripe, subscriptions or a sign-up screen, treat it as historical and skip it. The sections marked "removed" below say what replaced them.
+
 This document explains how to build an **Expo React Native** app that mirrors the behavior and core user flows of this **Next.js 16 App Router** web app.
 
 It’s written based on the current web implementation and its “source of truth” files:
@@ -9,13 +11,13 @@ It’s written based on the current web implementation and its “source of trut
 - Usage tracking: `src/app/api/rate-limit/route.ts`, `src/lib/usage.ts`
 - Data flows + realtime subscriptions: `src/hooks/useRecipesRealtime.ts`, `src/hooks/useGroceryListRealtime.ts`, `src/hooks/useWeeklyPlanRealtime.ts`
 - Mutations: `src/hooks/useRecipesMutations.ts`, `src/hooks/useGroceryListMutations.ts`, `src/hooks/useWeeklyPlanMutations.ts`
-- Stripe (web-based): `src/app/api/stripe/checkout/route.ts`, `src/app/api/stripe/portal/route.ts`, `src/app/api/stripe/webhook/route.ts`, `src/lib/supabase/subscriptions.sql`
+- Billing: removed (no Stripe, no subscriptions)
 - Web route structure (screens): `src/app/*`, navigation shell: `src/components/Navigation.tsx`
 
 You chose:
 
 - The mobile app will **call the existing deployed Next.js API routes** for AI + rate limiting (recommended).
-- The mobile app will **reuse Stripe Checkout/Portal via web** (in-app browser/WebView).
+- The mobile app has **no billing**: the app is invite-only and free for invited family members.
 
 ---
 
@@ -25,12 +27,12 @@ If you just want the rough order of operations:
 
 1. **Create Expo project** (TypeScript), add navigation + Supabase + storage.
 2. **Implement mobile Supabase client** with secure session persistence.
-3. **Implement mobile AuthProvider** mirroring `src/components/AuthProvider.tsx` (user + subscription).
+3. **Implement mobile AuthProvider** mirroring `src/components/AuthProvider.tsx` (user only; there is no subscription state any more).
 4. **Implement API client** that calls `{EXPO_PUBLIC_API_BASE_URL}/api/*` with `Authorization: Bearer <access_token>`.
 5. **Build screens** mapping the web routes, wire navigation.
 6. **Port stores + realtime hooks** (recipes, grocery list, weekly plan).
 7. **Implement AI generator UI** (classic/pantry) and wire to `/api/generate-recipe`, `/api/refine-recipe`, `/api/rate-limit`.
-8. **Implement billing** (open Stripe Checkout/Portal URL in in-app browser, refresh subscription on return).
+8. ~~Implement billing~~ Removed: there is no billing. Handle expired invite and reset links by showing the same friendly message as the web `/login` page.
 9. **Parity QA pass** using the checklist in Section 12.
 
 ---
@@ -46,9 +48,9 @@ These are the core flows the mobile app should reproduce:
 - **Refine recipe (AI)**: refine an existing recipe with natural language instructions
   - `src/app/api/refine-recipe/route.ts`, UI in `src/components/RecipeGenerator.tsx`
   - Maintains serving size through refinements
-  - Free users limited to 2 refinements per recipe in UI; server also enforces weekly limits
+  - No per-recipe refinement cap in the UI; the server enforces the weekly and per-minute/hour safety caps
 - **Save to collection**: inserts into `recipes` table with `servings` field: `src/hooks/useRecipesMutations.ts`
-  - Database trigger enforces save limits per plan
+  - Database trigger enforces `save_limit`; the `family` plan has no cap
 - **Weekly plan**: insert/delete `weekly_plan` rows referencing recipe IDs: `src/hooks/useWeeklyPlanMutations.ts`
   - Can add recipes to plan from recipe detail page (`src/app/recipe/[id]/page.tsx`)
 - **Grocery list**: insert/update/delete items in `grocery_list` with quantity scaling and aggregation by normalized name+unit: `src/hooks/useGroceryListMutations.ts`
@@ -64,10 +66,7 @@ These are the core flows the mobile app should reproduce:
 - **User settings**: timezone preference stored in `user_settings` table
   - API route: `/api/user/settings/timezone`
 - **Toast notifications**: Sonner library for user feedback across the app
-- **Subscription gating** (Stripe):
-  - Pro users bypass most limits (still have fair-use caps)
-  - Subscription state is stored in `subscriptions` table with `plan_key`; UI reads it in `AuthProvider`: `src/components/AuthProvider.tsx`
-  - Checkout/Portal URLs are returned from Next routes: `src/app/api/stripe/checkout/route.ts`, `src/app/api/stripe/portal/route.ts`
+- **Plan gating**: removed. Every account is on the `family` plan (150 recipes and 300 refinements a week, 10 a minute and 60 an hour, 1M tokens a week). The server enforces these; the UI only shows a friendly message when a cap is hit.
 
 ---
 
@@ -79,13 +78,12 @@ Web routes (from `src/app/`) and a practical mobile mapping:
 
 - `/` → **HomeScreen**
 - `/about` → **AboutScreen**
-- `/pricing` → **PricingScreen**
 - `/contact` → **ContactScreen**
 
 ### Auth screens
 
 - `/login` → **LoginScreen** (includes password visibility toggle)
-- `/signup` → **SignupScreen** (includes password visibility toggle)
+- `/signup` → not needed (web shows a static invite-only note; there is no sign-up form)
 - `/forgot-password` → **ForgotPasswordScreen**
 - `/reset-password` → **ResetPasswordScreen** (includes password visibility toggle + confirmation validation)
 - `/settings` → **SettingsScreen** (timezone preferences)
@@ -110,7 +108,7 @@ Web routes (from `src/app/`) and a practical mobile mapping:
 The web app has a top nav with public links + “Tools” dropdown for authed screens. On mobile, the closest UX is:
 
 - **RootStack**
-  - **PublicStack** (Home/About/Pricing/Contact/Auth)
+  - **PublicStack** (Home/About/Contact/Auth)
   - **AppTabs** (Generator/Collection/WeeklyPlan/GroceryList)
     - Each tab can be a Stack to support pushing RecipeDetail
 
@@ -133,7 +131,6 @@ The web app has a top nav with public links + “Tools” dropdown for authed sc
 - **Paths**:
   - `miseai://reset-password`
   - `miseai://auth/callback` (only if you implement OAuth; email/password doesn’t require this)
-  - `miseai://pricing?success=true` (Stripe return)
 
 ---
 
@@ -159,7 +156,7 @@ This is a “parity-first” dependency checklist (you can prune later).
   - `lucide-react-native` (matches lucide usage on web)
 - Clipboard:
   - `expo-clipboard` (parity with `navigator.clipboard` used by web grocery copy in `src/components/GroceryList.tsx`)
-- In-app browser (Stripe web checkout/portal):
+- In-app browser (optional, e.g. opening the invite link):
   - `expo-web-browser` (recommended)
   - optional: `react-native-webview` if you want embedded flows (higher complexity)
 - Secure token storage:
@@ -202,7 +199,7 @@ npm i @supabase/supabase-js react-native-url-polyfill
 # Secure storage (recommended for session)
 npx expo install expo-secure-store
 
-# Stripe web flows
+# Optional: in-app browser
 npx expo install expo-web-browser
 
 # Clipboard parity
@@ -235,9 +232,8 @@ Web expects:
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - server-only:
-  - `SUPABASE_SERVICE_ROLE_KEY` (rate limit + subscription admin tasks)
+  - `SUPABASE_SERVICE_ROLE_KEY` (usage-cap RPCs)
   - `OPEN_ROUTER_API_KEY` / `OPENROUTER_API_KEY` (OpenRouter server-only)
-  - Stripe secrets/IDs
 
 ### Expo recommended env vars
 
@@ -251,8 +247,6 @@ Never ship these into mobile:
 
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `OPEN_ROUTER_API_KEY` / `OPENROUTER_API_KEY`
-- `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
-- Stripe Price IDs if you don’t want them discoverable (they’re not secrets, but keep parity with existing server routes)
 
 ### Expo config example
 
@@ -273,9 +267,7 @@ EXPO_PUBLIC_API_BASE_URL=https://your-deployed-nextjs-domain
 `src/components/AuthProvider.tsx` provides:
 
 - `user: User | null`
-- `subscription: Subscription | null` (queried from `subscriptions` table)
 - `loading: boolean`
-- `refreshSubscription()`
 - `supabase` client instance
 
 Web uses:
@@ -293,10 +285,8 @@ In Expo you will:
 #### Key parity requirements
 
 - **Session restore on boot**: fetch existing session and set `user` before rendering authed screens.
-- **Listen for auth state changes**: update `user` and refresh `subscription` similar to web’s `onAuthStateChange`.
-- **Subscription state**:
-  - When a user becomes authed, query `subscriptions` table for that `user_id` (RLS allows select by owner per `src/lib/supabase/subscriptions.sql`).
-  - Use the same “active/trialing” semantics as web.
+- **Listen for auth state changes**: update `user` similar to web’s `onAuthStateChange`.
+- **No subscription state**: the web app no longer reads the `subscriptions` table, so the mobile `AuthProvider` should not either.
 
 ### Copy/paste module: Supabase client for Expo (with SecureStore)
 
@@ -342,7 +332,6 @@ Create `src/context/AuthProvider.tsx` in the **mobile** repo:
 ```tsx
 import React, {
   createContext,
-  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -351,57 +340,21 @@ import React, {
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
 
-export type Subscription = {
-  id: string;
-  user_id: string;
-  status:
-    | "active"
-    | "trialing"
-    | "past_due"
-    | "canceled"
-    | "unpaid"
-    | "incomplete"
-    | "incomplete_expired"
-    | "paused";
-  price_id: string | null;
-};
-
 type AuthContextType = {
   user: User | null;
-  subscription: Subscription | null;
   loading: boolean;
-  refreshSubscription: () => Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextType>({
   user: null,
-  subscription: null,
   loading: true,
-  refreshSubscription: async () => {},
 });
-
-async function fetchSubscription(userId: string): Promise<Subscription | null> {
-  const { data, error } = await supabase
-    .from("subscriptions")
-    .select("*")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (error) return null;
-  return (data as Subscription) ?? null;
-}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
 
   const userRef = useRef<User | null>(null);
-
-  const refreshSubscription = useCallback(async () => {
-    if (!userRef.current) return;
-    setSubscription(await fetchSubscription(userRef.current.id));
-  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -415,11 +368,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!isMounted) return;
 
         setUser(sessionUser);
-        if (sessionUser) {
-          setSubscription(await fetchSubscription(sessionUser.id));
-        } else {
-          setSubscription(null);
-        }
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -437,9 +385,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         userRef.current = nextUser;
         setUser(nextUser);
-
-        if (nextUser) setSubscription(await fetchSubscription(nextUser.id));
-        else setSubscription(null);
       }
     );
 
@@ -450,8 +395,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, subscription, loading, refreshSubscription }),
-    [user, subscription, loading, refreshSubscription]
+    () => ({ user, loading }),
+    [user, loading]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -492,22 +437,12 @@ This app relies on RLS. Mobile must not bypass RLS; it should always operate und
 ### `plan_entitlements`
 
 - Table: `plan_entitlements(plan_key PK, weekly_generate_*, weekly_refine_*, per_minute_*, per_hour_*, save_limit, weekly_token_*)`
-- Defines soft/hard limits per plan (free, pro, etc.)
+- Defines soft/hard limits per plan. Every account uses the `family` row; the free, plus and pro rows are kept but unused
 - RLS: read-only for authenticated users
 
-### `subscriptions`
+### `subscriptions` (removed from the app)
 
-Defined in `src/lib/supabase/subscriptions.sql`:
-
-- `id` (uuid PK)
-- `user_id` (uuid, unique, FK to auth.users)
-- `stripe_customer_id`, `stripe_subscription_id` (text, nullable)
-- `status` (text, nullable) — active, trialing, past_due, canceled, etc.
-- `price_id` (text, nullable)
-- `plan_key` (text, nullable) — **NEW: maps to `plan_entitlements` for usage limits** (e.g., "free", "pro")
-- `created_at`, `updated_at` (timestamptz)
-
-RLS: users can `SELECT` their own subscription only. Updates are done by Stripe webhook via service role (`src/app/api/stripe/webhook/route.ts`).
+The table still exists in the database but nothing reads or writes it: the Stripe webhook is gone and `resolve_user_plan_key` returns `family` for every account. Mobile should not query it.
 
 ### `weekly_plan`
 
@@ -537,7 +472,7 @@ Table schema:
 
 RLS: users can select/insert/update/delete their own rows.
 
-**Note**: A database trigger `enforce_saved_recipe_limit` checks the user's plan entitlements before allowing inserts (free users have a save limit).
+**Note**: A database trigger `enforce_saved_recipe_limit` checks the user's plan entitlements before allowing inserts (the `family` plan has no save limit).
 
 ### `grocery_list`
 
@@ -850,7 +785,6 @@ Endpoints that need this for mobile:
 - `/api/generate-recipe`
 - `/api/refine-recipe`
 - `/api/rate-limit`
-- `/api/stripe/checkout` and `/api/stripe/portal` (if called from mobile)
 
 > This guide doesn’t change your server code; it documents the required behavior so your Expo app doesn’t get stuck on “401 Unauthorized” despite having a valid Supabase session.
 
@@ -885,55 +819,9 @@ if (authHeader?.toLowerCase().startsWith("bearer ")) {
 
 ---
 
-## 9) Stripe subscriptions on mobile (web-based flow)
+## 9) Billing (removed)
 
-### Web behavior (source of truth)
-
-- Checkout session: `POST /api/stripe/checkout` returns `{ url }`
-- Portal session: `POST /api/stripe/portal` returns `{ url }`
-- Web app navigates browser to the returned URL (see `window.location.href` usage in `src/components/UserStatus.tsx`)
-- Stripe webhook updates `subscriptions` table using service role: `src/app/api/stripe/webhook/route.ts`
-
-### Mobile parity flow
-
-1. Mobile calls `POST {baseUrl}/api/stripe/checkout` (or portal) with Authorization bearer token.
-2. Open returned URL using `expo-web-browser`.
-3. When the user returns to the app:
-   - call `refreshSubscription()` (query `subscriptions` for the user)
-   - update gating UI accordingly
-
-### Deep link return
-
-For best UX, update the checkout `success_url`/`cancel_url` to deep link into the app. Today the server uses:
-
-- `success_url: {origin}/?success=true`
-- `cancel_url: {origin}/pricing?canceled=true`
-
-For mobile parity, you may add an alternate return URL when a `platform=mobile` flag is passed, e.g.:
-
-- `miseai://pricing?success=true`
-
-### Copy/paste snippet: open checkout/portal URL (Expo)
-
-```ts
-import * as WebBrowser from "expo-web-browser";
-import { apiFetch } from "@/lib/api";
-
-export async function openCheckout(interval: "month" | "year") {
-  const { url } = await apiFetch<{ url: string }>("/api/stripe/checkout", {
-    method: "POST",
-    body: JSON.stringify({ interval }),
-  });
-  await WebBrowser.openBrowserAsync(url);
-}
-
-export async function openPortal() {
-  const { url } = await apiFetch<{ url: string }>("/api/stripe/portal", {
-    method: "POST",
-  });
-  await WebBrowser.openBrowserAsync(url);
-}
-```
+There is no billing. The Stripe checkout, portal and webhook routes, the `/pricing` page and the subscription state were removed from the web app, so the mobile app has nothing to implement here.
 
 ---
 
@@ -950,11 +838,6 @@ Here are direct parity “gotchas” pulled from the web components:
 
   - Web: `navigator.clipboard.writeText` in `src/components/GroceryList.tsx`
   - Mobile: `expo-clipboard`
-
-- Browser navigation for Stripe:
-
-  - Web: `window.location.href = data.url` in `src/components/UserStatus.tsx`
-  - Mobile: `expo-web-browser` open the URL, then refresh subscription on return
 
 - Modals/overlays:
 
@@ -987,9 +870,9 @@ Run through these in a real device build (not only simulator).
 
 ### Auth
 
-- Sign up → verify user created and session persists app restart
+- Invite → open the invite link, set a password, and confirm the session persists app restart (there is no sign-up form)
 - Login/logout
-- Password visibility toggle works on login/signup/reset screens
+- Password visibility toggle works on login/reset screens
 - Password reset flow works (browser-based or deep link-based)
 - Password confirmation validation on reset screen
 - Settings screen: can view and update timezone preference
@@ -1009,7 +892,7 @@ Run through these in a real device build (not only simulator).
 - Save a recipe to `recipes` table and confirm it appears in collection via realtime
 - Verify `servings` field is saved correctly
 - Delete recipe and confirm local UI updates (even if realtime delete event is flaky)
-- Test save limit enforcement (free users should see error when limit reached)
+- If a `save_limit` is ever set, test that the error shows when it is reached (the `family` plan has none)
 
 ### Weekly plan
 
@@ -1029,19 +912,13 @@ Run through these in a real device build (not only simulator).
 - Delete individual items (verify optimistic UI update)
 - Copy to clipboard exports a readable list grouped by category (same category ordering as web)
 
-### Stripe
-
-- Start checkout → complete purchase → return to app → `subscription` becomes active/trialing
-- Open portal and manage subscription → return → subscription reflects new status
-
 ---
 
 ## 13) Implementation notes to keep parity with web constraints
 
 - **Never call OpenRouter directly from the mobile app.** Web enforces usage limits + keeps keys server-side in `src/app/api/*`.
 - **Keep RLS intact.** Mobile uses anon key + user session; service-role remains server-only.
-- **Reuse "active/trialing" semantics** across gating:
-  - web checks subscription status in `AuthProvider` and in usage tracking logic (`src/lib/usage.ts`, `src/app/api/rate-limit/route.ts`)
+- **No plan gating**: the web app no longer checks subscription status anywhere. Usage caps are enforced server-side (`src/lib/usage.ts`, `src/app/api/rate-limit/route.ts`).
 - **Keep ingredient units consistent** with `Unit` union in `src/types/index.ts` for cross-platform compatibility.
 - **Servings validation**: enforce 1-12 range on mobile before sending to API.
 - **Ingredient normalization**: use the same logic from `src/lib/grocery/normalize.ts` for consistent matching.
@@ -1058,5 +935,3 @@ Run through these in a real device build (not only simulator).
 | `/api/refine-recipe` | POST | Refine existing recipe |
 | `/api/rate-limit` | GET | Get usage status (generate/refine counts, limits, reset time) |
 | `/api/user/settings/timezone` | GET/POST | Get/set user timezone |
-| `/api/stripe/checkout` | POST | Create Stripe checkout session |
-| `/api/stripe/portal` | POST | Create Stripe billing portal session |

@@ -16,7 +16,7 @@ import {
   recordUsageTokens,
   getUsageErrorMessage,
 } from "@/lib/usage";
-import { getModelForTier, isValidAdminModelOverride } from "@/lib/openrouter/models";
+import { FAMILY_MODEL, isValidAdminModelOverride } from "@/lib/openrouter/models";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { uniqueStrings } from "@/lib/kitchenProfile";
 import {
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     if (!usageCheck.allowed) {
       return NextResponse.json(
         {
-          error: getUsageErrorMessage(usageCheck.reason, usageCheck.planKey),
+          error: getUsageErrorMessage(usageCheck.reason),
         },
         { status: 429 }
       );
@@ -177,8 +177,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // Select model based on user's plan tier
-    let modelToUse = getModelForTier(usageCheck.planKey);
+    // Every account uses the family model; the admin can override it below
+    let modelToUse: string = FAMILY_MODEL;
 
     // Admin override with server-side verification
     if (adminModelOverride && usageCheck.planKey === "admin") {

@@ -3,6 +3,12 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
+  async redirects() {
+    return [
+      // The pricing page is gone: Mise AI is a private family app with no payments.
+      { source: "/pricing", destination: "/", permanent: true },
+    ];
+  },
   async headers() {
     return [
       {

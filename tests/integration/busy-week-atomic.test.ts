@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 // Runs against a non-production Supabase target (the busy-week preview branch), and needs
-// migration 20261028180000_busy_week_atomic applied there. Skips cleanly without the env.
+// migrations through 20261102120000_family_plan_safety_caps applied there. Skips cleanly without the env.
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -85,7 +85,7 @@ function pendingPick(index: number, dayOfWeek: number): Pick {
 
 async function begin(batchId: string, userId: string, count: number, results: Pick[], charge = true) {
   // These tests are about batches and refunds, not the per-minute burst limit
-  // (Plus allows 2 a minute), so start each batch with empty burst buckets.
+  // (the family plan allows 10 a minute), so start each batch with empty burst buckets.
   await clearBurstCounters(userId);
   const { data, error } = await admin.rpc("begin_busy_week_batch", {
     p_batch_id: batchId,
@@ -96,7 +96,7 @@ async function begin(batchId: string, userId: string, count: number, results: Pi
     p_charge: charge,
   });
   if (error) throw error;
-  return data as { outcome: string; reason?: string; window_start?: string | null; remaining?: number | null };
+  return data as { outcome: string; reason?: string; plan_key?: string; window_start?: string | null; remaining?: number | null };
 }
 
 async function settle(batchId: string, interruptPending: boolean) {
@@ -191,15 +191,16 @@ describe.skipIf(!hasEnv)("busy week atomic database functions", () => {
       expect(await weekCount(plusId)).toBe(before);
     });
 
-    it("blocks a free user, leaves a failed batch row, and counts nothing", async () => {
+    it("starts a batch for an account with no subscription, on the family plan", async () => {
       const otherBatch = crypto.randomUUID();
       await setPlan(otherId, "free");
       try {
+        const before = await weekCount(otherId);
         const result = await begin(otherBatch, otherId, 2, [pendingPick(0, 0), pendingPick(1, 1)]);
 
-        expect(result).toMatchObject({ outcome: "blocked", reason: "paid_plan_required" });
-        expect(await weekCount(otherId)).toBe(0);
-        expect((await batchRow(otherBatch)).status).toBe("failed");
+        expect(result).toMatchObject({ outcome: "started", plan_key: "family" });
+        expect(await weekCount(otherId)).toBe(before + 2);
+        expect((await batchRow(otherBatch)).status).toBe("running");
       } finally {
         await setPlan(otherId, "plus");
       }

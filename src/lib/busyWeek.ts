@@ -186,22 +186,6 @@ export function progressRows(
   });
 }
 
-/**
- * Client-side gate for the Busy week button. The server is the source of truth.
- * Mirrors resolve_user_plan_key: an active or trialing subscription that is not
- * on the free plan counts, and a missing plan key counts as Plus.
- */
-export function hasBusyWeekAccess(
-  subscription: { status: string; plan_key?: string | null } | null,
-  userId: string | null | undefined,
-  adminUserId: string | null | undefined
-): boolean {
-  if (userId && adminUserId && userId === adminUserId) return true;
-  if (!subscription) return false;
-  if (subscription.status !== "active" && subscription.status !== "trialing") return false;
-  return subscription.plan_key !== "free";
-}
-
 /** A day is past when it is before the user's "today" in that week. */
 export function dayIsPast(weekStart: string, dayOfWeek: number, todayYmd: string): boolean {
   return dayDate(weekStart, dayOfWeek) < todayYmd;

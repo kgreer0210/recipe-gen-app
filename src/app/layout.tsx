@@ -8,7 +8,6 @@ import Footer from "@/components/Footer";
 import MobileNav from "@/components/MobileNav";
 import { createClient } from "@/lib/supabase/server";
 import { AuthProvider } from "@/components/AuthProvider";
-import { Subscription } from "@/types";
 import { organizationJsonLd, websiteJsonLd } from "@/lib/seo/jsonld";
 
 const siteUrl =
@@ -107,20 +106,6 @@ export default async function RootLayout({
     data: { user },
   } = await supabase.auth.getUser();
 
-  let subscription: Subscription | null = null;
-
-  if (user) {
-    const { data } = await supabase
-      .from("subscriptions")
-      .select("*")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (data) {
-      subscription = data as Subscription;
-    }
-  }
-
   return (
     <html lang="en">
       <head>
@@ -137,7 +122,7 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} fresh-market-app antialiased bg-gray-50 min-h-screen flex flex-col`}
       >
-        <AuthProvider initialUser={user} initialSubscription={subscription}>
+        <AuthProvider initialUser={user}>
           <Navigation />
           <main className="w-full max-w-7xl mx-auto py-0 md:py-8 px-0 md:px-4 sm:px-6 lg:px-8 flex-1 pb-[var(--mobile-nav-clearance)] md:pb-0">
             {children}

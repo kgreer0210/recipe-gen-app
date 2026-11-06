@@ -8,9 +8,9 @@ const siteUrl =
 
 const faqs: FaqItem[] = [
   {
-    question: "Is Mise AI free to use?",
+    question: "Who can use Mise AI?",
     answer:
-      "Yes. You can start generating recipes with a free weekly limit. If you cook often, upgrading increases your weekly generation limit.",
+      "Mise AI is a private, invite-only app. If you have been invited, sign in with your account to start generating recipes.",
   },
   {
     question: "Can I generate recipes from ingredients I already have?",
@@ -71,10 +71,10 @@ export default function AiRecipeGeneratorPage() {
             Generate a recipe
           </Link>
           <Link
-            href="/pricing"
+            href="/login"
             className="inline-flex items-center justify-center px-6 py-3 bg-white text-gray-900 font-semibold rounded-full border border-gray-200 hover:bg-gray-50 transition-colors w-full sm:w-auto"
           >
-            View pricing
+            Sign in
           </Link>
         </div>
       </header>
@@ -131,11 +131,11 @@ export default function AiRecipeGeneratorPage() {
         <div className="space-y-4">
           <div className="bg-white rounded-2xl border border-gray-100 p-6">
             <h3 className="font-semibold text-gray-900 mb-2">
-              Is Mise AI free to use?
+              Who can use Mise AI?
             </h3>
             <p className="text-gray-700">
-              Yes. You can start generating recipes with a free daily limit. If
-              you cook often, upgrading increases your daily generation limit.
+              Mise AI is a private, invite-only app. If you have been invited,
+              sign in with your account to start generating recipes.
             </p>
           </div>
           <div className="bg-white rounded-2xl border border-gray-100 p-6">

@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react";
 import { generateRecipe, refineRecipe } from "@/lib/generator";
 import { useAuth } from "@/hooks/useAuth";
 import { useSaveRecipe } from "@/hooks/useRecipesMutations";
-import { useRecipesRealtime } from "@/hooks/useRecipesRealtime";
 import { useAddToGroceryList } from "@/hooks/useGroceryListMutations";
 import { usePantryRealtime } from "@/hooks/usePantryRealtime";
 import { formatRecipeAmount } from "@/lib/grocery/format";
@@ -32,7 +31,6 @@ import {
   ArrowLeft,
   Check,
   ChevronRight,
-  Lock,
   Sparkles,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -321,7 +319,6 @@ export default function RecipeGenerator() {
   const [error, setError] = useState<string | null>(null);
   const [generatedRecipe, setGeneratedRecipe] = useState<Recipe | null>(null);
   const [showGroceryPopup, setShowGroceryPopup] = useState(false);
-  const [showLimitPopup, setShowLimitPopup] = useState(false);
   const [direction, setDirection] = useState(0);
   const [isBlocked, setIsBlocked] = useState(false);
   const [checkingLimit, setCheckingLimit] = useState(true);
@@ -329,7 +326,6 @@ export default function RecipeGenerator() {
   const [generatedServings, setGeneratedServings] = useState(2);
   const [refinementInput, setRefinementInput] = useState("");
   const [isRefining, setIsRefining] = useState(false);
-  const [refinementCount, setRefinementCount] = useState(0);
   const [refinementHistory, setRefinementHistory] = useState<string[]>([]);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [currentRecipeModel, setCurrentRecipeModel] = useState<string | null>(null);
@@ -365,11 +361,10 @@ export default function RecipeGenerator() {
   const resultStepIndex = mode === "classic" ? (hasCuts ? 6 : 5) : 3;
 
   const router = useRouter();
-  const { user, subscription } = useAuth();
+  const { user } = useAuth();
   const { pantryItems } = usePantryRealtime();
   const profileDietaryRef = useRef<string[]>([]);
   const { mutateAsync: saveRecipe } = useSaveRecipe();
-  const { recipes: savedRecipes = [] } = useRecipesRealtime();
   const { mutateAsync: addToGroceryList } = useAddToGroceryList();
 
   useEffect(() => {
@@ -435,8 +430,6 @@ export default function RecipeGenerator() {
     setError(null);
     setGeneratedRecipe(null);
     setShowGroceryPopup(false);
-    setShowLimitPopup(false);
-
     // Re-check rate limit before generating to catch edge cases
     // (e.g., user had 1 remaining when page loaded but limit changed)
     try {
@@ -531,15 +524,6 @@ export default function RecipeGenerator() {
   const handleRefine = async () => {
     if (!generatedRecipe || !refinementInput.trim()) return;
 
-    // Check subscription status for refinement limit
-    const isSubscriber =
-      subscription?.status === "active" || subscription?.status === "trialing";
-
-    if (!isSubscriber && refinementCount >= 2) {
-      setShowLimitPopup(true);
-      return;
-    }
-
     setIsRefining(true);
     setError(null);
 
@@ -550,7 +534,6 @@ export default function RecipeGenerator() {
       );
       setGeneratedRecipe(refinedRecipe);
       setRefinementHistory((prev) => [...prev, refinementInput]);
-      setRefinementCount((prev) => prev + 1);
       setRefinementInput("");
     } catch (error: unknown) {
       const message = messageFromUnknown(error);
@@ -570,17 +553,8 @@ export default function RecipeGenerator() {
 
     setError(null);
 
-    // Save limit is now enforced at DB level, but we can still show a helpful message
-    // The DB trigger will catch it if they somehow bypass this check
-    // Check save limits based on plan
-    const planKey = subscription?.plan_key || "free";
-    const saveLimit = planKey === "pro" ? 2000 : planKey === "plus" ? 200 : 20;
-
-    if (savedRecipes.length >= saveLimit) {
-      setShowLimitPopup(true);
-      return;
-    }
-
+    // The family plan has no saved-recipe cap. The DB trigger enforces save_limit
+    // if one is ever set.
     if (generatedRecipe) {
       try {
         const saved = await saveRecipe(generatedRecipe);
@@ -626,9 +600,7 @@ export default function RecipeGenerator() {
     setError(null);
     setGeneratedRecipe(null);
     setRefinementHistory([]);
-    setRefinementCount(0);
     setShowGroceryPopup(false);
-    setShowLimitPopup(false);
 
     try {
       const parsedServings = Number.parseInt(servingsInput, 10);
@@ -807,22 +779,15 @@ export default function RecipeGenerator() {
             Chef&apos;s Nap Time
           </h2>
           <p className="text-gray-600 max-w-md mb-8">
-            You&apos;ve reached your weekly recipe limit! Our chefs are taking a
+            You&apos;ve reached the weekly recipe limit! Our chefs are taking a
             well-deserved break. Please come back next week for more delicious
             ideas.
           </p>
-          <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 mb-6">
+          <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
             <p className="text-sm text-blue-800 font-medium">
-              Limit: 5 recipes per week
+              Limit: {rateLimit?.limit ?? rateLimit?.generate?.limit ?? 150} recipes per week
             </p>
           </div>
-
-          <Link
-            href="/pricing"
-            className="px-6 py-3 bg-blue-600 text-white rounded-full font-semibold shadow-lg hover:bg-blue-700 transition-all hover:scale-105 active:scale-95 inline-block"
-          >
-            Upgrade to Plus or Pro
-          </Link>
         </div>
       </div>
     );
@@ -1452,39 +1417,13 @@ export default function RecipeGenerator() {
                     )}
                   </div>
                 )}
-                {!showGroceryPopup && !showLimitPopup ? (
+                {!showGroceryPopup ? (
                   <button
                     onClick={handleSave}
                     className="w-full py-3 px-4 bg-blue-800 hover:bg-blue-900 text-white font-medium rounded-xl transition-colors shadow-md"
                   >
                     Save to Collection
                   </button>
-                ) : showLimitPopup ? (
-                  <div className="p-4 bg-orange-50 border border-orange-200 rounded-xl animate-in fade-in zoom-in-95 duration-200">
-                    <div className="flex items-center justify-center gap-2 mb-3">
-                      <Lock className="w-5 h-5 text-orange-600" />
-                      <p className="text-orange-800 font-bold">Limit Reached</p>
-                    </div>
-                    <p className="text-sm text-orange-700 mb-4 text-center">
-                      Free users can only refine a recipe 2 times. Upgrade to
-                      unlock unlimited refinements!
-                    </p>
-
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setShowLimitPopup(false)}
-                        className="flex-1 py-2 px-3 bg-white border border-orange-200 text-orange-700 hover:bg-orange-50 text-sm font-medium rounded-lg transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <Link
-                        href="/pricing"
-                        className="flex-1 py-2 px-3 bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium rounded-lg transition-colors text-center"
-                      >
-                        Upgrade
-                      </Link>
-                    </div>
-                  </div>
                 ) : (
                   <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl animate-in fade-in zoom-in-95 duration-200">
                     <p className="text-blue-800 font-medium mb-3 text-center">
@@ -1583,7 +1522,6 @@ export default function RecipeGenerator() {
                   onClick={() => {
                     setStep(0);
                     setGeneratedRecipe(null);
-                    setShowLimitPopup(false);
                     setProteinCut("Any cut");
                     setMealStyle("Any");
                     setPantryProtein("Any");

@@ -13,22 +13,6 @@ export type Unit =
   | "clove"
   | "pinch";
 
-export interface Subscription {
-  id: string;
-  user_id: string;
-  status:
-    | "active"
-    | "trialing"
-    | "past_due"
-    | "canceled"
-    | "unpaid"
-    | "incomplete"
-    | "incomplete_expired"
-    | "paused";
-  price_id: string;
-  plan_key?: "free" | "plus" | "pro";
-}
-
 export type MealSlot = "breakfast" | "lunch" | "dinner" | "snack";
 export type GrocerySource = "manual" | "plan";
 export type PantrySource = "manual" | "leftover";

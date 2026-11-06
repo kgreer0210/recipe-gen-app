@@ -29,7 +29,6 @@ export default function robots(): MetadataRoute.Robots {
           "/meal-planner",
           "/grocery-list-maker",
           "/generator",
-          "/pricing",
           "/about",
           "/contact",
         ],

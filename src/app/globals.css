@@ -91,20 +91,10 @@ body {
 .market-plate__bowl { font-size: clamp(5rem, 12vw, 10rem); filter: drop-shadow(0 1rem 0.7rem rgba(50, 37, 21, 0.16)); transform: rotate(8deg); }
 .market-plate__leaf { position: absolute; top: 7%; right: 13%; font-size: 2rem; transform: rotate(25deg); }
 .market-plate__tomato { position: absolute; right: -2.5rem; bottom: 10%; display: grid; place-items: center; width: 5.5rem; height: 5.5rem; border-radius: 50%; background: #d95f42; color: #fff5e8; font-family: Georgia, serif; font-size: 0.78rem; line-height: 1.05; text-align: center; transform: rotate(10deg); }
-.market-features { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid #dfd2c2; }
-.market-features article { position: relative; min-height: 10rem; padding: 1.7rem clamp(1.5rem, 5vw, 4.5rem); border-right: 1px solid #dfd2c2; }
-.market-features article:last-child { border-right: 0; }
-.market-features svg { color: #d95f42; }
-.feature-number { position: absolute; top: 1.7rem; right: clamp(1.5rem, 5vw, 4.5rem); color: #b2a58f; font: 0.64rem Arial, sans-serif; font-weight: 800; letter-spacing: 0.1em; }
-.market-features h2 { margin: 0.8rem 0 0.35rem; font-family: Georgia, serif; font-size: 1.35rem; font-weight: 400; }
-.market-features p { max-width: 13rem; margin: 0; color: #777568; font-size: 0.78rem; line-height: 1.5; }
 
 @media (max-width: 800px) {
   .market-hero { grid-template-columns: 1fr; gap: 4rem; padding-top: 4.25rem; }
   .market-plate { width: min(68vw, 20rem); }
-  .market-features { grid-template-columns: 1fr; }
-  .market-features article { min-height: auto; border-right: 0; border-bottom: 1px solid #dfd2c2; }
-  .market-features article:last-child { border-bottom: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -304,7 +294,6 @@ body {
 .fresh-market-app .market-nav__mobile-account { border-color: var(--market-line) !important; }
 .fresh-market-app .market-account__signin { border-radius: 999px; background: var(--market-tomato) !important; box-shadow: 0 0.5rem 1rem rgba(217, 95, 66, 0.18) !important; }
 .fresh-market-app .market-account__signin:hover { background: var(--market-tomato-dark) !important; }
-.fresh-market-app .market-account__subscription:hover { color: var(--market-tomato-dark) !important; }
 .fresh-market-app .market-account__signout:hover { color: #b64e3c !important; }
 
 .fresh-market-app .market-footer {
