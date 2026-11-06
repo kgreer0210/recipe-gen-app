@@ -40,6 +40,9 @@ export function safeNextPath(
   try {
     const url = new URL(next, origin);
     if (url.origin !== new URL(origin).origin) return fallback;
+    // Dot segments resolve during parsing: "/a/..//evil.com" becomes "//evil.com",
+    // which a browser reads as a protocol-relative URL.
+    if (url.pathname.startsWith("//")) return fallback;
     return `${url.pathname}${url.search}${url.hash}`;
   } catch {
     return fallback;

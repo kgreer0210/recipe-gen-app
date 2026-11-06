@@ -38,6 +38,9 @@ describe("safeNextPath", () => {
     ["an encoded newline", "/generator%0d%0aSet-Cookie:a=b"],
     ["a null byte", "/generator\u0000"],
     ["a malformed percent escape", "/%E0%A4%A"],
+    ["dot segments that resolve to a protocol-relative path", "/a/..//evil.com"],
+    ["leading dot segments that resolve to a protocol-relative path", "/..//evil.com"],
+    ["nested dot segments that resolve to a protocol-relative path", "/a/b/../..//evil.com"],
     ["an empty string", ""],
   ])("falls back for %s", (_label, input) => {
     expect(safeNextPath(input, ORIGIN)).toBe("/generator");
@@ -53,7 +56,7 @@ describe("safeNextPath", () => {
   });
 
   it("always returns a path that starts with exactly one slash", () => {
-    const inputs = ["/generator", "//evil.com", "/\\evil.com", "https://evil.com", "", "/%2F%2Fevil.com"];
+    const inputs = ["/generator", "//evil.com", "/\\evil.com", "https://evil.com", "", "/%2F%2Fevil.com", "/a/..//evil.com"];
     for (const input of inputs) {
       const result = safeNextPath(input, ORIGIN);
       expect(result.startsWith("/")).toBe(true);
@@ -121,6 +124,7 @@ describe("auth callback redirect", () => {
     ["https://evil.com", "https%3A%2F%2Fevil.com"],
     ["javascript:alert(1)", "javascript%3Aalert(1)"],
     ["/%2F%2Fevil.com", "%2F%252F%252Fevil.com"],
+    ["/a/..//evil.com", "%2Fa%2F..%2F%2Fevil.com"],
   ])("ignores an unsafe next (%s)", async (_raw, encoded) => {
     const response = await callback(`token_hash=abc&type=invite&next=${encoded}`);
 
