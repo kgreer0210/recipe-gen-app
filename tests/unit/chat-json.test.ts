@@ -41,7 +41,18 @@ function chatResult(
     // Added on ChatResult in @openrouter/sdk 1.5.x. chatJson must ignore them.
     alignment: { verdict: "allow" },
     safeguardResults: [{ toolCallId: "call-1" }],
-    usage,
+    usage: usage
+      ? {
+          ...usage,
+          // Added in 1.5.71. Token counts stay on the native usage fields.
+          deferredToolsDetails: {
+            promptTokens: 99,
+            completionTokens: 99,
+            totalTokens: 198,
+            turns: 2,
+          },
+        }
+      : usage,
   };
 }
 
