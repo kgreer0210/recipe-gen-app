@@ -14,9 +14,15 @@ export type BrowserAuth = {
   }>;
 };
 
-function toError(error: AuthErrorLike | null, fallback: string): Error {
+function hasStringMessage(value: unknown): value is { message: string } {
+  if (typeof value !== "object" || value === null) return false;
+  if (!("message" in value)) return false;
+  return typeof value.message === "string" && value.message.length > 0;
+}
+
+function toError(error: unknown, fallback: string): Error {
   if (error instanceof Error) return error;
-  if (error?.message) return new Error(error.message);
+  if (hasStringMessage(error)) return new Error(error.message);
   return new Error(fallback);
 }
 
@@ -31,17 +37,37 @@ function toError(error: AuthErrorLike | null, fallback: string): Error {
  * signs out this browser when the global revoke fails. Other devices are
  * revoked only when the global call succeeds.
  *
+ * That local call can still reject after the session is gone. Auth-js removes
+ * it, then rethrows if a `SIGNED_OUT` subscriber throws. The rejection is
+ * caught here so `getSession()` can decide. When the session is already gone,
+ * the caller still clears in-memory recipes and leaves the page.
+ *
  * Resolves once this browser has no session. Throws when a session is still
- * stored, so the caller does not clear in-memory recipes or leave the page.
+ * stored. Also throws when `getSession()` returns an error and no session,
+ * because that result does not confirm the browser is signed out. The caller
+ * then keeps in-memory recipes and stays on the page.
  */
 export async function endBrowserSession(auth: BrowserAuth): Promise<void> {
   const { error: globalError } = await auth.signOut();
+  let localSignOutRejection: unknown;
+  let localSignOutRejected = false;
   if (globalError) {
-    await auth.signOut({ scope: "local" });
+    try {
+      await auth.signOut({ scope: "local" });
+    } catch (error: unknown) {
+      localSignOutRejected = true;
+      localSignOutRejection = error;
+    }
   }
 
   const { data, error: sessionError } = await auth.getSession();
   if (data.session) {
-    throw toError(globalError ?? sessionError, "Failed to sign out");
+    const failure = localSignOutRejected
+      ? localSignOutRejection
+      : (globalError ?? sessionError);
+    throw toError(failure, "Failed to sign out");
+  }
+  if (sessionError) {
+    throw toError(sessionError, "Failed to sign out");
   }
 }
