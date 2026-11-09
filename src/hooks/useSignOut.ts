@@ -5,6 +5,7 @@ import { useRecipesStore } from "@/lib/stores/recipesStore";
 import { useGroceryListStore } from "@/lib/stores/groceryListStore";
 import { useWeeklyPlanStore } from "@/lib/stores/weeklyPlanStore";
 import { usePantryStore } from "@/lib/stores/pantryStore";
+import { endBrowserSession } from "@/lib/auth/endBrowserSession";
 
 export function useSignOut() {
     const { supabase } = useAuth();
@@ -21,8 +22,7 @@ export function useSignOut() {
         setError(null);
 
         try {
-            const { error: signOutError } = await supabase.auth.signOut();
-            if (signOutError) throw signOutError;
+            await endBrowserSession(supabase.auth);
 
             // Clear all Zustand stores
             clearRecipes([]);
