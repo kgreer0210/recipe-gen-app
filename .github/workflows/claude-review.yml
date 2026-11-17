@@ -1,0 +1,48 @@
+name: Claude PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  claude-review:
+    # Skip drafts to save API credit. Skip Dependabot/Renovate dependency PRs.
+    if: |
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.user.login != 'dependabot[bot]' &&
+      github.event.pull_request.user.login != 'renovate[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Claude PR review
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          use_sticky_comment: true
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            Review this pull request and post a single summary comment (update the existing sticky comment if one already exists). Do not push commits, do not approve or merge the PR, and do not submit a GitHub review that approves or requests changes. Comment only.
+
+            Follow AGENTS.md and CLAUDE.md if they are present in the repository. Focus on:
+            - Bugs and correctness issues
+            - Security issues
+            - Safari on macOS/iOS pitfalls: date parsing (including `new Date("YYYY-MM-DD HH:mm")`), `100vh` on iPhone (prefer `dvh`/`svh`), video autoplay (needs `muted playsinline`), ITP cookie and third-party storage restrictions, file uploads and HEIC photos from iPhones, and Web APIs Safari does not support
+            - Deviations from the repo's AGENTS.md / CLAUDE.md
+
+            Be concise. Skip nits and style preferences unless they hide a real bug. If there are no important issues, say so in one short comment.
+          claude_args: |
+            --model claude-sonnet-5-5
+            --max-turns 8
+            --allowedTools "Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
+            --disallowedTools "Bash(git push:*),Bash(git commit:*),Bash(gh pr merge:*),Bash(gh pr review:*),Bash(gh api:*)"
